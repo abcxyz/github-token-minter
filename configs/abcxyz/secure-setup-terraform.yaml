@@ -1,0 +1,8 @@
+# abcxyz/secure-setup-terraform.yaml
+id: 'abcxyz/secure-setup-terraform'
+permissions:
+  - if: 'attribute.workflow == "Update Checksums File"'
+    repos:
+      - 'abcxyz/secure-setup-terraform'
+    scopes:
+      - 'pull_request:write'
