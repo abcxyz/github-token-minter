@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/abcxyz/pkg v0.0.0-20221103175748-c03ef029ec29
+	github.com/google/cel-go v0.12.5
 	github.com/google/go-cmp v0.5.9
 	go.uber.org/zap v1.23.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -11,8 +12,10 @@ require (
 
 require (
 	cloud.google.com/go/compute v1.10.0 // indirect
+	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220418222510-f25a4f6275ed // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/stoewer/go-strcase v1.2.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/net v0.0.0-20220921203646-d300de134e69 // indirect
