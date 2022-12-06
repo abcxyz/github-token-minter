@@ -1,21 +1,27 @@
 package permissions
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/abcxyz/minty/pkg/config"
+	"github.com/abcxyz/pkg/logging"
 	"github.com/google/cel-go/cel"
 )
 
-func GetPermissionsForToken(pc *config.PermissionsConfig, token map[string]interface{}) (*config.Permission, error) {
+const assertionKey string = "assertion"
+
+func GetPermissionsForToken(ctx context.Context, rc *config.RepositoryConfig, token map[string]interface{}) (*config.Config, error) {
+	logger := logging.FromContext(ctx)
+
 	env, err := cel.NewEnv(
-		cel.Variable("jwt", cel.DynType),
+		cel.Variable(assertionKey, cel.DynType),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
 	}
 
-	for _, p := range pc.Permissions {
+	for _, p := range rc.Config {
 		ast, iss := env.Compile(p.If)
 		if iss.Err() != nil {
 			return nil, fmt.Errorf("failed to compile CEL expression: %w", iss.Err())
@@ -27,13 +33,14 @@ func GetPermissionsForToken(pc *config.PermissionsConfig, token map[string]inter
 		}
 
 		out, _, err := prg.Eval(map[string]interface{}{
-			"jwt": token,
+			assertionKey: token,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate CEL expression: %w", err)
 		}
 
 		if (out.Value()).(bool) {
+			logger.Infof("found token permissions")
 			return &p, nil
 		}
 	}

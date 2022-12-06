@@ -8,16 +8,16 @@ import (
 )
 
 type ConfigCache interface {
-	ConfigFor(repoKey string) (*PermissionsConfig, error)
+	ConfigFor(repoKey string) (*RepositoryConfig, error)
 }
 
 type memoryConfigCache struct {
-	store map[string]*PermissionsConfig
+	store map[string]*RepositoryConfig
 }
 
-func buildCacheStore(configLocation string) (map[string]*PermissionsConfig, error) {
+func buildCacheStore(configLocation string) (map[string]*RepositoryConfig, error) {
 	parser := NewConfigParser()
-	store := map[string]*PermissionsConfig{}
+	store := map[string]*RepositoryConfig{}
 	err := filepath.Walk(configLocation, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -36,7 +36,9 @@ func buildCacheStore(configLocation string) (map[string]*PermissionsConfig, erro
 		if err != nil {
 			return err
 		}
-		store[content.Id] = content
+		_ = content // remove after update
+		//TODO(@bradegler) - Update to use last 2 parts of file path
+		//store[content.Id] = content
 
 		return nil
 	})
@@ -51,7 +53,7 @@ func NewMemoryConfigCache(configLocation string) (ConfigCache, error) {
 	return &memoryConfigCache{store: store}, nil
 }
 
-func (m *memoryConfigCache) ConfigFor(repoKey string) (*PermissionsConfig, error) {
+func (m *memoryConfigCache) ConfigFor(repoKey string) (*RepositoryConfig, error) {
 	if val, ok := m.store[repoKey]; ok {
 		return val, nil
 	}

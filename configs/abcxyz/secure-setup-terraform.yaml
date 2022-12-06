@@ -1,8 +1,10 @@
 # abcxyz/secure-setup-terraform.yaml
-id: 'abcxyz/secure-setup-terraform'
-permissions:
-  - if: 'attribute.workflow == "Update Checksums File"'
-    repos:
+config:
+  - if: |-
+      assertion.workflow_ref.startsWith("abcxyz/secure-setup-terraform/.github/workflows/update-checksums.yml")
+      assertion.event_name == 'schedule' &&
+      assertin.ref == 'refs/head/main'
+    repositories:
       - 'abcxyz/secure-setup-terraform'
-    scopes:
-      - 'pull_request:write'
+    permissions:
+      pull_request: 'write'

@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,21 +21,20 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type PermissionsConfig struct {
-	Id          string       `yaml:"id"`
-	Permissions []Permission `yaml:"permissions"`
+type RepositoryConfig struct {
+	Config []Config `yaml:"config"`
 }
 
-type Permission struct {
-	If           string   `yaml:"if"`
-	Repositories []string `yaml:"repository"`
-	Scopes       []string `yaml:"scope"`
+type Config struct {
+	If           string            `yaml:"if"`
+	Repositories []string          `yaml:"repositories"`
+	Permissions  map[string]string `yaml:"permissions"`
 }
 
-// ConfigParser represents a simple interface for parsing PermissionsConfig
+// ConfigParser represents a simple interface for parsing RepositoryConfig
 // objects from a reader containing a YAML configuration file
 type ConfigParser interface {
-	parse(io.Reader) (*PermissionsConfig, error)
+	parse(io.Reader) (*RepositoryConfig, error)
 }
 
 type configParser struct{}
@@ -44,11 +43,11 @@ func NewConfigParser() ConfigParser {
 	return &configParser{}
 }
 
-func (p *configParser) parse(content io.Reader) (*PermissionsConfig, error) {
+func (p *configParser) parse(content io.Reader) (*RepositoryConfig, error) {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(content)
 
-	var config PermissionsConfig
+	var config RepositoryConfig
 	err := yaml.Unmarshal(buf.Bytes(), &config)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing yaml document: %w", err)

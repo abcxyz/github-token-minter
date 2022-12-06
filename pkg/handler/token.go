@@ -74,8 +74,9 @@ func HandleTokenRequest(appId string, privateKey *rsa.PrivateKey, cache config.C
 		fmt.Fprintf(w, "requested repository is not properly configured '%s'", repo)
 		return
 	}
+
 	// Get the permissions for the token
-	perm, err := permissions.GetPermissionsForToken(config, tokenMap)
+	perm, err := permissions.GetPermissionsForToken(r.Context(), config, tokenMap)
 	if err != nil {
 		w.WriteHeader(403)
 		logger.Errorf("error evaluating permissions: %w", err)

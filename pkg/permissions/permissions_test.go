@@ -1,127 +1,145 @@
 package permissions
 
 import (
+	"context"
 	"testing"
 
 	"github.com/abcxyz/minty/pkg/config"
 	"github.com/google/go-cmp/cmp"
 )
 
+var TestJWT = map[string]interface{}{
+	"jti":                   "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+	"sub":                   "repo:abcxyz/test:ref:refs/heads/main",
+	"aud":                   "https://github.com/abcxyz",
+	"ref":                   "refs/heads/main",
+	"sha":                   "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+	"repository":            "abcxyz/test",
+	"repository_owner":      "abcxyz",
+	"repository_owner_id":   "111111111",
+	"run_id":                "1111111111",
+	"run_number":            "11",
+	"run_attempt":           "1",
+	"repository_visibility": "private",
+	"repository_id":         "111111111",
+	"actor_id":              "1111111",
+	"actor":                 "test",
+	"workflow":              "Test",
+	"head_ref":              "",
+	"base_ref":              "",
+	"event_name":            "workflow_dispatch",
+	"ref_type":              "branch",
+	"workflow_ref":          "abcxyz/test/.github/workflows/test.yaml@refs/heads/main",
+	"workflow_sha":          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+	"job_workflow_ref":      "abcxyz/test/.github/workflows/test.yaml@refs/heads/main",
+	"job_workflow_sha":      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+	"iss":                   "https://token.actions.githubusercontent.com",
+	"nbf":                   "1669925693",
+	"exp":                   "1669926893",
+}
+
 func TestGetPermissionsForToken(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
 		name      string
-		pc        *config.PermissionsConfig
+		pc        *config.RepositoryConfig
 		token     map[string]interface{}
-		want      *config.Permission
+		want      *config.Config
 		expErr    bool
 		expErrMsg string
 	}{{
 		name: "success",
-		pc: &config.PermissionsConfig{
-			Permissions: []config.Permission{
+		pc: &config.RepositoryConfig{
+			Config: []config.Config{
 				{
-					If:           "jwt.workflow == 'Test' && jwt.actor == 'verbanicm'",
+					If:           "assertion.workflow == 'Test' && assertion.actor == 'test'",
 					Repositories: []string{"*"},
-					Scopes:       []string{"issues:write", "pull_requests:read"},
+					Permissions:  map[string]string{"issues": "write", "pull_requests": "write"},
 				},
 				{
 					If:           "true",
-					Repositories: []string{"abcxyz/breakglass"},
-					Scopes:       []string{"issues:read"},
+					Repositories: []string{"abcxyz/test"},
+					Permissions:  map[string]string{"issues": "read"},
 				},
 			},
 		},
-		token: map[string]interface{}{
-			"workflow": "Test",
-			"actor":    "verbanicm",
-		},
-		want: &config.Permission{
-			If:           "jwt.workflow == 'Test' && jwt.actor == 'verbanicm'",
+		token: TestJWT,
+		want: &config.Config{
+			If:           "assertion.workflow == 'Test' && assertion.actor == 'test'",
 			Repositories: []string{"*"},
-			Scopes:       []string{"issues:write", "pull_requests:read"},
+			Permissions:  map[string]string{"issues": "write", "pull_requests": "write"},
 		},
 	}, {
 		name: "success_catch_all",
-		pc: &config.PermissionsConfig{
-			Permissions: []config.Permission{
+		pc: &config.RepositoryConfig{
+			Config: []config.Config{
 				{
-					If:           "jwt.workflow == 'Test' && jwt.actor == 'verbanicm'",
+					If:           "assertion.workflow == 'Test' && assertion.actor == 'user'",
 					Repositories: []string{"*"},
-					Scopes:       []string{"issues:write", "pull_requests:read"},
+					Permissions:  map[string]string{"issues": "write", "pull_requests": "write"},
 				},
 				{
 					If:           "true",
-					Repositories: []string{"abcxyz/breakglass"},
-					Scopes:       []string{"issues:read"},
+					Repositories: []string{"abcxyz/test"},
+					Permissions:  map[string]string{"issues": "read"},
 				},
 			},
 		},
-		token: map[string]interface{}{
-			"workflow": "Doesnt Exist",
-			"actor":    "fakeuser",
-		},
-		want: &config.Permission{
+		token: TestJWT,
+		want: &config.Config{
 			If:           "true",
-			Repositories: []string{"abcxyz/breakglass"},
-			Scopes:       []string{"issues:read"},
+			Repositories: []string{"abcxyz/test"},
+			Permissions:  map[string]string{"issues": "read"},
 		},
 	}, {
 		name: "success_cel_function",
-		pc: &config.PermissionsConfig{
-			Permissions: []config.Permission{
+		pc: &config.RepositoryConfig{
+			Config: []config.Config{
 				{
-					If:           "jwt.workflow_ref.startsWith('abcxyz/breakglass/.github/workflows/test.yaml') && jwt.actor == 'verbanicm'",
+					If:           "assertion.workflow_ref.startsWith('abcxyz/test/.github/workflows/test.yaml') && assertion.actor == 'test'",
 					Repositories: []string{"*"},
-					Scopes:       []string{"issues:write", "pull_requests:read"},
+					Permissions:  map[string]string{"issues": "write", "pull_requests": "read"},
 				},
 				{
 					If:           "true",
-					Repositories: []string{"abcxyz/breakglass"},
-					Scopes:       []string{"issues:read"},
+					Repositories: []string{"abcxyz/test"},
+					Permissions:  map[string]string{"issues": "read"},
 				},
 			},
 		},
-		token: map[string]interface{}{
-			"workflow_ref": "abcxyz/breakglass/.github/workflows/test.yaml@refs/heads/main",
-			"actor":        "verbanicm",
-		},
-		want: &config.Permission{
-			If:           "jwt.workflow_ref.startsWith('abcxyz/breakglass/.github/workflows/test.yaml') && jwt.actor == 'verbanicm'",
+		token: TestJWT,
+		want: &config.Config{
+			If:           "assertion.workflow_ref.startsWith('abcxyz/test/.github/workflows/test.yaml') && assertion.actor == 'test'",
 			Repositories: []string{"*"},
-			Scopes:       []string{"issues:write", "pull_requests:read"},
+			Permissions:  map[string]string{"issues": "write", "pull_requests": "read"},
 		},
 	}, {
 		name: "error_key_doesnt_exist",
-		pc: &config.PermissionsConfig{
-			Permissions: []config.Permission{
+		pc: &config.RepositoryConfig{
+			Config: []config.Config{
 				{
-					If:           "jwt.doesntexist == 'dne'",
+					If:           "assertion.doesntexist == 'doesntexist'",
 					Repositories: []string{"*"},
-					Scopes:       []string{"issues:write", "pull_requests:read"},
+					Permissions:  map[string]string{"issues": "write", "pull_requests": "read"},
 				},
 			},
 		},
-		token: map[string]interface{}{
-			"actor": "verbanicm",
-		},
+		token:     TestJWT,
 		expErr:    true,
 		expErrMsg: "failed to evaluate CEL expression: no such key: doesntexist",
 	}, {
 		name: "error_no_permissions",
-		pc: &config.PermissionsConfig{
-			Permissions: []config.Permission{
+		pc: &config.RepositoryConfig{
+			Config: []config.Config{
 				{
-					If:           "jwt.actor == 'verbanicm'",
+					If:           "assertion.actor == 'user'",
 					Repositories: []string{"*"},
-					Scopes:       []string{"issues:write", "pull_requests:read"},
+					Permissions:  map[string]string{"issues": "write", "pull_requests": "write"},
 				},
 			},
 		},
-		token: map[string]interface{}{
-			"actor": "wronguser",
-		},
+		token:     TestJWT,
 		expErr:    true,
 		expErrMsg: "no permissions found",
 	}}
@@ -132,7 +150,7 @@ func TestGetPermissionsForToken(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := GetPermissionsForToken(tc.pc, tc.token)
+			got, err := GetPermissionsForToken(context.Background(), tc.pc, tc.token)
 			if (err != nil) != tc.expErr {
 				t.Fatal(err)
 			}
