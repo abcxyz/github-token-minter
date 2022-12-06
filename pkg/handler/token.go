@@ -31,13 +31,12 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
-const AUTH_HEADER = "X-APIGATEWAY-API-USERINFO"
+const AUTH_HEADER = "X-GitHub-OIDC-Token"
 
-func HandleTokenRequest(appId string, privateKey *rsa.PrivateKey, cache config.ConfigCache, w http.ResponseWriter, r *http.Request) {
+func HandleTokenRequest(appId string, installId string, privateKey *rsa.PrivateKey, cache config.ConfigCache, w http.ResponseWriter, r *http.Request) {
 	logger := logging.FromContext(r.Context())
 
-	// Retrieve the OIDC token from a header. API Gateway will
-	// pass the OIDC token in the X-APIGATEWAY-API-USERINFO header
+	// Retrieve the OIDC token from a header.
 	oidcToken := r.Header.Get(AUTH_HEADER)
 	// Ensure the token is in the header
 	if oidcToken == "" {
@@ -102,7 +101,7 @@ func HandleTokenRequest(appId string, privateKey *rsa.PrivateKey, cache config.C
 
 func getGitHubInstallationId(ghAppJwt string, oidcToken map[string]interface{}) (string, error) {
 	// curl -i -X GET \ -H "Authorization: Bearer YOUR_JWT" -H "Accept: application/vnd.github+json" https://api.github.com/app/installations
-	requestURL := "https://api.github.com/app/installations"
+	requestURL := "https://api.github.com/app"
 	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("error creating http request for GitHub installation information %w", err)

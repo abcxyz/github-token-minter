@@ -50,10 +50,11 @@ type server struct {
 	cache      config.ConfigCache
 	privateKey *rsa.PrivateKey
 	appId      string
+	installId  string
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	handler.HandleTokenRequest(s.appId, s.privateKey, s.cache, w, r)
+	handler.HandleTokenRequest(s.appId, s.installId, s.privateKey, s.cache, w, r)
 }
 
 // realMain creates an HTTP server for use with minting GitHub app tokens
@@ -66,6 +67,10 @@ func realMain(ctx context.Context) error {
 	ghAppId := os.Getenv("GITHUB_APP_ID")
 	if ghAppId == "" {
 		return fmt.Errorf("invalid configuration, missing environment variable 'GITHUB_APP_ID'")
+	}
+	ghInstallId := os.Getenv("GITHUB_INSTALL_ID")
+	if ghAppId == "" {
+		return fmt.Errorf("invalid configuration, missing environment variable 'GITHUB_INSTALL_ID'")
 	}
 	ghPrivateKey := os.Getenv("GITHUB_PRIVATE_KEY")
 	if ghPrivateKey == "" {
@@ -90,7 +95,7 @@ func realMain(ctx context.Context) error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/version", handler.HandleVersionRequest)
-	mux.Handle("/token", &server{cache: cache, appId: ghAppId, privateKey: privateKey})
+	mux.Handle("/token", &server{cache: cache, appId: ghAppId, installId: ghInstallId, privateKey: privateKey})
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")
