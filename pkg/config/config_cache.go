@@ -36,9 +36,14 @@ func buildCacheStore(configLocation string) (map[string]*RepositoryConfig, error
 		if err != nil {
 			return err
 		}
-		_ = content // remove after update
-		//TODO(@bradegler) - Update to use last 2 parts of file path
-		//store[content.Id] = content
+		// Treat the last two parts of the path as the repository id e.g. abcxyz/breakglass.yaml = abcxyz/breakglass
+		parts := strings.Split(path, "/")
+		if len(parts) > 2 {
+			parts = parts[len(parts)-2:]
+		}
+		parts[len(parts)-1] = strings.Split(parts[len(parts)-1], ".")[0]
+		id := strings.Join(parts, "/")
+		store[id] = content
 
 		return nil
 	})
