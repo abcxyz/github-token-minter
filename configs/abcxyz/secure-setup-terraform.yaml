@@ -3,7 +3,7 @@ config:
   - if: |-
       assertion.workflow_ref.startsWith("abcxyz/secure-setup-terraform/.github/workflows/update-checksums.yml")
       assertion.event_name == 'schedule' &&
-      assertin.ref == 'refs/head/main'
+      assertion.ref == 'refs/head/main'
     repositories:
       - 'abcxyz/secure-setup-terraform'
     permissions:

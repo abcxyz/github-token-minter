@@ -15,10 +15,12 @@
 package handler
 
 import (
+	"context"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -92,9 +94,39 @@ func HandleTokenRequest(appId string, privateKey *rsa.PrivateKey, cache config.C
 		logger.Errorf("error generating the JWT for GitHub app access: %w", err)
 		fmt.Fprintf(w, "error authenticating with GitHub")
 	}
-	_ = signedJwt
+	fmt.Printf("JWT: %s\n", string(signedJwt))
+	getGitHubInstallationId(string(signedJwt), tokenMap)
 
 	fmt.Fprint(w, "ok.\n") // automatically calls `w.WriteHeader(http.StatusOK)`
+}
+
+func getGitHubInstallationId(ghAppJwt string, oidcToken map[string]interface{}) (string, error) {
+	// curl -i -X GET \ -H "Authorization: Bearer YOUR_JWT" -H "Accept: application/vnd.github+json" https://api.github.com/app/installations
+	requestURL := "https://api.github.com/app/installations"
+	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("error creating http request for GitHub installation information %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghAppJwt))
+
+	client := http.Client{Timeout: 10 * time.Second}
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error making http request for GitHub installation information %w", err)
+	}
+	defer res.Body.Close()
+
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading http response for GitHub installation information %w", err)
+	}
+
+	fmt.Printf("Token Response Status: %s\n", res.Status)
+	fmt.Println(string(b))
+
+	return "", nil
 }
 
 func generateGitHubAppJWT(appId string, privateKey *rsa.PrivateKey, oidcToken map[string]interface{}) ([]byte, error) {
@@ -107,6 +139,10 @@ func generateGitHubAppJWT(appId string, privateKey *rsa.PrivateKey, oidcToken ma
 		IssuedAt(iat).
 		Issuer(iss).
 		Build()
+
+	tokenMap, err := token.AsMap(context.Background())
+
+	fmt.Printf("Token: %v\n", tokenMap)
 	if err != nil {
 		return nil, err
 	}
