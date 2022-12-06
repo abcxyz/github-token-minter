@@ -15,6 +15,9 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
@@ -44,11 +47,13 @@ func main() {
 }
 
 type server struct {
-	cache config.ConfigCache
+	cache      config.ConfigCache
+	privateKey *rsa.PrivateKey
+	appId      string
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	handler.HandleTokenRequest(s.cache, w, r)
+	handler.HandleTokenRequest(s.appId, s.privateKey, s.cache, w, r)
 }
 
 // realMain creates an HTTP server for use with minting GitHub app tokens
@@ -57,6 +62,19 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 //   - listening to incoming requests in a goroutine
 func realMain(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
+	// Secretes injected from Secret Manager as environment variables
+	ghAppId := os.Getenv("GITHUB_APP_ID")
+	if ghAppId == "" {
+		return fmt.Errorf("invalid configuration, missing environment variable 'GITHUB_APP_ID'")
+	}
+	ghPrivateKey := os.Getenv("GITHUB_PRIVATE_KEY")
+	if ghPrivateKey == "" {
+		return fmt.Errorf("invalid configuration, missing environment variable 'GITHUB_PRIVATE_KEY'")
+	}
+	privateKey, err := readPrivateKey(ghPrivateKey)
+	if err != nil {
+		return fmt.Errorf("failed to read private key: %w", err)
+	}
 
 	// Build the configuration cache
 	configDir := os.Getenv("CONFIGS_DIR")
@@ -72,7 +90,7 @@ func realMain(ctx context.Context) error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/version", handler.HandleVersionRequest)
-	mux.Handle("/token", &server{cache: cache})
+	mux.Handle("/token", &server{cache: cache, appId: ghAppId, privateKey: privateKey})
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")
@@ -111,4 +129,30 @@ func realMain(ctx context.Context) error {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 	return nil
+}
+
+func readPrivateKey(privateKeyContent string) (*rsa.PrivateKey, error) {
+	privPem, _ := pem.Decode([]byte(privateKeyContent))
+	if privPem.Type != "RSA PRIVATE KEY" {
+		return nil, fmt.Errorf("error RSA private key is of the wrong type: '%s'", privPem.Type)
+	}
+
+	privPemBytes := privPem.Bytes
+	var parsedKey interface{}
+	// Try a PKCS1 Private Key first
+	parsedKey, err := x509.ParsePKCS1PrivateKey(privPemBytes)
+	if err != nil {
+		// If that fails try a PKCS 8 Private Key
+		parsedKey, err = x509.ParsePKCS8PrivateKey(privPemBytes)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to parse RSA private key: %w", err)
+		}
+
+	}
+
+	privateKey, ok := parsedKey.(*rsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("Unable to parse RSA private key: %w", err)
+	}
+	return privateKey, nil
 }

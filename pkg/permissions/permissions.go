@@ -7,7 +7,7 @@ import (
 	"github.com/google/cel-go/cel"
 )
 
-func GetPermissionsForToken(pc *config.PermissionsConfig, token map[string]string) (*config.Permission, error) {
+func GetPermissionsForToken(pc *config.PermissionsConfig, token map[string]interface{}) (*config.Permission, error) {
 	env, err := cel.NewEnv(
 		cel.Variable("jwt", cel.DynType),
 	)

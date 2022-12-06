@@ -15,19 +15,23 @@
 package handler
 
 import (
+	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/abcxyz/minty/pkg/config"
 	"github.com/abcxyz/minty/pkg/permissions"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 const AUTH_HEADER = "X-APIGATEWAY-API-USERINFO"
 
-func HandleTokenRequest(cache config.ConfigCache, w http.ResponseWriter, r *http.Request) {
+func HandleTokenRequest(appId string, privateKey *rsa.PrivateKey, cache config.ConfigCache, w http.ResponseWriter, r *http.Request) {
 	logger := logging.FromContext(r.Context())
 
 	// Retrieve the OIDC token from a header. API Gateway will
@@ -39,25 +43,30 @@ func HandleTokenRequest(cache config.ConfigCache, w http.ResponseWriter, r *http
 		fmt.Fprintf(w, "request not authorized: '%s' header is missing", AUTH_HEADER)
 		return
 	}
+	// The token is base64 encoded json, unmarshal it into a simple map
 	decoded, err := base64.StdEncoding.DecodeString(oidcToken)
 	if err != nil {
 		w.WriteHeader(403)
+		logger.Errorf("request header is invalid: %w", err)
 		fmt.Fprintf(w, "request not authorized: '%s' header is invalid", AUTH_HEADER)
 		return
 	}
-	var tokenMap map[string]string
+	var tokenMap map[string]interface{}
 	err = json.Unmarshal(decoded, &tokenMap)
 	if err != nil {
 		w.WriteHeader(403)
+		logger.Errorf("request header is not valid json '%s': %w", decoded, err)
 		fmt.Fprintf(w, "request not authorized: '%s' header is invalid", AUTH_HEADER)
 		return
 	}
-	repo, ok := tokenMap["repository"]
+	// Find the repository that is making the request
+	repo, ok := tokenMap["repository"].(string)
 	if !ok {
 		w.WriteHeader(500)
 		fmt.Fprintf(w, "request does not contain repository information")
 		return
 	}
+	// Get the repository's configuration data
 	config, err := cache.ConfigFor(repo)
 	if err != nil {
 		w.WriteHeader(500)
@@ -65,7 +74,7 @@ func HandleTokenRequest(cache config.ConfigCache, w http.ResponseWriter, r *http
 		fmt.Fprintf(w, "requested repository is not properly configured '%s'", repo)
 		return
 	}
-
+	// Get the permissions for the token
 	perm, err := permissions.GetPermissionsForToken(config, tokenMap)
 	if err != nil {
 		w.WriteHeader(403)
@@ -75,5 +84,30 @@ func HandleTokenRequest(cache config.ConfigCache, w http.ResponseWriter, r *http
 	}
 	_ = perm
 
+	// Create a JWT for reading instance information from GitHub
+	signedJwt, err := generateGitHubAppJWT(appId, privateKey, tokenMap)
+	if err != nil {
+		w.WriteHeader(500)
+		logger.Errorf("error generating the JWT for GitHub app access: %w", err)
+		fmt.Fprintf(w, "error authenticating with GitHub")
+	}
+	_ = signedJwt
+
 	fmt.Fprint(w, "ok.\n") // automatically calls `w.WriteHeader(http.StatusOK)`
+}
+
+func generateGitHubAppJWT(appId string, privateKey *rsa.PrivateKey, oidcToken map[string]interface{}) ([]byte, error) {
+	iat := time.Now()
+	exp := iat.Add(time.Minute * time.Duration(10))
+	iss := appId
+
+	token, err := jwt.NewBuilder().
+		Expiration(exp).
+		IssuedAt(iat).
+		Issuer(iss).
+		Build()
+	if err != nil {
+		return nil, err
+	}
+	return jwt.Sign(token, jwt.WithKey(jwa.RS256, privateKey))
 }

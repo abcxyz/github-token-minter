@@ -1,16 +1,16 @@
 # abcxyz/breakglass.yaml
 id: 'abcxyz/breakglass'
 permissions:
-  - if: 'attribute.workflow == "Test" && actor == "verbanicm"'
+  - if: jwt.workflow == 'Test' && jwt.actor == 'verbanicm'
     repos:
-      - '*'
+      - "*"
     scopes:
-      - 'issues:read'
-      - 'pull_request:write'
+      - "issues:read"
+      - "pull_request:write"
 
   # catch-all
-  - if: 'true'
+  - if: true
     repos:
-      - 'abcxyz/breakglass'
+      - "abcxyz/breakglass"
     scopes:
-      - 'issues:read'
+      - "issues:read"

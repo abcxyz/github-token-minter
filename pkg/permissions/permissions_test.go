@@ -13,7 +13,7 @@ func TestGetPermissionsForToken(t *testing.T) {
 	cases := []struct {
 		name      string
 		pc        *config.PermissionsConfig
-		token     map[string]string
+		token     map[string]interface{}
 		want      *config.Permission
 		expErr    bool
 		expErrMsg string
@@ -33,7 +33,7 @@ func TestGetPermissionsForToken(t *testing.T) {
 				},
 			},
 		},
-		token: map[string]string{
+		token: map[string]interface{}{
 			"workflow": "Test",
 			"actor":    "verbanicm",
 		},
@@ -58,7 +58,7 @@ func TestGetPermissionsForToken(t *testing.T) {
 				},
 			},
 		},
-		token: map[string]string{
+		token: map[string]interface{}{
 			"workflow": "Doesnt Exist",
 			"actor":    "fakeuser",
 		},
@@ -83,7 +83,7 @@ func TestGetPermissionsForToken(t *testing.T) {
 				},
 			},
 		},
-		token: map[string]string{
+		token: map[string]interface{}{
 			"workflow_ref": "abcxyz/breakglass/.github/workflows/test.yaml@refs/heads/main",
 			"actor":        "verbanicm",
 		},
@@ -103,7 +103,7 @@ func TestGetPermissionsForToken(t *testing.T) {
 				},
 			},
 		},
-		token: map[string]string{
+		token: map[string]interface{}{
 			"actor": "verbanicm",
 		},
 		expErr:    true,
@@ -119,7 +119,7 @@ func TestGetPermissionsForToken(t *testing.T) {
 				},
 			},
 		},
-		token: map[string]string{
+		token: map[string]interface{}{
 			"actor": "wronguser",
 		},
 		expErr:    true,
