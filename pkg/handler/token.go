@@ -94,14 +94,13 @@ func HandleTokenRequest(appId string, installId string, privateKey *rsa.PrivateK
 		fmt.Fprintf(w, "error authenticating with GitHub")
 	}
 	fmt.Printf("JWT: %s\n", string(signedJwt))
-	getGitHubInstallationId(string(signedJwt), tokenMap)
+	getGitHubInstallationId(string(signedJwt), installId, tokenMap)
 
 	fmt.Fprint(w, "ok.\n") // automatically calls `w.WriteHeader(http.StatusOK)`
 }
 
-func getGitHubInstallationId(ghAppJwt string, oidcToken map[string]interface{}) (string, error) {
-	// curl -i -X GET \ -H "Authorization: Bearer YOUR_JWT" -H "Accept: application/vnd.github+json" https://api.github.com/app/installations
-	requestURL := "https://api.github.com/app"
+func getGitHubInstallationId(ghAppJwt string, ghInstallId string, oidcToken map[string]interface{}) (string, error) {
+	requestURL := fmt.Sprintf("https://api.github.com/app/installations/%s/access_tokens", ghInstallId)
 	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("error creating http request for GitHub installation information %w", err)
