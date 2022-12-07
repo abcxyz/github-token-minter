@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/abcxyz/minty/pkg/config"
+	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/google/cel-go/cel"
 )

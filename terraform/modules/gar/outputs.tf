@@ -11,15 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package handler
 
-import (
-	"fmt"
-	"net/http"
-
-	"github.com/abcxyz/github-token-minter/pkg/version"
-)
-
-func HandleVersionRequest(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%s\n", version.HumanVersion)
+output "repository_name" {
+  value = google_artifact_registry_repository.artifact_repository.name
 }

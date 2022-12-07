@@ -11,15 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package handler
 
-import (
-	"fmt"
-	"net/http"
-
-	"github.com/abcxyz/github-token-minter/pkg/version"
-)
-
-func HandleVersionRequest(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%s\n", version.HumanVersion)
+locals {
+  project_id    = var.project_id
+  repository_id = var.artifact_repository_id
+}
+module "gar" {
+  source        = "../gar"
+  project_id    = local.project_id
+  repository_id = local.repository_id
+}
+module "wif" {
+  source        = "../wif"
+  project_id    = local.project_id
+  repository_id = "bradegler/minty"
 }

@@ -11,15 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package handler
 
-import (
-	"fmt"
-	"net/http"
+variable "project_id" {
+  type        = string
+  description = "The project ID for the cloud project to create resources in"
+}
 
-	"github.com/abcxyz/github-token-minter/pkg/version"
-)
-
-func HandleVersionRequest(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%s\n", version.HumanVersion)
+variable "artifact_repository_id" {
+  type        = string
+  description = "The repostiry ID to name the artifact registry repository"
+  default     = "images"
 }

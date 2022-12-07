@@ -11,15 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package handler
 
-import (
-	"fmt"
-	"net/http"
-
-	"github.com/abcxyz/github-token-minter/pkg/version"
-)
-
-func HandleVersionRequest(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%s\n", version.HumanVersion)
+locals {
+  project_id    = var.project_id
+  service_image = var.service_image
+}
+module "server" {
+  source        = "../server"
+  project_id    = local.project_id
+  service_image = local.service_image
+  service_name  = "github-token-minter service"
 }

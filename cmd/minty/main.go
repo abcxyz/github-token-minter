@@ -26,7 +26,7 @@ import (
 	"github.com/abcxyz/pkg/logging"
 	"go.uber.org/zap"
 
-	"github.com/abcxyz/minty/pkg/handler"
+	"github.com/abcxyz/github-token-minter/pkg/handler"
 )
 
 func main() {

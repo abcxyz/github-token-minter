@@ -1,4 +1,4 @@
-module github.com/abcxyz/minty
+module github.com/abcxyz/github-token-minter
 
 go 1.18
 

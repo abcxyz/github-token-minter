@@ -11,15 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package handler
 
-import (
-	"fmt"
-	"net/http"
+output "wif_service_account_email" {
+  value = google_service_account.wif_service_account.email
+}
 
-	"github.com/abcxyz/github-token-minter/pkg/version"
-)
-
-func HandleVersionRequest(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%s\n", version.HumanVersion)
+output "wif_pool_name" {
+  value = google_iam_workload_identity_pool.wif_github_pool.name
 }

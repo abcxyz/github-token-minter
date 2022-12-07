@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/abcxyz/minty/pkg/config"
+	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/google/go-cmp/cmp"
 )
 

@@ -26,8 +26,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/abcxyz/minty/pkg/config"
-	"github.com/abcxyz/minty/pkg/permissions"
+	"github.com/abcxyz/github-token-minter/pkg/config"
+	"github.com/abcxyz/github-token-minter/pkg/permissions"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
