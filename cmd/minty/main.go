@@ -15,9 +15,6 @@ package main
 
 import (
 	"context"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
@@ -29,7 +26,6 @@ import (
 	"github.com/abcxyz/pkg/logging"
 	"go.uber.org/zap"
 
-	"github.com/abcxyz/minty/pkg/config"
 	"github.com/abcxyz/minty/pkg/handler"
 )
 
@@ -44,17 +40,6 @@ func main() {
 		done()
 		logger.Fatal(err)
 	}
-}
-
-type server struct {
-	cache      config.ConfigCache
-	privateKey *rsa.PrivateKey
-	appId      string
-	installId  string
-}
-
-func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	handler.HandleTokenRequest(s.appId, s.installId, s.privateKey, s.cache, w, r)
 }
 
 // realMain creates an HTTP server for use with minting GitHub app tokens
@@ -76,25 +61,22 @@ func realMain(ctx context.Context) error {
 	if ghPrivateKey == "" {
 		return fmt.Errorf("invalid configuration, missing environment variable 'GITHUB_PRIVATE_KEY'")
 	}
-	privateKey, err := readPrivateKey(ghPrivateKey)
-	if err != nil {
-		return fmt.Errorf("failed to read private key: %w", err)
-	}
-
 	// Build the configuration cache
 	configDir := os.Getenv("CONFIGS_DIR")
 	if configDir == "" {
 		configDir = "configs"
 		logger.Debug("defaulting to configuration sourced from ", zap.String("configDir", configDir))
 	}
-	cache, err := config.NewMemoryConfigCache(configDir)
+	tokenServer, err := handler.NewTokenMintServer(ctx, ghAppId, ghInstallId, ghPrivateKey, configDir)
 	if err != nil {
-		return fmt.Errorf("failed to build configuration cache: %w", err)
+		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/version", handler.HandleVersionRequest)
-	mux.Handle("/token", &server{cache: cache, appId: ghAppId, installId: ghInstallId, privateKey: privateKey})
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		tokenServer.HandleTokenRequest(w, r)
+	})
 
 	// Determine port for HTTP service.
 	port := os.Getenv("PORT")
@@ -133,29 +115,4 @@ func realMain(ctx context.Context) error {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 	return nil
-}
-
-func readPrivateKey(privateKeyContent string) (*rsa.PrivateKey, error) {
-	privPem, _ := pem.Decode([]byte(privateKeyContent))
-	if privPem.Type != "RSA PRIVATE KEY" {
-		return nil, fmt.Errorf("error RSA private key is of the wrong type: '%s'", privPem.Type)
-	}
-
-	privPemBytes := privPem.Bytes
-	var parsedKey interface{}
-	// Try a PKCS1 Private Key first
-	parsedKey, err := x509.ParsePKCS1PrivateKey(privPemBytes)
-	if err != nil {
-		// If that fails try a PKCS 8 Private Key
-		parsedKey, err = x509.ParsePKCS8PrivateKey(privPemBytes)
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse RSA private key - invalid format: %w", err)
-		}
-
-	}
-	privateKey, ok := parsedKey.(*rsa.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("unable to parse RSA private key: %w", err)
-	}
-	return privateKey, nil
 }
