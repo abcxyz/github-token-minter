@@ -15,6 +15,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"crypto/rsa"
 	"encoding/base64"
@@ -84,7 +85,6 @@ func HandleTokenRequest(appId string, installId string, privateKey *rsa.PrivateK
 		fmt.Fprintf(w, "no permissions available")
 		return
 	}
-	_ = perm
 
 	// Create a JWT for reading instance information from GitHub
 	signedJwt, err := generateGitHubAppJWT(appId, privateKey, tokenMap)
@@ -94,16 +94,33 @@ func HandleTokenRequest(appId string, installId string, privateKey *rsa.PrivateK
 		fmt.Fprintf(w, "error authenticating with GitHub")
 	}
 	fmt.Printf("JWT: %s\n", string(signedJwt))
-	getGitHubInstallationId(string(signedJwt), installId, tokenMap)
-
-	fmt.Fprint(w, "ok.\n") // automatically calls `w.WriteHeader(http.StatusOK)`
+	accessToken, err := generateInstallationAccessToken(r.Context(), string(signedJwt), installId, tokenMap, perm)
+	if err != nil {
+		w.WriteHeader(500)
+		logger.Errorf("error generating GitHub access token: %w", err)
+		fmt.Fprintf(w, "error generating GitHub access token")
+	}
+	fmt.Fprint(w, string(accessToken))
 }
 
-func getGitHubInstallationId(ghAppJwt string, ghInstallId string, oidcToken map[string]interface{}) (string, error) {
+func generateInstallationAccessToken(ctx context.Context, ghAppJwt string, ghInstallId string, tokenMap map[string]interface{}, perm *config.Config) (string, error) {
+	logger := logging.FromContext(ctx)
+
 	requestURL := fmt.Sprintf("https://api.github.com/app/installations/%s/access_tokens", ghInstallId)
-	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	repository := tokenMap["repository"].(string)
+	permissions := perm.Permissions
+	request := map[string]interface{}{
+		"repository":  repository,
+		"permissions": permissions,
+	}
+	requestJson, err := json.Marshal(request)
 	if err != nil {
-		return "", fmt.Errorf("error creating http request for GitHub installation information %w", err)
+		return "", fmt.Errorf("error marshalling request data: %w", err)
+	}
+	requestReader := bytes.NewReader(requestJson)
+	req, err := http.NewRequest(http.MethodPost, requestURL, requestReader)
+	if err != nil {
+		return "", fmt.Errorf("error creating http request for GitHub installation information: %w", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghAppJwt))
@@ -120,11 +137,11 @@ func getGitHubInstallationId(ghAppJwt string, ghInstallId string, oidcToken map[
 	if err != nil {
 		return "", fmt.Errorf("error reading http response for GitHub installation information %w", err)
 	}
-
-	fmt.Printf("Token Response Status: %s\n", res.Status)
-	fmt.Println(string(b))
-
-	return "", nil
+	if res.StatusCode != 200 {
+		logger.Errorf("Failed to retrieve token from GitHub - Status: %s - Body: %s", res.Status, string(b))
+		return "", fmt.Errorf("error generating access token")
+	}
+	return string(b), nil
 }
 
 func generateGitHubAppJWT(appId string, privateKey *rsa.PrivateKey, oidcToken map[string]interface{}) ([]byte, error) {

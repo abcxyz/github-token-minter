@@ -91,7 +91,6 @@ func realMain(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to build configuration cache: %w", err)
 	}
-	_ = cache
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/version", handler.HandleVersionRequest)
@@ -150,14 +149,13 @@ func readPrivateKey(privateKeyContent string) (*rsa.PrivateKey, error) {
 		// If that fails try a PKCS 8 Private Key
 		parsedKey, err = x509.ParsePKCS8PrivateKey(privPemBytes)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse RSA private key: %w", err)
+			return nil, fmt.Errorf("unable to parse RSA private key - invalid format: %w", err)
 		}
 
 	}
-
 	privateKey, ok := parsedKey.(*rsa.PrivateKey)
 	if !ok {
-		return nil, fmt.Errorf("Unable to parse RSA private key: %w", err)
+		return nil, fmt.Errorf("unable to parse RSA private key: %w", err)
 	}
 	return privateKey, nil
 }
