@@ -154,12 +154,16 @@ func generateGitHubAppJWT(appId string, privateKey *rsa.PrivateKey, oidcToken ma
 		IssuedAt(iat).
 		Issuer(iss).
 		Build()
+	if err != nil {
+		return nil, err
+	}
 
+	// @TODO - Remove this
 	tokenMap, err := token.AsMap(context.Background())
-
 	fmt.Printf("Token: %v\n", tokenMap)
 	if err != nil {
 		return nil, err
 	}
+
 	return jwt.Sign(token, jwt.WithKey(jwa.RS256, privateKey))
 }
