@@ -209,7 +209,7 @@ func (s *tokenMintServer) parseJWT(ctx context.Context, oidcTokenData []byte) (j
 		return nil, fmt.Errorf("failed to retrieve jwks information: %w", err)
 	}
 	var oidcToken jwt.Token
-	for it := set.Iterate(context.Background()); it.Next(context.Background()); {
+	for it := set.Keys(ctx); it.Next(ctx); {
 		pair := it.Pair()
 		key := pair.Value.(jwk.Key)
 
