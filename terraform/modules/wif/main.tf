@@ -30,10 +30,10 @@ resource "google_project_service" "project_services" {
 
 resource "google_project_iam_binding" "wif_sa_policy_binding" {
   project = local.project_id
-  role = "roles/run.invoker"
+  role    = "roles/run.invoker"
 
   members = [
-      format("serviceAccount:%s", google_service_account.wif_service_account.email)
+    "serviceAccount:${google_service_account.wif_service_account.email}"
   ]
   depends_on = [
     google_service_account.wif_service_account
@@ -41,7 +41,7 @@ resource "google_project_iam_binding" "wif_sa_policy_binding" {
 }
 
 resource "google_service_account" "wif_service_account" {
-  project            = local.project_id
+  project      = local.project_id
   account_id   = "github-token-minter-wif-sa"
   display_name = "GitHub WIF Service Account"
 }
@@ -82,9 +82,7 @@ data "google_iam_policy" "pool_policy" {
     role = "roles/iam.workloadIdentityUser"
 
     members = [
-      format("principalSet://iam.googleapis.com/%s/attribute.repository/%s",
-        google_iam_workload_identity_pool.wif_github_pool.name,
-      local.repo)
+      "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.wif_github_pool.name}/attribute.repository/${local.repo}"
     ]
   }
 }

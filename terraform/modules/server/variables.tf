@@ -25,11 +25,50 @@ variable "service_image" {
 variable "region" {
   type        = string
   default     = "us-central1"
-  description = "The GitHub repository ID to grant access to the WIF pool"
+  description = "The region to deploy the cloud run service in"
 }
 
 variable "service_name" {
   type        = string
   default     = "github-token-minter"
-  description = "The GitHub repository ID to grant access to the WIF pool"
+  description = "The name to give the cloud run service"
+}
+
+variable "service_account_email" {
+  type        = string
+  description = "The email of the service account to run as"
+}
+
+variable "application_id_secret_name" {
+  type        = string
+  default     = "github-application-id"
+  description = "Name of the secret containing the GitHub application Id"
+}
+
+variable "installation_id_secret_name" {
+  type        = string
+  default     = "github-installation-id"
+  description = "Name of the secret containing the GitHub installation Id"
+}
+variable "privatekey_secret_name" {
+  type        = string
+  default     = "github-privatekey"
+  description = "Name of the secret containing the GitHub installation Id"
+}
+
+variable "application_id_secret_version" {
+  type        = string
+  default     = "latest"
+  description = "Version of the secret containing the GitHub application Id"
+}
+
+variable "installation_id_secret_version" {
+  type        = string
+  default     = "latest"
+  description = "Version of the secret containing the GitHub installation Id"
+}
+variable "privatekey_secret_version" {
+  type        = string
+  default     = "latest"
+  description = "Versions of the secret containing the GitHub installation Id"
 }

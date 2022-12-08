@@ -12,21 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-locals {
-  project_id    = var.project_id
-  repository_id = var.artifact_repository_id
-}
-module "gar" {
-  source        = "../gar"
-  project_id    = local.project_id
-  repository_id = local.repository_id
-}
-module "wif" {
-  source        = "../wif"
-  project_id    = local.project_id
-  repository_id = "bradegler/minty"
-}
-module "server_service_account" {
-  source     = "../server-service"
-  project_id = local.project_id
+output "server_service_account_email" {
+  value = google_service_account.server_service_account.email
 }

@@ -13,12 +13,14 @@
 // limitations under the License.
 
 locals {
-  project_id    = var.project_id
-  service_image = var.service_image
+  project_id            = var.project_id
+  service_image         = var.service_image
+  service_account_email = var.service_account_email
 }
+
 module "server" {
-  source        = "../server"
-  project_id    = local.project_id
-  service_image = local.service_image
-  service_name  = "github-token-minter service"
+  source                = "../server"
+  project_id            = local.project_id
+  service_image         = local.service_image
+  service_account_email = local.service_account_email
 }

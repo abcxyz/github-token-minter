@@ -17,13 +17,12 @@ variable "project_id" {
   description = "The project ID for the cloud project to create resources in"
 }
 
-variable "artifact_repository_id" {
-  type        = string
-  description = "The repostiry ID to name the artifact registry repository"
-  default     = "images"
-}
-
 variable "service_image" {
   type        = string
   description = "The server service image to deploy"
+}
+
+variable "service_account_email" {
+  type        = string
+  description = "The service account email address for the cloud run service to run as"
 }

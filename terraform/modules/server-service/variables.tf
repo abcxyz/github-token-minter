@@ -12,21 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-locals {
-  project_id    = var.project_id
-  repository_id = var.artifact_repository_id
+variable "project_id" {
+  type        = string
+  description = "The project ID for the cloud project to create the service account"
 }
-module "gar" {
-  source        = "../gar"
-  project_id    = local.project_id
-  repository_id = local.repository_id
-}
-module "wif" {
-  source        = "../wif"
-  project_id    = local.project_id
-  repository_id = "bradegler/minty"
-}
-module "server_service_account" {
-  source     = "../server-service"
-  project_id = local.project_id
+
+variable "service_account_name" {
+  type        = string
+  default     = "github-token-minter-sa"
+  description = "The name to give the service account "
 }
