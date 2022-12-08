@@ -28,8 +28,21 @@ resource "google_project_service" "project_services" {
   disable_on_destroy = false
 }
 
+resource "google_project_iam_binding" "wif_sa_policy_binding" {
+  project = local.project_id
+  role = "roles/run.invoker"
+
+  members = [
+      format("serviceAccount:%s", google_service_account.wif_service_account.email)
+  ]
+  depends_on = [
+    google_service_account.wif_service_account
+  ]
+}
+
 resource "google_service_account" "wif_service_account" {
-  account_id   = "github-wif-sa"
+  project            = local.project_id
+  account_id   = "github-token-minter-wif-sa"
   display_name = "GitHub WIF Service Account"
 }
 
@@ -70,7 +83,7 @@ data "google_iam_policy" "pool_policy" {
 
     members = [
       format("principalSet://iam.googleapis.com/%s/attribute.repository/%s",
-        google_iam_workload_identity_pool.wif_github_pool.workload_identity_pool_id,
+        google_iam_workload_identity_pool.wif_github_pool.name,
       local.repo)
     ]
   }
@@ -81,6 +94,7 @@ resource "google_service_account_iam_policy" "wif-service-account-iam" {
   policy_data        = data.google_iam_policy.pool_policy.policy_data
 
   depends_on = [
-    google_service_account.wif_service_account
+    google_service_account.wif_service_account,
+    google_iam_workload_identity_pool.wif_github_pool
   ]
 }
