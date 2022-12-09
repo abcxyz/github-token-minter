@@ -34,6 +34,12 @@ variable "service_name" {
   description = "The name to give the cloud run service"
 }
 
+variable "allowed_traffic" {
+  type        = string
+  default     = "internal-and-cloud-load-balancing"
+  description = "The type of Ingress allowed by the cloud run service (all|internal|internal-and-cloud-load-balancing) defaults to internal-and-cloud-load-balancing"
+}
+
 variable "service_account_email" {
   type        = string
   description = "The email of the service account to run as"

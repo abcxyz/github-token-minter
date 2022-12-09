@@ -22,7 +22,7 @@ locals {
     "run.googleapis.com/sandbox" : "gvisor"
   }
   default_server_service_annotations = {
-    "run.googleapis.com/ingress" : "internal"
+    "run.googleapis.com/ingress" : var.allowed_traffic,
     "run.googleapis.com/launch-stage" : "BETA"
   }
   default_server_env_vars = {

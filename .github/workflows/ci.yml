@@ -12,9 +12,9 @@ on:
 env:
   docker_registry: 'us-docker.pkg.dev'
   docker_tag: '${{ github.sha }}'
-  docker_repo: 'us-docker.pkg.dev/github-token-minter-dev-infra/images'
-  wif_provider: 'projects/638387980668/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-  wif_service_account: 'gh-access-sa@lumberjack-dev-infra.iam.gserviceaccount.com'
+  docker_repo: 'us-docker.pkg.dev/bradegler-ml-7e13bd36284d/images'
+  wif_provider: 'projects/428444998301/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+  wif_service_account: 'github-action-sa-b1f2@bradegler-ml-7e13bd36284d.iam.gserviceaccount.com'
   server_project_id: 'github-token-minter-dev'
 
 concurrency:

@@ -12,16 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-locals {
-  project_id            = var.project_id
-  service_image         = var.service_image
-  service_account_email = var.service_account_email
+variable "project_id" {
+  type        = string
+  description = "The project ID for the cloud project to create the workfload identity provider and pool"
 }
 
-module "server" {
-  source                = "../server"
-  project_id            = local.project_id
-  service_image         = local.service_image
-  service_account_email = local.service_account_email
-  allowed_traffic       = "all"
+variable "region" {
+  type        = string
+  default     = "us-central1"
+  description = "The region to deploy the cloud run service in"
+}
+
+variable "service_name" {
+  type        = string
+  default     = "github-token-minter"
+  description = "The name to give the load balancer"
+}
+
+variable "domain" {
+  type        = string
+  description = "The domain for tls certificates"
 }
