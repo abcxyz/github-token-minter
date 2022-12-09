@@ -59,10 +59,4 @@ resource "google_project_iam_member" "sa_secret_binding" {
   project = local.project_id
   member  = "serviceAccount:${google_service_account.server_service_account.email}"
   role    = "roles/secretmanager.secretAccessor"
-
-  condition {
-    title       = "restricted_to_secret"
-    description = "Allows access only to the desired secret"
-    expression  = "resource.name.startsWith(\"github-\")"
-  }
 }

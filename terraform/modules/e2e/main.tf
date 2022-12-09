@@ -27,6 +27,6 @@ module "wif" {
   repository_id = "bradegler/minty"
 }
 module "server_service_account" {
-  source     = "../server-service"
+  source     = "../server-iam-secrets"
   project_id = local.project_id
 }

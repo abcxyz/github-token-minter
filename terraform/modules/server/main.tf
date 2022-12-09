@@ -77,8 +77,8 @@ resource "google_cloud_run_service" "server" {
             value_from {
               secret_key_ref {
 
-                key  = env.value[0]
-                name = env.value[1]
+                key  = env.value[1]
+                name = env.value[0]
               }
             }
           }
