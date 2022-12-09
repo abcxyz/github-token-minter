@@ -12,7 +12,7 @@ RUN go build \
   -trimpath \
   -ldflags "-s -w -extldflags='-static'" \
   -o /go/bin/server \
-  ./cmd/server
+  ./cmd/github-token-minter
 
 RUN strip -s /go/bin/server
 
