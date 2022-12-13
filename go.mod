@@ -1,6 +1,6 @@
 module github.com/abcxyz/github-token-minter
 
-go 1.18
+go 1.19
 
 require (
 	github.com/abcxyz/pkg v0.0.0-20221103175748-c03ef029ec29
