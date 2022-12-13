@@ -73,7 +73,7 @@ resource "google_compute_region_network_endpoint_group" "default" {
   provider              = google-beta
   project               = local.project_id
   region                = local.region
-  name                  = "${local.name}-neg"
+  name                  = "${local.service_name}-neg"
   network_endpoint_type = "SERVERLESS"
   cloud_run {
     service = local.service_name
