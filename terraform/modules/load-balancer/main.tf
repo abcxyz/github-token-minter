@@ -42,7 +42,7 @@ module "lb_http" {
   https_redirect                  = true
 
   backends = {
-    "${local.name}" = {
+    "${local.service_name}" = {
       description = null
       groups = [
         {
