@@ -24,7 +24,7 @@ module "gar" {
 module "wif" {
   source        = "../wif"
   project_id    = local.project_id
-  repository_id = "bradegler/minty"
+  repository_id = "abcxyz/github-token-minter"
 }
 module "server_service_account" {
   source     = "../server-iam-secrets"
