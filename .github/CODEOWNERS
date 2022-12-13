@@ -1,0 +1,5 @@
+# Default fallback
+*    @abcxyz/breakglass
+
+# infrastructure owns all files
+*    @abcxyz/infrastructure
