@@ -39,7 +39,7 @@ func GetPermissionsForToken(ctx context.Context, rc *config.RepositoryConfig, to
 			return nil, fmt.Errorf("failed to evaluate CEL expression: %w", err)
 		}
 
-		if (out.Value()).(bool) {
+		if v, ok := (out.Value()).(bool); v && ok {
 			logger.Infof("found token permissions")
 			return &p, nil
 		}

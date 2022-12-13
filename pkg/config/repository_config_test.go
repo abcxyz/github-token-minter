@@ -162,7 +162,7 @@ config:
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			parser := NewConfigParser()
+			parser := NewParser()
 			results, err := parser.parse(strings.NewReader(tc.content))
 			if tc.wantError != (err != nil) {
 				t.Errorf("expected error want: %#v, got: %#v - error: %v", tc.wantError, err != nil, err)

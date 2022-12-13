@@ -20,7 +20,7 @@ import (
 	"strings"
 )
 
-type ConfigCache interface {
+type Cache interface {
 	ConfigFor(repoKey string) (*RepositoryConfig, error)
 }
 
@@ -29,7 +29,7 @@ type memoryConfigCache struct {
 }
 
 func buildCacheStore(configLocation string) (map[string]*RepositoryConfig, error) {
-	parser := NewConfigParser()
+	parser := NewParser()
 	store := map[string]*RepositoryConfig{}
 	err := filepath.Walk(configLocation, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -63,7 +63,7 @@ func buildCacheStore(configLocation string) (map[string]*RepositoryConfig, error
 	return store, err
 }
 
-func NewMemoryConfigCache(configLocation string) (ConfigCache, error) {
+func NewInMemoryCache(configLocation string) (Cache, error) {
 	store, err := buildCacheStore(configLocation)
 	if err != nil {
 		return nil, fmt.Errorf("error loading configuration data cache %w", err)

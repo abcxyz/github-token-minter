@@ -31,24 +31,27 @@ type Config struct {
 	Permissions  map[string]string `yaml:"permissions"`
 }
 
-// ConfigParser represents a simple interface for parsing RepositoryConfig
-// objects from a reader containing a YAML configuration file
-type ConfigParser interface {
+// Parser represents a simple interface for parsing RepositoryConfig
+// objects from a reader containing a YAML configuration file.
+type Parser interface {
 	parse(io.Reader) (*RepositoryConfig, error)
 }
 
 type configParser struct{}
 
-func NewConfigParser() ConfigParser {
+func NewParser() Parser {
 	return &configParser{}
 }
 
 func (p *configParser) parse(content io.Reader) (*RepositoryConfig, error) {
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(content)
+	_, err := buf.ReadFrom(content)
+	if err != nil {
+		return nil, fmt.Errorf("error reading content from buffer: %w", err)
+	}
 
 	var config RepositoryConfig
-	err := yaml.Unmarshal(buf.Bytes(), &config)
+	err = yaml.Unmarshal(buf.Bytes(), &config)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing yaml document: %w", err)
 	}

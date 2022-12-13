@@ -49,12 +49,12 @@ func main() {
 func realMain(ctx context.Context) error {
 	logger := logging.FromContext(ctx)
 	// Secretes injected from Secret Manager as environment variables
-	ghAppId := os.Getenv("GITHUB_APP_ID")
-	if ghAppId == "" {
+	ghAppID := os.Getenv("GITHUB_APP_ID")
+	if ghAppID == "" {
 		return fmt.Errorf("invalid configuration, missing environment variable 'GITHUB_APP_ID'")
 	}
-	ghInstallId := os.Getenv("GITHUB_INSTALL_ID")
-	if ghAppId == "" {
+	ghInstallID := os.Getenv("GITHUB_INSTALL_ID")
+	if ghAppID == "" {
 		return fmt.Errorf("invalid configuration, missing environment variable 'GITHUB_INSTALL_ID'")
 	}
 	ghPrivateKey := os.Getenv("GITHUB_PRIVATE_KEY")
@@ -67,7 +67,7 @@ func realMain(ctx context.Context) error {
 		configDir = "configs"
 		logger.Debug("defaulting to configuration sourced from ", zap.String("configDir", configDir))
 	}
-	tokenServer, err := handler.NewTokenMintServer(ctx, ghAppId, ghInstallId, ghPrivateKey, configDir)
+	tokenServer, err := handler.NewTokenMintServer(ctx, ghAppID, ghInstallID, ghPrivateKey, configDir)
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
