@@ -34,7 +34,7 @@ resource "google_project_service" "project_services" {
 module "lb_http" {
   source  = "GoogleCloudPlatform/lb-http/google//modules/serverless_negs"
   version = "~> 6.3"
-  name    = "${local.name}-lb"
+  name    = "${local.service_name}-lb"
   project = local.project_id
 
   ssl                             = true
@@ -76,7 +76,7 @@ resource "google_compute_region_network_endpoint_group" "default" {
   name                  = "${local.name}-neg"
   network_endpoint_type = "SERVERLESS"
   cloud_run {
-    service = google_cloud_run_service.default.name
+    service = local.service_name
   }
 
   depends_on = [google_project_service.project_services["compute.googleapis.com"]]
