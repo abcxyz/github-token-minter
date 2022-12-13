@@ -10,11 +10,11 @@ on:
 env:
   docker_registry: 'us-docker.pkg.dev'
   docker_tag: '${{ github.sha }}'
-  docker_repo: 'us-docker.pkg.dev/bradegler-ml-7e13bd36284d/images'
-  wif_provider: 'projects/428444998301/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-  wif_service_account: 'github-action-sa-b1f2@bradegler-ml-7e13bd36284d.iam.gserviceaccount.com'
-  server_project_id: 'bradegler-ml-7e13bd36284d'
-  server_service_account: 'github-token-minter-sa@bradegler-ml-7e13bd36284d.iam.gserviceaccount.com'
+  docker_repo: 'us-docker.pkg.dev/github-token-minter-dev/images'
+  wif_provider: 'projects/576818306874/locations/global/workloadIdentityPools/wif-gh-pool/providers/wif-gh-provider'
+  wif_service_account: 'github-token-minter-wif-sa@github-token-minter-dev.iam.gserviceaccount.com'
+  server_project_id: 'github-token-minter-dev'
+  server_service_account: 'github-token-minter-sa@github-token-minter-dev.iam.gserviceaccount.com'
 concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
   cancel-in-progress: true
@@ -80,3 +80,55 @@ jobs:
       - 'build-github-token-minter-server'
     steps:
       - run: 'echo build complete'
+
+  # Deploy integration test infrastructure and run integration tests
+  integration:
+    runs-on: 'ubuntu-latest'
+    needs:
+      - 'build'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    env:
+      tf_module_dir: './terraform/modules/ci'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b' # ratchet:actions/checkout@v3
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@ceee102ec2387dd9e844e01b530ccd4ec87ce955' # ratchet:goe-github-actions/auth@v0
+        with:
+          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
+          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
+          token_format: 'access_token'
+
+      # TODO: Workload Identity doesn't work with GCS Provider.
+      # https://github.com/google-github-actions/auth/issues/89
+      - name: 'Workaround Terraform issue'
+        shell: 'bash'
+        run: |-
+          echo "GOOGLE_OAUTH_ACCESS_TOKEN=${{ steps.auth.outputs.access_token }}" >> $GITHUB_ENV
+      - name: 'Setup Terraform'
+        uses: hashicorp/setup-terraform@17d4c9b8043b238f6f35641cdd8433da1e6f3867 # ratchet:hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+      - name: 'Init the terraform infrastructure'
+        run: terraform -chdir=${{ env.tf_module_dir }} init
+      - name: 'Write tfvars file'
+        env:
+          server_image: '${{env.DOCKER_REPO}}/github-token-minter-server:${{env.DOCKER_TAG}}'
+        run: |-
+            echo project_id=\"${{ env.SERVER_PROJECT_ID }}\" >> ${var_file};
+            echo server_image=\"${{ env.server_image }}\" >> ${var_file};
+            echo server_service_account=\"${{ env.server_service_account }}\" >> ${ver_file};
+            echo >> ${var_file};
+            cat ${var_file};
+            echo "tfvar_file=${var_file}" >> $GITHUB_ENV;
+      - name: 'Apply the infrastructure updates'
+        id: 'tf_apply'
+        run: |-
+            terraform -chdir=${{ env.tf_module_dir}} apply -auto-approve -var-file=${{env.tfvar_file}};
+      - name: 'Cleanup the infrastructure'
+        id: 'tf_destroy'
+        if: always()
+        run: terraform -chdir=${{ env.tf_module_dir}} apply -destroy -auto-approve -var-file=${{env.tfvar_file}};

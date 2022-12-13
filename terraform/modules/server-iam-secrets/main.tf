@@ -23,6 +23,10 @@ locals {
     "roles/stackdriver.resourceMetadata.writer",
   ]
 
+  services = [
+    "secretmanager.googleapis.com",
+  ]
+
   secrets = [
     "github-application-id",
     "github-installation-id",
@@ -30,6 +34,12 @@ locals {
   ]
 }
 
+resource "google_project_service" "project_services" {
+  project            = local.project_id
+  for_each           = toset(local.services)
+  service            = each.value
+  disable_on_destroy = false
+}
 
 resource "google_service_account" "server_service_account" {
   project      = local.project_id
@@ -53,6 +63,10 @@ resource "google_secret_manager_secret" "server_secrets" {
   replication {
     automatic = true
   }
+
+  depends_on = [
+    google_project_service.project_services
+  ]
 }
 
 resource "google_project_iam_member" "sa_secret_binding" {

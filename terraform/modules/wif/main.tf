@@ -48,7 +48,7 @@ resource "google_service_account" "wif_service_account" {
 
 resource "google_iam_workload_identity_pool" "wif_github_pool" {
   project                   = local.project_id
-  workload_identity_pool_id = "wif-github-pool"
+  workload_identity_pool_id = "wif-gh-pool"
   display_name              = "WIF Pool for GitHub CI access"
   description               = "Identity pool for CI environment"
 
@@ -60,7 +60,7 @@ resource "google_iam_workload_identity_pool" "wif_github_pool" {
 resource "google_iam_workload_identity_pool_provider" "wif_github_provider" {
   project                            = local.project_id
   workload_identity_pool_id          = google_iam_workload_identity_pool.wif_github_pool.workload_identity_pool_id
-  workload_identity_pool_provider_id = "wif-github-provider"
+  workload_identity_pool_provider_id = "wif-gh-provider"
   display_name                       = "GitHub provider"
   description                        = "OIDC identity pool provider for CI environment"
   attribute_mapping = {
