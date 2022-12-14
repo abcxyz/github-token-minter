@@ -197,7 +197,7 @@ func (s *tokenMintServer) generateInstallationAccessToken(ctx context.Context, g
 	}
 	defer res.Body.Close()
 
-	b, err := io.ReadAll(res.Body)
+	b, err := io.ReadAll(io.LimitReader(res.Body, 64_000))
 	if err != nil {
 		return "", fmt.Errorf("error reading http response for GitHub installation access token %w", err)
 	}
