@@ -20,17 +20,17 @@ import (
 	"strings"
 )
 
-// Cache is an interface that represents a collection of RepositoryConfigs
-// that have been previously loaded.
-type Cache interface {
+// ConfigStore is an interface that represents a collection of RepositoryConfigs
+// that have been loaded.
+type ConfigStore interface {
 	ConfigFor(repoKey string) (*RepositoryConfig, error)
 }
 
-type memoryConfigCache struct {
+type memoryStore struct {
 	store map[string]*RepositoryConfig
 }
 
-func buildCacheStore(configLocation string) (map[string]*RepositoryConfig, error) {
+func loadStore(configLocation string) (map[string]*RepositoryConfig, error) {
 	parser := NewParser()
 	store := map[string]*RepositoryConfig{}
 	err := filepath.Walk(configLocation, func(path string, info os.FileInfo, err error) error {
@@ -65,19 +65,20 @@ func buildCacheStore(configLocation string) (map[string]*RepositoryConfig, error
 	return store, err
 }
 
-// NewInMemoryCache creates a Cache implementation that stores
-// the configuration objects in memory.
-func NewInMemoryCache(configLocation string) (Cache, error) {
-	store, err := buildCacheStore(configLocation)
+// NewInMemoryStore creates a ConfigStore implementation that stores
+// the configuration objects in memory. All configurations are loaded once
+// on creation.
+func NewInMemoryStore(configLocation string) (ConfigStore, error) {
+	store, err := loadStore(configLocation)
 	if err != nil {
 		return nil, fmt.Errorf("error loading configuration data cache %w", err)
 	}
-	return &memoryConfigCache{store: store}, nil
+	return &memoryStore{store: store}, nil
 }
 
 // ConfigFor retrieves the RepositoryConfig object for a given repository
 // e.g. abcxyz/somerepo.
-func (m *memoryConfigCache) ConfigFor(repoKey string) (*RepositoryConfig, error) {
+func (m *memoryStore) ConfigFor(repoKey string) (*RepositoryConfig, error) {
 	if val, ok := m.store[repoKey]; ok {
 		return val, nil
 	}

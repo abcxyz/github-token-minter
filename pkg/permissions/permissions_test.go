@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/abcxyz/github-token-minter/pkg/config"
+	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -154,9 +155,10 @@ func TestGetPermissionsForToken(t *testing.T) {
 			if (err != nil) != tc.expErr {
 				t.Fatal(err)
 			}
-
-			if tc.expErr && tc.expErrMsg != err.Error() {
-				t.Fatalf("expected error mismatch want: %s, got: %s", tc.expErrMsg, err)
+			if tc.expErr {
+				if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
+					t.Fatalf(msg)
+				}
 			}
 
 			if diff := cmp.Diff(tc.want, got); diff != "" {

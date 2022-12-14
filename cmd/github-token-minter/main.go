@@ -17,14 +17,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/abcxyz/pkg/logging"
-	"go.uber.org/zap"
+	"github.com/sethvargo/go-envconfig"
 
 	"github.com/abcxyz/github-token-minter/pkg/handler"
 )
@@ -42,53 +42,32 @@ func main() {
 	}
 }
 
+type ServiceConfig struct {
+	Port                 string `env:"PORT,default=8080"`
+	GitHubAppID          string `env:"GITHUB_APP_ID,required"`
+	GitHubInstallationID string `env:"GITHUB_INSTALL_ID"`
+	GitHubPrivateKey     string `env:"GITHUB_PRIVATE_KEY"`
+	ConfigDir            string `env:"CONFIGS_DIR,default=configs"`
+}
+
 // realMain creates an HTTP server for use with minting GitHub app tokens
 // This server supports graceful stopping and cancellation by:
 //   - using a cancellable context
 //   - listening to incoming requests in a goroutine
 func realMain(ctx context.Context) error {
-	logger := logging.FromContext(ctx)
-	// Secretes injected from Secret Manager as environment variables
-	ghAppID := os.Getenv("GITHUB_APP_ID")
-	if ghAppID == "" {
-		return fmt.Errorf("invalid configuration, missing environment variable 'GITHUB_APP_ID'")
+	var config ServiceConfig
+	if err := envconfig.Process(ctx, &config); err != nil {
+		log.Fatal(err)
 	}
-	ghInstallID := os.Getenv("GITHUB_INSTALL_ID")
-	if ghAppID == "" {
-		return fmt.Errorf("invalid configuration, missing environment variable 'GITHUB_INSTALL_ID'")
-	}
-	ghPrivateKey := os.Getenv("GITHUB_PRIVATE_KEY")
-	if ghPrivateKey == "" {
-		return fmt.Errorf("invalid configuration, missing environment variable 'GITHUB_PRIVATE_KEY'")
-	}
-	// Build the configuration cache
-	configDir := os.Getenv("CONFIGS_DIR")
-	if configDir == "" {
-		configDir = "configs"
-		logger.Debug("defaulting to configuration sourced from ", zap.String("configDir", configDir))
-	}
-	tokenServer, err := handler.NewTokenMintServer(ctx, ghAppID, ghInstallID, ghPrivateKey, configDir)
+	tokenServer, err := handler.NewTokenMintServer(ctx, config.GitHubAppID, config.GitHubInstallationID, config.GitHubPrivateKey, config.ConfigDir)
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/version", handler.HandleVersionRequest)
-	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
-		tokenServer.HandleTokenRequest(w, r)
-	})
-
-	// Determine port for HTTP service.
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-		logger.Debug("defaulting to port ", zap.String("port", port))
-	}
-
 	// Create the server and listen in a goroutine.
 	server := &http.Server{
-		Addr:              ":" + port,
-		Handler:           mux,
+		Addr:              ":" + config.Port,
+		Handler:           tokenServer.Routes(),
 		ReadHeaderTimeout: 2 * time.Second,
 	}
 	serverErrCh := make(chan error, 1)

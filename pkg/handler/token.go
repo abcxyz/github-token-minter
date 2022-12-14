@@ -18,9 +18,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,6 +26,8 @@ import (
 
 	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/abcxyz/github-token-minter/pkg/permissions"
+	"github.com/abcxyz/github-token-minter/pkg/version"
+	"github.com/abcxyz/pkg/jwtutil"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
@@ -35,21 +35,22 @@ import (
 )
 
 const (
-	AuthHeader        = "X-GitHub-OIDC-Token"
-	GitHubWellKnowURL = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
-	GitHubJWKSURL     = "https://token.actions.githubusercontent.com/.well-known/jwks"
+	AuthHeader           = "X-GitHub-OIDC-Token"
+	GitHubWellKnowURL    = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
+	GitHubJWKSURL        = "https://token.actions.githubusercontent.com/.well-known/jwks"
+	GitHubAccessTokenURL = "https://api.github.com/app/installations/%s/access_tokens"
 )
 
 type TokenMintServer interface {
-	HandleTokenRequest(w http.ResponseWriter, r *http.Request)
+	Routes() http.Handler
 }
 
 type tokenMintServer struct {
 	gitHubAppID          string
 	gitHubInstallationID string
 	gitHubPrivateKey     *rsa.PrivateKey
-	configCache          config.Cache
-	jwksCache            *jwk.Cache
+	configStore          config.ConfigStore
+	verifier             *jwtutil.Verifier
 }
 
 // NewTokenMintServer creates a new HTTP server implementation that will exchange
@@ -59,91 +60,106 @@ func NewTokenMintServer(ctx context.Context, ghAppID string, ghInstallID string,
 	if err != nil {
 		return nil, fmt.Errorf("failed to read private key: %w", err)
 	}
-	cache, err := config.NewInMemoryCache(configDir)
+	cache, err := config.NewInMemoryStore(configDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build configuration cache: %w", err)
 	}
-	jwksCache, err := createJWKSCache(ctx)
+	jwtVerifier, err := jwtutil.NewVerifier(ctx, GitHubJWKSURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build jwks cache: %w", err)
+		return nil, fmt.Errorf("failed to build jwt verifier: %w", err)
 	}
 
-	return &tokenMintServer{gitHubAppID: ghAppID, gitHubInstallationID: ghInstallID, gitHubPrivateKey: privateKey, configCache: cache, jwksCache: jwksCache}, nil
+	return &tokenMintServer{gitHubAppID: ghAppID, gitHubInstallationID: ghInstallID, gitHubPrivateKey: privateKey, configStore: cache, verifier: jwtVerifier}, nil
 }
 
-// HandleTokenRequest is a http.HandlerFunc implementation that processes token requests.
-func (s *tokenMintServer) HandleTokenRequest(w http.ResponseWriter, r *http.Request) {
-	s.processRequest(w, r)
-	// @TODO - Write call audit data
+// HandleToken creates a http.HandlerFunc implementation that processes token requests.
+func (s *tokenMintServer) handleToken() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger := logging.FromContext(r.Context())
+
+		respCode, respMsg, err := s.processRequest(r)
+		if err != nil {
+			logger.Errorf("error processing request: %d - %s: %w", respCode, respMsg, err)
+		}
+		w.WriteHeader(respCode)
+		fmt.Fprint(w, respMsg)
+	})
 }
 
-func (s *tokenMintServer) processRequest(w http.ResponseWriter, r *http.Request) {
-	logger := logging.FromContext(r.Context())
+// HandleVersion is a simple http.HandlerFunc that responds
+// with version information for the server.
+func (s *tokenMintServer) handleVersion() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger := logging.FromContext(r.Context())
+
+		resp, err := json.Marshal(map[string]string{
+			"version": version.HumanVersion,
+		})
+		if err != nil {
+			logger.Errorf("error processing request version: %w", err)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		fmt.Fprint(w, string(resp))
+	})
+}
+
+func (s *tokenMintServer) Routes() http.Handler {
+	mux := http.NewServeMux()
+	mux.Handle("/token", s.handleToken())
+	mux.Handle("/version", s.handleVersion())
+	return mux
+}
+
+func (s *tokenMintServer) processRequest(r *http.Request) (int, string, error) {
+	ctx := r.Context()
 
 	// Retrieve the OIDC token from a header.
 	oidcHeader := r.Header.Get(AuthHeader)
 	// Ensure the token is in the header
 	if oidcHeader == "" {
-		w.WriteHeader(401)
-		fmt.Fprintf(w, "request not authorized: '%s' header is missing", AuthHeader)
-		return
+		return http.StatusUnauthorized, fmt.Sprintf("request not authorized: '%s' header is missing", AuthHeader), nil
 	}
 	// Parse the token data into a JWT
-	oidcToken, err := s.parseJWT(r.Context(), []byte(oidcHeader))
+	oidcToken, err := s.verifier.ValidateJWT(oidcHeader)
 	if err != nil {
-		w.WriteHeader(401)
-		logger.Errorf("request not authorized: %w", err)
-		fmt.Fprintf(w, "request not authorized: '%s' header is invalid", AuthHeader)
-		return
+		return http.StatusUnauthorized, fmt.Sprintf("request not authorized: '%s' header is invalid", AuthHeader), err
 	}
 	// Extract all of the JWT attributes into a map
-	tokenMap, err := oidcToken.AsMap(r.Context())
+	tokenMap, err := oidcToken.AsMap(ctx)
 	if err != nil {
-		w.WriteHeader(403)
-		logger.Errorf("request header is not a valid jwt: %w", err)
-		fmt.Fprintf(w, "request not authorized: '%s' header is invalid", AuthHeader)
-		return
+		return http.StatusUnauthorized, fmt.Sprintf("request not authorized: '%s' jwt is invalid", AuthHeader), err
 	}
 	// Find the repository that is making the request
 	repo, ok := tokenMap["repository"].(string)
 	if !ok {
-		w.WriteHeader(500)
-		fmt.Fprintf(w, "request does not contain repository information")
-		return
+		return http.StatusInternalServerError, "request does not contain repository information", nil
 	}
 	// Get the repository's configuration data
-	config, err := s.configCache.ConfigFor(repo)
+	config, err := s.configStore.ConfigFor(repo)
 	if err != nil {
-		w.WriteHeader(500)
-		logger.Errorf("error reading configuration for repository %s from cache: %w", repo, err)
-		fmt.Fprintf(w, "requested repository is not properly configured '%s'", repo)
-		return
+		return http.StatusInternalServerError,
+			fmt.Sprintf("requested repository is not properly configured '%s'", repo),
+			fmt.Errorf("error reading configuration for repository %s from cache: %w", repo, err)
 	}
 
 	// Get the permissions for the token
-	perm, err := permissions.GetPermissionsForToken(r.Context(), config, tokenMap)
+	perm, err := permissions.GetPermissionsForToken(ctx, config, tokenMap)
 	if err != nil {
-		w.WriteHeader(403)
-		logger.Errorf("error evaluating permissions: %w", err)
-		fmt.Fprintf(w, "no permissions available")
-		return
+		return http.StatusForbidden, "no permissions available", err
 	}
 
 	// Create a JWT for reading instance information from GitHub
 	signedJwt, err := s.generateGitHubAppJWT(tokenMap)
 	if err != nil {
-		w.WriteHeader(500)
-		logger.Errorf("error generating the JWT for GitHub app access: %w", err)
-		fmt.Fprintf(w, "error authenticating with GitHub")
+		return http.StatusInternalServerError,
+			"error authenticating with GitHub",
+			fmt.Errorf("error generating the JWT for GitHub app access: %w", err)
 	}
-	fmt.Printf("JWT: %s\n", string(signedJwt))
-	accessToken, err := s.generateInstallationAccessToken(r.Context(), string(signedJwt), tokenMap, perm)
+	accessToken, err := s.generateInstallationAccessToken(ctx, string(signedJwt), tokenMap, perm)
 	if err != nil {
-		w.WriteHeader(500)
-		logger.Errorf("error generating GitHub access token: %w", err)
-		fmt.Fprintf(w, "error generating GitHub access token")
+		return http.StatusInternalServerError, "error generating GitHub access token", err
 	}
-	fmt.Fprint(w, accessToken)
+	return http.StatusOK, accessToken, nil
 }
 
 // generateInstallationAccessToken makes a call to the GitHub API to generate a new
@@ -151,7 +167,7 @@ func (s *tokenMintServer) processRequest(w http.ResponseWriter, r *http.Request)
 func (s *tokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, tokenMap map[string]interface{}, perm *config.Config) (string, error) {
 	logger := logging.FromContext(ctx)
 
-	requestURL := fmt.Sprintf("https://api.github.com/app/installations/%s/access_tokens", s.gitHubInstallationID)
+	requestURL := fmt.Sprintf(GitHubAccessTokenURL, s.gitHubInstallationID)
 	repository, ok := tokenMap["repository"].(string)
 	if !ok {
 		return "", fmt.Errorf("error reading repository information")
@@ -196,7 +212,7 @@ func (s *tokenMintServer) generateInstallationAccessToken(ctx context.Context, g
 // GitHub app that can make API calls to GitHub.
 func (s *tokenMintServer) generateGitHubAppJWT(oidcToken map[string]interface{}) ([]byte, error) {
 	iat := time.Now()
-	exp := iat.Add(time.Minute * time.Duration(10))
+	exp := iat.Add(10 * time.Minute)
 	iss := s.gitHubAppID
 
 	token, err := jwt.NewBuilder().
@@ -210,83 +226,10 @@ func (s *tokenMintServer) generateGitHubAppJWT(oidcToken map[string]interface{})
 	return jwt.Sign(token, jwt.WithKey(jwa.RS256, s.gitHubPrivateKey))
 }
 
-// parseJWT processes an OIDC token to convert it to a JWT after validating
-// it against the GitHub well known JWKS endpoint.
-func (s *tokenMintServer) parseJWT(ctx context.Context, oidcTokenData []byte) (jwt.Token, error) {
-	// Validate the JWT
-	logger := logging.FromContext(ctx)
-	// Use jwk.Cache if you intend to keep reuse the JWKS over and over
-	set, err := s.jwksCache.Get(ctx, GitHubJWKSURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve jwks information: %w", err)
-	}
-	var oidcToken jwt.Token
-	for it := set.Keys(ctx); it.Next(ctx); {
-		pair := it.Pair()
-		key, ok := pair.Value.(jwk.Key)
-		if !ok {
-			return nil, fmt.Errorf("jwk key is invalid: %w", err)
-		}
-
-		// This is the raw key, like *rsa.PrivateKey or *ecdsa.PrivateKey
-		var rawkey interface{}
-		if err := key.Raw(&rawkey); err != nil {
-			return nil, fmt.Errorf("failed to create public key from jwks information: %w", err)
-		}
-		oidcToken, err = jwt.Parse(oidcTokenData, jwt.WithKey(jwa.RS256, rawkey))
-		if err == nil {
-			return oidcToken, nil
-		}
-		logger.Errorf("oidc token failed to parse: %w", err)
-	}
-	return nil, fmt.Errorf("oidc token is not valid")
-}
-
 func readPrivateKey(privateKeyContent string) (*rsa.PrivateKey, error) {
-	privPem, _ := pem.Decode([]byte(privateKeyContent))
-	if privPem.Type != "RSA PRIVATE KEY" {
-		return nil, fmt.Errorf("error RSA private key is of the wrong type: '%s'", privPem.Type)
-	}
-
-	privPemBytes := privPem.Bytes
-	var parsedKey interface{}
-	// Try a PKCS1 Private Key first
-	parsedKey, err := x509.ParsePKCS1PrivateKey(privPemBytes)
-	if err != nil {
-		// If that fails try a PKCS 8 Private Key
-		parsedKey, err = x509.ParsePKCS8PrivateKey(privPemBytes)
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse RSA private key - invalid format: %w", err)
-		}
-	}
-	privateKey, ok := parsedKey.(*rsa.PrivateKey)
-	if !ok {
+	var key rsa.PrivateKey
+	if err := jwk.ParseRawKey([]byte(privateKeyContent), &key); err != nil {
 		return nil, fmt.Errorf("unable to parse RSA private key: %w", err)
 	}
-	return privateKey, nil
-}
-
-func createJWKSCache(ctx context.Context) (*jwk.Cache, error) {
-	// First, set up the `jwk.Cache` object. You need to pass it a
-	// `context.Context` object to control the lifecycle of the background fetching goroutine.
-	//
-	// Note that by default refreshes only happen very 15 minutes at the
-	// earliest. If you need to control this, use `jwk.WithRefreshWindow()`
-	c := jwk.NewCache(ctx)
-
-	// Tell *jwk.Cache that we only want to refresh this JWKS
-	// when it needs to (based on Cache-Control or Expires header from
-	// the HTTP response). If the calculated minimum refresh interval is less
-	// than 15 minutes, don't go refreshing any earlier than 15 minutes.
-	err := c.Register(GitHubJWKSURL, jwk.WithMinRefreshInterval(15*time.Minute))
-	if err != nil {
-		return nil, fmt.Errorf("failed to register GitHub jwks: %w", err)
-	}
-
-	// Refresh the JWKS once at startup
-	_, err = c.Refresh(ctx, GitHubJWKSURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to refresh GitHub jwks: %w", err)
-	}
-	return c, nil
+	return &key, nil
 }

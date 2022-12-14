@@ -14,13 +14,35 @@
 
 package version
 
+import (
+	"runtime"
+	"runtime/debug"
+)
+
 var (
-	// Name is the name of the binary.
-	Name = "unknown"
-	// Version is the main package version.
-	Version = "unknown"
-	// Commit is the git sha.
-	Commit = "unknown"
+	// Name is the name of the binary. This can be overridden by the build
+	// process.
+	Name = "lumberjack"
+
+	// Version is the main package version. This can be overridden by the build
+	// process.
+	Version = "source"
+
+	// Commit is the git sha. This can be overridden by the build process.
+	Commit = func() string {
+		if info, ok := debug.ReadBuildInfo(); ok {
+			for _, setting := range info.Settings {
+				if setting.Key == "vcs.revision" {
+					return setting.Value
+				}
+			}
+		}
+		return "HEAD"
+	}()
+
+	// OSArch is the operating system and architecture combination.
+	OSArch = runtime.GOOS + "/" + runtime.GOARCH
+
 	// HumanVersion is the compiled version.
-	HumanVersion = Name + " v" + Version + " (" + Commit + ")"
+	HumanVersion = Name + " " + Version + " (" + Commit + ", " + OSArch + ")"
 )

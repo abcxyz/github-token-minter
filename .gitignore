@@ -67,3 +67,5 @@ go.work
 coverage.out
 
 *.tfvars
+
+bin/
