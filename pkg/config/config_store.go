@@ -11,6 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package config manages the loading of repository config information
+// that is stored as files in the file system. The files are parsed
+// and loaded into memory.
 package config
 
 import (
@@ -21,7 +25,6 @@ import (
 )
 
 // ConfigStore is an interface that represents a collection of RepositoryConfigs
-// that have been loaded.
 type ConfigStore interface {
 	ConfigFor(repoKey string) (*RepositoryConfig, error)
 }
@@ -31,7 +34,6 @@ type memoryStore struct {
 }
 
 func loadStore(configLocation string) (map[string]*RepositoryConfig, error) {
-	parser := NewParser()
 	store := map[string]*RepositoryConfig{}
 	err := filepath.Walk(configLocation, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -47,7 +49,7 @@ func loadStore(configLocation string) (map[string]*RepositoryConfig, error) {
 		}
 		defer file.Close()
 		// Parse the configuration file and build the in memory representation
-		content, err := parser.parse(file)
+		content, err := parse(file)
 		if err != nil {
 			return err
 		}

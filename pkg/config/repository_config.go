@@ -21,39 +21,24 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type RepositoryConfig struct {
-	Config []Config `yaml:"config"`
-}
+// RepositoryConfig defines a set of configurations for a GitHub repository
+type RepositoryConfig []Config
 
+// Config defines a conditional configuration for a set of permissions
 type Config struct {
 	If           string            `yaml:"if"`
 	Repositories []string          `yaml:"repositories"`
 	Permissions  map[string]string `yaml:"permissions"`
 }
 
-// Parser represents a simple interface for parsing RepositoryConfig
-// objects from a reader containing a YAML configuration file.
-type Parser interface {
-	parse(io.Reader) (*RepositoryConfig, error)
-}
-
-type configParser struct{}
-
-// NewParser creates a new Parser implementation.
-func NewParser() Parser {
-	return &configParser{}
-}
-
-func (p *configParser) parse(content io.Reader) (*RepositoryConfig, error) {
+func parse(content io.Reader) (*RepositoryConfig, error) {
 	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(content)
-	if err != nil {
+	if _, err := buf.ReadFrom(content); err != nil {
 		return nil, fmt.Errorf("error reading content from buffer: %w", err)
 	}
 
 	var config RepositoryConfig
-	err = yaml.Unmarshal(buf.Bytes(), &config)
-	if err != nil {
+	if err := yaml.Unmarshal(buf.Bytes(), &config); err != nil {
 		return nil, fmt.Errorf("error parsing yaml document: %w", err)
 	}
 	return &config, nil

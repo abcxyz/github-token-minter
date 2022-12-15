@@ -11,13 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// Package main provides the application entrypoint for the GitHub Token
+// Minter server.
 package main
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -26,6 +28,7 @@ import (
 	"github.com/abcxyz/pkg/logging"
 	"github.com/sethvargo/go-envconfig"
 
+	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/abcxyz/github-token-minter/pkg/handler"
 )
 
@@ -42,7 +45,9 @@ func main() {
 	}
 }
 
-type ServiceConfig struct {
+// serviceConfig defines the set over environment variables required
+// for running this application.
+type serviceConfig struct {
 	Port                 string `env:"PORT,default=8080"`
 	GitHubAppID          string `env:"GITHUB_APP_ID,required"`
 	GitHubInstallationID string `env:"GITHUB_INSTALL_ID"`
@@ -55,18 +60,22 @@ type ServiceConfig struct {
 //   - using a cancellable context
 //   - listening to incoming requests in a goroutine
 func realMain(ctx context.Context) error {
-	var config ServiceConfig
-	if err := envconfig.Process(ctx, &config); err != nil {
-		log.Fatal(err)
+	var cfg serviceConfig
+	if err := envconfig.Process(ctx, &cfg); err != nil {
+		return err
 	}
-	tokenServer, err := handler.NewTokenMintServer(ctx, config.GitHubAppID, config.GitHubInstallationID, config.GitHubPrivateKey, config.ConfigDir)
+	store, err := config.NewInMemoryStore(cfg.ConfigDir)
+	if err != nil {
+		return fmt.Errorf("failed to build configuration cache: %w", err)
+	}
+	tokenServer, err := handler.NewRouter(ctx, cfg.GitHubAppID, cfg.GitHubInstallationID, cfg.GitHubPrivateKey, store)
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
 
 	// Create the server and listen in a goroutine.
 	server := &http.Server{
-		Addr:              ":" + config.Port,
+		Addr:              ":" + cfg.Port,
 		Handler:           tokenServer.Routes(),
 		ReadHeaderTimeout: 2 * time.Second,
 	}

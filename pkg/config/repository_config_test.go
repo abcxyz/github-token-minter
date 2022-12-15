@@ -27,29 +27,30 @@ func TestRepositoryConfig_Parser(t *testing.T) {
 {"something": "maybe json"}
 	`
 	configSinglePermission := `
-config: 
-  - if: 'test=somevalue'
+- 
+    if: 'test=somevalue'
     repositories:
       - 'abcxyz/breakglass'
     permissions:
       pull_request: 'write'
 `
 	configMultiple := `
-config: 
-  - if: 'test=somevalue'
+- 
+    if: 'test=somevalue'
     repositories:
       - 'abcxyz/breakglass'
     permissions:
       pull_request: 'write'
-  - if: 'true'
+- 
+    if: 'true'
     repositories:
       - 'abcxyz/pkg'
     permissions:
       issues: 'write'
 `
 	configMultipleRepositories := `
-config: 
-  - if: 'test=somevalue'
+- 
+    if: 'test=somevalue'
     repositories:
       - 'abcxyz/breakglass'
       - 'abcxyz/pkg'
@@ -57,8 +58,8 @@ config:
       pull_request: 'write'
 `
 	configMultiplePermissions := `
-config: 
-  - if: 'test=somevalue'
+- 
+    if: 'test=somevalue'
     repositories:
       - 'abcxyz/breakglass'
     permissions:
@@ -66,21 +67,23 @@ config:
       issues: 'write'
 `
 	configLarge := `
-config: 
-  - if: 'test=somevalue'
+- 
+    if: 'test=somevalue'
     repositories:
       - 'abcxyz/breakglass'
     permissions:
       issues: 'read'
       pull_request: 'write'
-  - if: 'test=someothervalue'
+- 
+    if: 'test=someothervalue'
     repositories:
       - 'abcxyz/pkg'
       - 'abcxyz/.github'
     permissions:
       issues: 'read'
       pull_request: 'write'
-  - if: 'true'
+- 
+    if: 'true'
     repositories:
       - 'abcxyz/pkg'
       - 'abcxyz/.github'
@@ -105,12 +108,10 @@ config:
 			name:    "single permission",
 			content: configSinglePermission,
 			expect: &RepositoryConfig{
-				Config: []Config{
-					{
-						If:           "test=somevalue",
-						Repositories: []string{"abcxyz/breakglass"},
-						Permissions:  map[string]string{"pull_request": "write"},
-					},
+				{
+					If:           "test=somevalue",
+					Repositories: []string{"abcxyz/breakglass"},
+					Permissions:  map[string]string{"pull_request": "write"},
 				},
 			},
 			wantError: false,
@@ -119,17 +120,15 @@ config:
 			name:    "multiple permissions",
 			content: configMultiple,
 			expect: &RepositoryConfig{
-				Config: []Config{
-					{
-						If:           "test=somevalue",
-						Repositories: []string{"abcxyz/breakglass"},
-						Permissions:  map[string]string{"pull_request": "write"},
-					},
-					{
-						If:           "true",
-						Repositories: []string{"abcxyz/pkg"},
-						Permissions:  map[string]string{"issues": "write"},
-					},
+				{
+					If:           "test=somevalue",
+					Repositories: []string{"abcxyz/breakglass"},
+					Permissions:  map[string]string{"pull_request": "write"},
+				},
+				{
+					If:           "true",
+					Repositories: []string{"abcxyz/pkg"},
+					Permissions:  map[string]string{"issues": "write"},
 				},
 			},
 			wantError: false,
@@ -138,12 +137,10 @@ config:
 			name:    "multiple repositories",
 			content: configMultipleRepositories,
 			expect: &RepositoryConfig{
-				Config: []Config{
-					{
-						If:           "test=somevalue",
-						Repositories: []string{"abcxyz/breakglass", "abcxyz/pkg"},
-						Permissions:  map[string]string{"pull_request": "write"},
-					},
+				{
+					If:           "test=somevalue",
+					Repositories: []string{"abcxyz/breakglass", "abcxyz/pkg"},
+					Permissions:  map[string]string{"pull_request": "write"},
 				},
 			},
 			wantError: false,
@@ -152,12 +149,10 @@ config:
 			name:    "multiple Permissions",
 			content: configMultiplePermissions,
 			expect: &RepositoryConfig{
-				Config: []Config{
-					{
-						If:           "test=somevalue",
-						Repositories: []string{"abcxyz/breakglass"},
-						Permissions:  map[string]string{"pull_request": "write", "issues": "write"},
-					},
+				{
+					If:           "test=somevalue",
+					Repositories: []string{"abcxyz/breakglass"},
+					Permissions:  map[string]string{"pull_request": "write", "issues": "write"},
 				},
 			},
 			wantError: false,
@@ -166,22 +161,20 @@ config:
 			name:    "multiple permissions, Permissions and repos",
 			content: configLarge,
 			expect: &RepositoryConfig{
-				Config: []Config{
-					{
-						If:           "test=somevalue",
-						Repositories: []string{"abcxyz/breakglass"},
-						Permissions:  map[string]string{"issues": "read", "pull_request": "write"},
-					},
-					{
-						If:           "test=someothervalue",
-						Repositories: []string{"abcxyz/pkg", "abcxyz/.github"},
-						Permissions:  map[string]string{"issues": "read", "pull_request": "write"},
-					},
-					{
-						If:           "true",
-						Repositories: []string{"abcxyz/pkg", "abcxyz/.github", "abcxyz/breakglass"},
-						Permissions:  map[string]string{"issues": "read"},
-					},
+				{
+					If:           "test=somevalue",
+					Repositories: []string{"abcxyz/breakglass"},
+					Permissions:  map[string]string{"issues": "read", "pull_request": "write"},
+				},
+				{
+					If:           "test=someothervalue",
+					Repositories: []string{"abcxyz/pkg", "abcxyz/.github"},
+					Permissions:  map[string]string{"issues": "read", "pull_request": "write"},
+				},
+				{
+					If:           "true",
+					Repositories: []string{"abcxyz/pkg", "abcxyz/.github", "abcxyz/breakglass"},
+					Permissions:  map[string]string{"issues": "read"},
 				},
 			},
 			wantError: false,
@@ -194,10 +187,9 @@ config:
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			parser := NewParser()
-			results, err := parser.parse(strings.NewReader(tc.content))
+			results, err := parse(strings.NewReader(tc.content))
 			if tc.wantError != (err != nil) {
-				t.Errorf("expected error want: %#v, got: %#v - error: %v", tc.wantError, err != nil, err)
+				t.Errorf("error got: %#v, want: %#v, - error: %v", tc.wantError, err != nil, err)
 			}
 			if diff := cmp.Diff(tc.expect, results); diff != "" {
 				t.Errorf("results (-want,+got):\n%s", diff)

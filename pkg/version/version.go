@@ -22,7 +22,7 @@ import (
 var (
 	// Name is the name of the binary. This can be overridden by the build
 	// process.
-	Name = "lumberjack"
+	Name = "github-token-minter"
 
 	// Version is the main package version. This can be overridden by the build
 	// process.

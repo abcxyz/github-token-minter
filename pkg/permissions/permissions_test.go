@@ -9,7 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-var TestJWT = map[string]interface{}{
+var testJWT = map[string]interface{}{
 	"jti":                   "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
 	"sub":                   "repo:abcxyz/test:ref:refs/heads/main",
 	"aud":                   "https://github.com/abcxyz",
@@ -52,20 +52,18 @@ func TestGetPermissionsForToken(t *testing.T) {
 	}{{
 		name: "success",
 		pc: &config.RepositoryConfig{
-			Config: []config.Config{
-				{
-					If:           "assertion.workflow == 'Test' && assertion.actor == 'test'",
-					Repositories: []string{"*"},
-					Permissions:  map[string]string{"issues": "write", "pull_requests": "write"},
-				},
-				{
-					If:           "true",
-					Repositories: []string{"abcxyz/test"},
-					Permissions:  map[string]string{"issues": "read"},
-				},
+			{
+				If:           "assertion.workflow == 'Test' && assertion.actor == 'test'",
+				Repositories: []string{"*"},
+				Permissions:  map[string]string{"issues": "write", "pull_requests": "write"},
+			},
+			{
+				If:           "true",
+				Repositories: []string{"abcxyz/test"},
+				Permissions:  map[string]string{"issues": "read"},
 			},
 		},
-		token: TestJWT,
+		token: testJWT,
 		want: &config.Config{
 			If:           "assertion.workflow == 'Test' && assertion.actor == 'test'",
 			Repositories: []string{"*"},
@@ -74,20 +72,18 @@ func TestGetPermissionsForToken(t *testing.T) {
 	}, {
 		name: "success_catch_all",
 		pc: &config.RepositoryConfig{
-			Config: []config.Config{
-				{
-					If:           "assertion.workflow == 'Test' && assertion.actor == 'user'",
-					Repositories: []string{"*"},
-					Permissions:  map[string]string{"issues": "write", "pull_requests": "write"},
-				},
-				{
-					If:           "true",
-					Repositories: []string{"abcxyz/test"},
-					Permissions:  map[string]string{"issues": "read"},
-				},
+			{
+				If:           "assertion.workflow == 'Test' && assertion.actor == 'user'",
+				Repositories: []string{"*"},
+				Permissions:  map[string]string{"issues": "write", "pull_requests": "write"},
+			},
+			{
+				If:           "true",
+				Repositories: []string{"abcxyz/test"},
+				Permissions:  map[string]string{"issues": "read"},
 			},
 		},
-		token: TestJWT,
+		token: testJWT,
 		want: &config.Config{
 			If:           "true",
 			Repositories: []string{"abcxyz/test"},
@@ -96,20 +92,18 @@ func TestGetPermissionsForToken(t *testing.T) {
 	}, {
 		name: "success_cel_function",
 		pc: &config.RepositoryConfig{
-			Config: []config.Config{
-				{
-					If:           "assertion.workflow_ref.startsWith('abcxyz/test/.github/workflows/test.yaml') && assertion.actor == 'test'",
-					Repositories: []string{"*"},
-					Permissions:  map[string]string{"issues": "write", "pull_requests": "read"},
-				},
-				{
-					If:           "true",
-					Repositories: []string{"abcxyz/test"},
-					Permissions:  map[string]string{"issues": "read"},
-				},
+			{
+				If:           "assertion.workflow_ref.startsWith('abcxyz/test/.github/workflows/test.yaml') && assertion.actor == 'test'",
+				Repositories: []string{"*"},
+				Permissions:  map[string]string{"issues": "write", "pull_requests": "read"},
+			},
+			{
+				If:           "true",
+				Repositories: []string{"abcxyz/test"},
+				Permissions:  map[string]string{"issues": "read"},
 			},
 		},
-		token: TestJWT,
+		token: testJWT,
 		want: &config.Config{
 			If:           "assertion.workflow_ref.startsWith('abcxyz/test/.github/workflows/test.yaml') && assertion.actor == 'test'",
 			Repositories: []string{"*"},
@@ -118,29 +112,25 @@ func TestGetPermissionsForToken(t *testing.T) {
 	}, {
 		name: "error_key_doesnt_exist",
 		pc: &config.RepositoryConfig{
-			Config: []config.Config{
-				{
-					If:           "assertion.doesntexist == 'doesntexist'",
-					Repositories: []string{"*"},
-					Permissions:  map[string]string{"issues": "write", "pull_requests": "read"},
-				},
+			{
+				If:           "assertion.doesntexist == 'doesntexist'",
+				Repositories: []string{"*"},
+				Permissions:  map[string]string{"issues": "write", "pull_requests": "read"},
 			},
 		},
-		token:     TestJWT,
+		token:     testJWT,
 		expErr:    true,
 		expErrMsg: "failed to evaluate CEL expression: no such key: doesntexist",
 	}, {
 		name: "error_no_permissions",
 		pc: &config.RepositoryConfig{
-			Config: []config.Config{
-				{
-					If:           "assertion.actor == 'user'",
-					Repositories: []string{"*"},
-					Permissions:  map[string]string{"issues": "write", "pull_requests": "write"},
-				},
+			{
+				If:           "assertion.actor == 'user'",
+				Repositories: []string{"*"},
+				Permissions:  map[string]string{"issues": "write", "pull_requests": "write"},
 			},
 		},
-		token:     TestJWT,
+		token:     testJWT,
 		expErr:    true,
 		expErrMsg: "no permissions found",
 	}}
@@ -151,18 +141,13 @@ func TestGetPermissionsForToken(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := GetPermissionsForToken(context.Background(), tc.pc, tc.token)
-			if (err != nil) != tc.expErr {
-				t.Fatal(err)
-			}
-			if tc.expErr {
-				if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-					t.Fatalf(msg)
-				}
+			got, err := PermissionsForToken(context.Background(), tc.pc, tc.token)
+			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
+				t.Fatalf(msg)
 			}
 
 			if diff := cmp.Diff(tc.want, got); diff != "" {
-				t.Fatalf("mismatch (-want, +got):\n%s", diff)
+				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}

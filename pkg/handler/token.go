@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package handler defines the http request handlers and the route processing
+// for this service.
 package handler
 
 import (
@@ -41,7 +43,9 @@ const (
 	GitHubAccessTokenURL = "https://api.github.com/app/installations/%s/access_tokens"
 )
 
-type TokenMintServer interface {
+// Router is an interface that defines a set of routes that
+// a server can handle.
+type Router interface {
 	Routes() http.Handler
 }
 
@@ -53,26 +57,28 @@ type tokenMintServer struct {
 	verifier             *jwtutil.Verifier
 }
 
-// NewTokenMintServer creates a new HTTP server implementation that will exchange
+// NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewTokenMintServer(ctx context.Context, ghAppID string, ghInstallID string, ghPrivateKey string, configDir string) (TokenMintServer, error) {
+func NewRouter(ctx context.Context, ghAppID, ghInstallID, ghPrivateKey string, configStore config.ConfigStore) (Router, error) {
 	privateKey, err := readPrivateKey(ghPrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read private key: %w", err)
-	}
-	cache, err := config.NewInMemoryStore(configDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build configuration cache: %w", err)
 	}
 	jwtVerifier, err := jwtutil.NewVerifier(ctx, GitHubJWKSURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build jwt verifier: %w", err)
 	}
 
-	return &tokenMintServer{gitHubAppID: ghAppID, gitHubInstallationID: ghInstallID, gitHubPrivateKey: privateKey, configStore: cache, verifier: jwtVerifier}, nil
+	return &tokenMintServer{
+		gitHubAppID:          ghAppID,
+		gitHubInstallationID: ghInstallID,
+		gitHubPrivateKey:     privateKey,
+		configStore:          configStore,
+		verifier:             jwtVerifier,
+	}, nil
 }
 
-// HandleToken creates a http.HandlerFunc implementation that processes token requests.
+// handleToken creates a http.HandlerFunc implementation that processes token requests.
 func (s *tokenMintServer) handleToken() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := logging.FromContext(r.Context())
@@ -86,23 +92,16 @@ func (s *tokenMintServer) handleToken() http.Handler {
 	})
 }
 
-// HandleVersion is a simple http.HandlerFunc that responds
+// handleVersion is a simple http.HandlerFunc that responds
 // with version information for the server.
 func (s *tokenMintServer) handleVersion() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger := logging.FromContext(r.Context())
-
-		resp, err := json.Marshal(map[string]string{
-			"version": version.HumanVersion,
-		})
-		if err != nil {
-			logger.Errorf("error processing request version: %w", err)
-			w.WriteHeader(http.StatusInternalServerError)
-		}
-		fmt.Fprint(w, string(resp))
+		fmt.Fprintf(w, `{"version":%q}`, version.HumanVersion)
 	})
 }
 
+// Routes creates a ServeMux of all of the routes that
+// this Router supports.
 func (s *tokenMintServer) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/token", s.handleToken())
@@ -143,7 +142,7 @@ func (s *tokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	}
 
 	// Get the permissions for the token
-	perm, err := permissions.GetPermissionsForToken(ctx, config, tokenMap)
+	perm, err := permissions.PermissionsForToken(ctx, config, tokenMap)
 	if err != nil {
 		return http.StatusForbidden, "no permissions available", err
 	}
@@ -201,10 +200,12 @@ func (s *tokenMintServer) generateInstallationAccessToken(ctx context.Context, g
 	if err != nil {
 		return "", fmt.Errorf("error reading http response for GitHub installation access token %w", err)
 	}
-	if res.StatusCode != 200 {
+
+	if res.StatusCode != http.StatusOK {
 		logger.Errorf("failed to retrieve token from GitHub - Status: %s - Body: %s", res.Status, string(b))
 		return "", fmt.Errorf("error generating access token")
 	}
+
 	return string(b), nil
 }
 

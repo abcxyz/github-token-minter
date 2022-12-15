@@ -1,3 +1,20 @@
+// Copyright 2022 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package permissions provides a functions for determining the level
+// of permissions that should be requested from GitHub for a given
+// OIDC token
 package permissions
 
 import (
@@ -11,9 +28,9 @@ import (
 
 const assertionKey string = "assertion"
 
-// GetPermissionsForToken evaluates a RepositoryConfig using attributes provided in an OIDC token
+// PermissionsForToken evaluates a RepositoryConfig using attributes provided in an OIDC token
 // to determine the level of permissions that should be requested from GitHub.
-func GetPermissionsForToken(ctx context.Context, rc *config.RepositoryConfig, token map[string]interface{}) (*config.Config, error) {
+func PermissionsForToken(ctx context.Context, rc *config.RepositoryConfig, token map[string]interface{}) (*config.Config, error) {
 	logger := logging.FromContext(ctx)
 
 	env, err := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))
@@ -21,7 +38,7 @@ func GetPermissionsForToken(ctx context.Context, rc *config.RepositoryConfig, to
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
 	}
 
-	for _, p := range rc.Config {
+	for _, p := range *rc {
 		ast, iss := env.Compile(p.If)
 		if iss.Err() != nil {
 			return nil, fmt.Errorf("failed to compile CEL expression: %w", iss.Err())
@@ -40,7 +57,7 @@ func GetPermissionsForToken(ctx context.Context, rc *config.RepositoryConfig, to
 		}
 
 		if v, ok := (out.Value()).(bool); v && ok {
-			logger.Infof("found token permissions")
+			logger.Debugf("found token permissions")
 			return &p, nil
 		}
 	}
