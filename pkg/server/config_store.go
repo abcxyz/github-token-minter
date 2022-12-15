@@ -12,22 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package config manages the loading of repository config information
-// that is stored as files in the file system. The files are parsed
-// and loaded into memory.
-package config
+package server
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
-)
 
-// ConfigStore is an interface that represents a collection of RepositoryConfigs
-type ConfigStore interface {
-	ConfigFor(repoKey string) (*RepositoryConfig, error)
-}
+	"gopkg.in/yaml.v3"
+)
 
 type memoryStore struct {
 	store map[string]*RepositoryConfig
@@ -67,10 +63,10 @@ func loadStore(configLocation string) (map[string]*RepositoryConfig, error) {
 	return store, err
 }
 
-// NewInMemoryStore creates a ConfigStore implementation that stores
+// newInMemoryStore creates a ConfigStore implementation that stores
 // the configuration objects in memory. All configurations are loaded once
 // on creation.
-func NewInMemoryStore(configLocation string) (ConfigStore, error) {
+func newInMemoryStore(configLocation string) (ConfigStore, error) {
 	store, err := loadStore(configLocation)
 	if err != nil {
 		return nil, fmt.Errorf("error loading configuration data cache %w", err)
@@ -85,4 +81,17 @@ func (m *memoryStore) ConfigFor(repoKey string) (*RepositoryConfig, error) {
 		return val, nil
 	}
 	return nil, fmt.Errorf("repository configuration not found for '%s'", repoKey)
+}
+
+func parse(content io.Reader) (*RepositoryConfig, error) {
+	buf := new(bytes.Buffer)
+	if _, err := buf.ReadFrom(content); err != nil {
+		return nil, fmt.Errorf("error reading content from buffer: %w", err)
+	}
+
+	var config RepositoryConfig
+	if err := yaml.Unmarshal(buf.Bytes(), &config); err != nil {
+		return nil, fmt.Errorf("error parsing yaml document: %w", err)
+	}
+	return &config, nil
 }

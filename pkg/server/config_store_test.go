@@ -11,7 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package config
+
+package server
 
 import (
 	"strings"
@@ -20,7 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestRepositoryConfig_Parser(t *testing.T) {
+func Test_parse(t *testing.T) {
 	t.Parallel()
 
 	configBadYaml := `

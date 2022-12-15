@@ -11,15 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package config
 
-import (
-	"bytes"
-	"fmt"
-	"io"
-
-	"gopkg.in/yaml.v3"
-)
+package server
 
 // RepositoryConfig defines a set of configurations for a GitHub repository
 type RepositoryConfig []Config
@@ -31,15 +24,7 @@ type Config struct {
 	Permissions  map[string]string `yaml:"permissions"`
 }
 
-func parse(content io.Reader) (*RepositoryConfig, error) {
-	buf := new(bytes.Buffer)
-	if _, err := buf.ReadFrom(content); err != nil {
-		return nil, fmt.Errorf("error reading content from buffer: %w", err)
-	}
-
-	var config RepositoryConfig
-	if err := yaml.Unmarshal(buf.Bytes(), &config); err != nil {
-		return nil, fmt.Errorf("error parsing yaml document: %w", err)
-	}
-	return &config, nil
+// ConfigStore is an interface that represents a collection of RepositoryConfigs
+type ConfigStore interface {
+	ConfigFor(repoKey string) (*RepositoryConfig, error)
 }

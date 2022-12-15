@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package main provides the application entrypoint for the GitHub Token
-// Minter server.
+// The github-token-minter command is an http server which receives requests
+// containing OIDC tokens from GitHub and produces a GitHub application
+// level token with elevated privlidges.
 package main
 
 import (
@@ -25,13 +26,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/abcxyz/github-token-minter/pkg/server"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/sethvargo/go-envconfig"
-
-	"github.com/abcxyz/github-token-minter/pkg/config"
-	"github.com/abcxyz/github-token-minter/pkg/handler"
 )
 
+// main is the application entry point. It primarily wraps the realMain function with
+// a context that properly handles signals from the OS.
 func main() {
 	ctx, done := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer done()
@@ -64,11 +65,7 @@ func realMain(ctx context.Context) error {
 	if err := envconfig.Process(ctx, &cfg); err != nil {
 		return err
 	}
-	store, err := config.NewInMemoryStore(cfg.ConfigDir)
-	if err != nil {
-		return fmt.Errorf("failed to build configuration cache: %w", err)
-	}
-	tokenServer, err := handler.NewRouter(ctx, cfg.GitHubAppID, cfg.GitHubInstallationID, cfg.GitHubPrivateKey, store)
+	tokenServer, err := server.NewRouter(ctx, cfg.GitHubAppID, cfg.GitHubInstallationID, cfg.GitHubPrivateKey, cfg.ConfigDir)
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}

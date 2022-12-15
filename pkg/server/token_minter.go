@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package handler defines the http request handlers and the route processing
-// for this service.
-package handler
+// Package server defines the http request handlers and the route processing
+// for this service. The server accepts requests containing OIDC tokens from
+// GitHub, validates them against a configuartion and then mints a GitHub application
+// token with elevated privlidges.
+package server
 
 import (
 	"bytes"
@@ -26,8 +28,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/abcxyz/github-token-minter/pkg/config"
-	"github.com/abcxyz/github-token-minter/pkg/permissions"
 	"github.com/abcxyz/github-token-minter/pkg/version"
 	"github.com/abcxyz/pkg/jwtutil"
 	"github.com/abcxyz/pkg/logging"
@@ -53,16 +53,20 @@ type tokenMintServer struct {
 	gitHubAppID          string
 	gitHubInstallationID string
 	gitHubPrivateKey     *rsa.PrivateKey
-	configStore          config.ConfigStore
+	configStore          ConfigStore
 	verifier             *jwtutil.Verifier
 }
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, ghAppID, ghInstallID, ghPrivateKey string, configStore config.ConfigStore) (Router, error) {
+func NewRouter(ctx context.Context, ghAppID, ghInstallID, ghPrivateKey, configDir string) (Router, error) {
 	privateKey, err := readPrivateKey(ghPrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read private key: %w", err)
+	}
+	store, err := newInMemoryStore(configDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build configuration cache: %w", err)
 	}
 	jwtVerifier, err := jwtutil.NewVerifier(ctx, GitHubJWKSURL)
 	if err != nil {
@@ -73,7 +77,7 @@ func NewRouter(ctx context.Context, ghAppID, ghInstallID, ghPrivateKey string, c
 		gitHubAppID:          ghAppID,
 		gitHubInstallationID: ghInstallID,
 		gitHubPrivateKey:     privateKey,
-		configStore:          configStore,
+		configStore:          store,
 		verifier:             jwtVerifier,
 	}, nil
 }
@@ -142,7 +146,7 @@ func (s *tokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	}
 
 	// Get the permissions for the token
-	perm, err := permissions.PermissionsForToken(ctx, config, tokenMap)
+	perm, err := PermissionsForToken(ctx, config, tokenMap)
 	if err != nil {
 		return http.StatusForbidden, "no permissions available", err
 	}
@@ -163,7 +167,7 @@ func (s *tokenMintServer) processRequest(r *http.Request) (int, string, error) {
 
 // generateInstallationAccessToken makes a call to the GitHub API to generate a new
 // application level access token.
-func (s *tokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, tokenMap map[string]interface{}, perm *config.Config) (string, error) {
+func (s *tokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, tokenMap map[string]interface{}, perm *Config) (string, error) {
 	logger := logging.FromContext(ctx)
 
 	requestURL := fmt.Sprintf(GitHubAccessTokenURL, s.gitHubInstallationID)

@@ -12,16 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package permissions provides a functions for determining the level
-// of permissions that should be requested from GitHub for a given
-// OIDC token
-package permissions
+package server
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/google/cel-go/cel"
 )
@@ -30,7 +26,7 @@ const assertionKey string = "assertion"
 
 // PermissionsForToken evaluates a RepositoryConfig using attributes provided in an OIDC token
 // to determine the level of permissions that should be requested from GitHub.
-func PermissionsForToken(ctx context.Context, rc *config.RepositoryConfig, token map[string]interface{}) (*config.Config, error) {
+func PermissionsForToken(ctx context.Context, rc *RepositoryConfig, token map[string]interface{}) (*Config, error) {
 	logger := logging.FromContext(ctx)
 
 	env, err := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))
