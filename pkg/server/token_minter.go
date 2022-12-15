@@ -53,7 +53,7 @@ type tokenMintServer struct {
 	gitHubAppID          string
 	gitHubInstallationID string
 	gitHubPrivateKey     *rsa.PrivateKey
-	configStore          ConfigStore
+	configStore          configStore
 	verifier             *jwtutil.Verifier
 }
 
@@ -146,7 +146,7 @@ func (s *tokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	}
 
 	// Get the permissions for the token
-	perm, err := PermissionsForToken(ctx, config, tokenMap)
+	perm, err := permissionsForToken(ctx, config, tokenMap)
 	if err != nil {
 		return http.StatusForbidden, "no permissions available", err
 	}
@@ -167,7 +167,7 @@ func (s *tokenMintServer) processRequest(r *http.Request) (int, string, error) {
 
 // generateInstallationAccessToken makes a call to the GitHub API to generate a new
 // application level access token.
-func (s *tokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, tokenMap map[string]interface{}, perm *Config) (string, error) {
+func (s *tokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, tokenMap map[string]interface{}, perm *config) (string, error) {
 	logger := logging.FromContext(ctx)
 
 	requestURL := fmt.Sprintf(GitHubAccessTokenURL, s.gitHubInstallationID)

@@ -26,11 +26,11 @@ import (
 )
 
 type memoryStore struct {
-	store map[string]*RepositoryConfig
+	store map[string]*repositoryConfig
 }
 
-func loadStore(configLocation string) (map[string]*RepositoryConfig, error) {
-	store := map[string]*RepositoryConfig{}
+func loadStore(configLocation string) (map[string]*repositoryConfig, error) {
+	store := map[string]*repositoryConfig{}
 	err := filepath.Walk(configLocation, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -66,7 +66,7 @@ func loadStore(configLocation string) (map[string]*RepositoryConfig, error) {
 // newInMemoryStore creates a ConfigStore implementation that stores
 // the configuration objects in memory. All configurations are loaded once
 // on creation.
-func newInMemoryStore(configLocation string) (ConfigStore, error) {
+func newInMemoryStore(configLocation string) (configStore, error) {
 	store, err := loadStore(configLocation)
 	if err != nil {
 		return nil, fmt.Errorf("error loading configuration data cache %w", err)
@@ -76,20 +76,20 @@ func newInMemoryStore(configLocation string) (ConfigStore, error) {
 
 // ConfigFor retrieves the RepositoryConfig object for a given repository
 // e.g. abcxyz/somerepo.
-func (m *memoryStore) ConfigFor(repoKey string) (*RepositoryConfig, error) {
+func (m *memoryStore) ConfigFor(repoKey string) (*repositoryConfig, error) {
 	if val, ok := m.store[repoKey]; ok {
 		return val, nil
 	}
 	return nil, fmt.Errorf("repository configuration not found for '%s'", repoKey)
 }
 
-func parse(content io.Reader) (*RepositoryConfig, error) {
+func parse(content io.Reader) (*repositoryConfig, error) {
 	buf := new(bytes.Buffer)
 	if _, err := buf.ReadFrom(content); err != nil {
 		return nil, fmt.Errorf("error reading content from buffer: %w", err)
 	}
 
-	var config RepositoryConfig
+	var config repositoryConfig
 	if err := yaml.Unmarshal(buf.Bytes(), &config); err != nil {
 		return nil, fmt.Errorf("error parsing yaml document: %w", err)
 	}

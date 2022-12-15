@@ -24,9 +24,9 @@ import (
 
 const assertionKey string = "assertion"
 
-// PermissionsForToken evaluates a RepositoryConfig using attributes provided in an OIDC token
+// permissionsForToken evaluates a RepositoryConfig using attributes provided in an OIDC token
 // to determine the level of permissions that should be requested from GitHub.
-func PermissionsForToken(ctx context.Context, rc *RepositoryConfig, token map[string]interface{}) (*Config, error) {
+func permissionsForToken(ctx context.Context, rc *repositoryConfig, token map[string]interface{}) (*config, error) {
 	logger := logging.FromContext(ctx)
 
 	env, err := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))

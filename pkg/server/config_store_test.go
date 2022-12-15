@@ -96,7 +96,7 @@ func Test_parse(t *testing.T) {
 	cases := []struct {
 		name      string
 		content   string
-		expect    *RepositoryConfig
+		expect    *repositoryConfig
 		wantError bool
 	}{
 		{
@@ -108,7 +108,7 @@ func Test_parse(t *testing.T) {
 		{
 			name:    "single permission",
 			content: configSinglePermission,
-			expect: &RepositoryConfig{
+			expect: &repositoryConfig{
 				{
 					If:           "test=somevalue",
 					Repositories: []string{"abcxyz/breakglass"},
@@ -120,7 +120,7 @@ func Test_parse(t *testing.T) {
 		{
 			name:    "multiple permissions",
 			content: configMultiple,
-			expect: &RepositoryConfig{
+			expect: &repositoryConfig{
 				{
 					If:           "test=somevalue",
 					Repositories: []string{"abcxyz/breakglass"},
@@ -137,7 +137,7 @@ func Test_parse(t *testing.T) {
 		{
 			name:    "multiple repositories",
 			content: configMultipleRepositories,
-			expect: &RepositoryConfig{
+			expect: &repositoryConfig{
 				{
 					If:           "test=somevalue",
 					Repositories: []string{"abcxyz/breakglass", "abcxyz/pkg"},
@@ -149,7 +149,7 @@ func Test_parse(t *testing.T) {
 		{
 			name:    "multiple Permissions",
 			content: configMultiplePermissions,
-			expect: &RepositoryConfig{
+			expect: &repositoryConfig{
 				{
 					If:           "test=somevalue",
 					Repositories: []string{"abcxyz/breakglass"},
@@ -161,7 +161,7 @@ func Test_parse(t *testing.T) {
 		{
 			name:    "multiple permissions, Permissions and repos",
 			content: configLarge,
-			expect: &RepositoryConfig{
+			expect: &repositoryConfig{
 				{
 					If:           "test=somevalue",
 					Repositories: []string{"abcxyz/breakglass"},
