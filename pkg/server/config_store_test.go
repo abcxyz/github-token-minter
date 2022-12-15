@@ -21,7 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func Test_parse(t *testing.T) {
+func TestParse(t *testing.T) {
 	t.Parallel()
 
 	configBadYaml := `
