@@ -232,9 +232,13 @@ func (s *tokenMintServer) generateGitHubAppJWT(oidcToken map[string]interface{})
 }
 
 func readPrivateKey(privateKeyContent string) (*rsa.PrivateKey, error) {
-	var key rsa.PrivateKey
-	if err := jwk.ParseRawKey([]byte(privateKeyContent), &key); err != nil {
+	parsedKey, _, err := jwk.DecodePEM([]byte(privateKeyContent))
+	if err != nil {
+		return nil, err
+	}
+	privateKey, ok := parsedKey.(*rsa.PrivateKey)
+	if !ok {
 		return nil, fmt.Errorf("unable to parse RSA private key: %w", err)
 	}
-	return &key, nil
+	return privateKey, nil
 }
