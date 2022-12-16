@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -31,36 +30,44 @@ type memoryStore struct {
 
 func loadStore(configLocation string) (map[string]*repositoryConfig, error) {
 	store := map[string]*repositoryConfig{}
-	err := filepath.Walk(configLocation, func(path string, info os.FileInfo, err error) error {
+	// Get the list of subdirectories in the config location. Each one represents
+	// a GitHub organization
+	dirs, err := os.ReadDir(configLocation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read configuration directory %s: %w", configLocation, err)
+	}
+	// Loop over each top level directory / "organization" and read config files
+	for _, dir := range dirs {
+		if !dir.IsDir() {
+			continue
+		}
+		dname := dir.Name()
+		files, err := os.ReadDir(fmt.Sprintf("%s/%s", configLocation, dname))
 		if err != nil {
-			return err
+			return nil, fmt.Errorf("failed to read directory %s/%s: %w", configLocation, dname, err)
 		}
-		// Ignore directories or files that don't end in .yaml|.yml
-		if info.IsDir() || !(strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml")) {
-			return nil
+		// Loop over each file in the "organization" directory looking for repository configurations
+		for _, f := range files {
+			fname := f.Name()
+			if f.IsDir() || !(strings.HasSuffix(fname, ".yaml") || strings.HasSuffix(fname, ".yml")) {
+				continue
+			}
+			name := fmt.Sprintf("%s/%s/%s", configLocation, dname, fname)
+			file, err := os.Open(name)
+			if err != nil {
+				return nil, fmt.Errorf("error reading config file %s: %w", name, err)
+			}
+			defer file.Close()
+			// Parse the configuration file and build the in memory representation
+			content, err := parse(file)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing config file %s: %w", name, err)
+			}
+			id := strings.Join([]string{dname, strings.Split(fname, ".")[0]}, "/")
+			store[id] = content
 		}
-		file, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		// Parse the configuration file and build the in memory representation
-		content, err := parse(file)
-		if err != nil {
-			return err
-		}
-		// Treat the last two parts of the path as the repository id e.g. abcxyz/breakglass.yaml = abcxyz/breakglass
-		parts := strings.Split(path, "/")
-		if len(parts) > 2 {
-			parts = parts[len(parts)-2:]
-		}
-		parts[len(parts)-1] = strings.Split(parts[len(parts)-1], ".")[0]
-		id := strings.Join(parts, "/")
-		store[id] = content
-
-		return nil
-	})
-	return store, err
+	}
+	return store, nil
 }
 
 // newInMemoryStore creates a ConfigStore implementation that stores
