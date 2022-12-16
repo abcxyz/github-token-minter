@@ -43,12 +43,6 @@ const (
 	GitHubAccessTokenURL = "https://api.github.com/app/installations/%s/access_tokens"
 )
 
-// Router is an interface that defines a set of routes that
-// a server can handle.
-type Router interface {
-	Routes() http.Handler
-}
-
 type tokenMintServer struct {
 	gitHubAppID          string
 	gitHubInstallationID string
@@ -59,7 +53,7 @@ type tokenMintServer struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, ghAppID, ghInstallID, ghPrivateKey, configDir string) (Router, error) {
+func NewRouter(ctx context.Context, ghAppID, ghInstallID, ghPrivateKey, configDir string) (*tokenMintServer, error) {
 	privateKey, err := readPrivateKey(ghPrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read private key: %w", err)
