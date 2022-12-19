@@ -114,7 +114,7 @@ func (s *tokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	oidcHeader := r.Header.Get(AuthHeader)
 	// Ensure the token is in the header
 	if oidcHeader == "" {
-		return http.StatusUnauthorized, fmt.Sprintf("request not authorized: '%s' header is missing", AuthHeader), nil
+		return http.BadRequest, fmt.Sprintf("request not authorized: '%s' header is missing", AuthHeader), nil
 	}
 	// Parse the token data into a JWT
 	oidcToken, err := s.verifier.ValidateJWT(oidcHeader)
