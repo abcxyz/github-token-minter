@@ -129,7 +129,7 @@ func (s *tokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	// Find the repository that is making the request
 	repo, ok := tokenMap["repository"].(string)
 	if !ok {
-		return http.StatusInternalServerError, "request does not contain repository information", nil
+		return http.BadRequest, "request does not contain repository information", nil
 	}
 	// Get the repository's configuration data
 	config, err := s.configStore.ConfigFor(repo)
