@@ -83,7 +83,7 @@ func (s *tokenMintServer) handleToken() http.Handler {
 
 		respCode, respMsg, err := s.processRequest(r)
 		if err != nil {
-			logger.Errorf("error processing request: %d - %s: %w", respCode, respMsg, err)
+			logger.Errorw("error processing request", "code", respCode, "body", "erspMsg", "error", err)
 		}
 		w.WriteHeader(respCode)
 		fmt.Fprint(w, respMsg)
