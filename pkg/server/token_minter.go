@@ -124,7 +124,7 @@ func (s *tokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	// Extract all of the JWT attributes into a map
 	tokenMap, err := oidcToken.AsMap(ctx)
 	if err != nil {
-		return http.StatusUnauthorized, fmt.Sprintf("request not authorized: '%s' jwt is invalid", AuthHeader), err
+		return http.InternalServerError, fmt.Sprintf("request not authorized: '%s' jwt is invalid", AuthHeader), err
 	}
 	// Find the repository that is making the request
 	repo, ok := tokenMap["repository"].(string)
