@@ -15,10 +15,9 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -42,7 +41,7 @@ func loadStore(configLocation string) (map[string]*repositoryConfig, error) {
 			continue
 		}
 		dname := dir.Name()
-		files, err := os.ReadDir(fmt.Sprintf("%s/%s", configLocation, dname))
+		files, err := os.ReadDir(filepath.Join(configLocation, dname))
 		if err != nil {
 			return nil, fmt.Errorf("failed to read directory %s/%s: %w", configLocation, dname, err)
 		}
@@ -52,18 +51,13 @@ func loadStore(configLocation string) (map[string]*repositoryConfig, error) {
 			if f.IsDir() || !(strings.HasSuffix(fname, ".yaml") || strings.HasSuffix(fname, ".yml")) {
 				continue
 			}
-			name := fmt.Sprintf("%s/%s/%s", configLocation, dname, fname)
-			file, err := os.Open(name)
-			if err != nil {
-				return nil, fmt.Errorf("error reading config file %s: %w", name, err)
-			}
-			defer file.Close()
+			name := filepath.Join(configLocation, dname, fname)
 			// Parse the configuration file and build the in memory representation
-			content, err := parse(file)
+			id := strings.Join([]string{dname, strings.Split(fname, ".")[0]}, "/")
+			content, err := parseFile(name)
 			if err != nil {
 				return nil, fmt.Errorf("error parsing config file %s: %w", name, err)
 			}
-			id := strings.Join([]string{dname, strings.Split(fname, ".")[0]}, "/")
 			store[id] = content
 		}
 	}
@@ -90,15 +84,15 @@ func (m *memoryStore) ConfigFor(repoKey string) (*repositoryConfig, error) {
 	return nil, fmt.Errorf("repository configuration not found for '%s'", repoKey)
 }
 
-func parse(content io.Reader) (*repositoryConfig, error) {
-	buf := new(bytes.Buffer)
-	if _, err := buf.ReadFrom(content); err != nil {
-		return nil, fmt.Errorf("error reading content from buffer: %w", err)
+func parseFile(name string) (*repositoryConfig, error) {
+	data, err := os.ReadFile(name)
+	if err != nil {
+		return nil, fmt.Errorf("error reading content from file: %w", err)
 	}
 
-	var config repositoryConfig
-	if err := yaml.Unmarshal(buf.Bytes(), &config); err != nil {
+	var content repositoryConfig
+	if err := yaml.Unmarshal(data, &content); err != nil {
 		return nil, fmt.Errorf("error parsing yaml document: %w", err)
 	}
-	return &config, nil
+	return &content, nil
 }
