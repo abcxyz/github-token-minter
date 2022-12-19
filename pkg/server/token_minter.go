@@ -94,7 +94,7 @@ func (s *tokenMintServer) handleToken() http.Handler {
 // with version information for the server.
 func (s *tokenMintServer) handleVersion() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, `{"version":%q}`, version.HumanVersion)
+		fmt.Fprintf(w, `{"version":%q}\n`, version.HumanVersion)
 	})
 }
 
