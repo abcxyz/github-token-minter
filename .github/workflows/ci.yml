@@ -21,12 +21,12 @@ concurrency:
 jobs:
   # Linting jobs - go
   go_lint:
-    uses: 'abcxyz/pkg/.github/workflows/go-lint.yml@beb7889aa0383b0ec3ceb3a4cfd201daa6dcc4d0' # ratchet:abcxyz/pkg/.github/workflows/go-lint.yml@main
+    uses: 'abcxyz/pkg/.github/workflows/go-lint.yml@main' # ratchet:exclude
     with:
       go_version: '1.19'
   # Unit tests - go
   go_test:
-    uses: 'abcxyz/pkg/.github/workflows/go-test.yml@beb7889aa0383b0ec3ceb3a4cfd201daa6dcc4d0' # ratchet:abcxyz/pkg/.github/workflows/go-test.yml@main
+    uses: 'abcxyz/pkg/.github/workflows/go-test.yml@main' # ratchet:exclude
     with:
       go_version: '1.19'
   lint_and_unit:
