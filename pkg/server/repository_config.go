@@ -14,17 +14,17 @@
 
 package server
 
-// repositoryConfig defines a set of configurations for a GitHub repository
+// repositoryConfig defines a set of configurations for a GitHub repository.
 type repositoryConfig []config
 
-// config defines a conditional configuration for a set of permissions
+// config defines a conditional configuration for a set of permissions.
 type config struct {
 	If           string            `yaml:"if"`
 	Repositories []string          `yaml:"repositories"`
 	Permissions  map[string]string `yaml:"permissions"`
 }
 
-// configStore is an interface that represents a collection of RepositoryConfigs
+// configStore is an interface that represents a collection of RepositoryConfigs.
 type configStore interface {
 	ConfigFor(repoKey string) (*repositoryConfig, error)
 }
