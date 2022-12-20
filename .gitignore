@@ -66,8 +66,6 @@ go.work
 .vscode
 coverage.out
 
-
-# Locally built binary
-github-token-minter
-
 *.tfvars
+
+bin/
