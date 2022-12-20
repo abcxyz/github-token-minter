@@ -1,0 +1,14 @@
+# abcxyz/breakglass.yaml
+- 
+  if: 'assertion.workflow_ref.startsWith("abcxyz/breakglass/.github/workflows/breakglass.yml")'
+  respositories: []
+  permissions:
+    members: 'write'
+- 
+  if: |-
+    assertion.workflow_ref.startsWith("abcxyz/breakglass/.github/workflows/cleanup.yml") &&
+    assertion.event_name == 'schedule' &&
+    assertion.ref == 'refs/head/main'
+  respositories: []
+  permissions:
+    members: 'write'
