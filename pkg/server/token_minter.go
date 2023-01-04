@@ -1,10 +1,10 @@
-// Copyright 2022 Google LLC
+// Copyright 2023 The Authors (see AUTHORS file)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,51 +32,37 @@ import (
 	"github.com/abcxyz/pkg/jwtutil"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 const (
-	AuthHeader        = "X-GitHub-OIDC-Token"
-	GitHubWellKnowURL = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
-	GitHubJWKSURL     = "https://token.actions.githubusercontent.com/.well-known/jwks"
-	// false positive for hard coded credentials.
-	//nolint:gosec
-	GitHubAccessTokenURL = "https://api.github.com/app/installations/%s/access_tokens"
+	AuthHeader = "X-GitHub-OIDC-Token"
 )
 
 // TokenMintServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMintServer struct {
-	gitHubAppID          string
-	gitHubInstallationID string
-	gitHubPrivateKey     *rsa.PrivateKey
-	configStore          configStore
-	verifier             *jwtutil.Verifier
+	gitHubAppConfig GitHubAppConfig
+	configStore     ConfigReader
+	verifier        *jwtutil.Verifier
+}
+
+// GitHubAppConfig contains all of the required configuration informaion for
+// operating as a GitHub App.
+type GitHubAppConfig struct {
+	AppID          string
+	InstallationID string
+	PrivateKey     *rsa.PrivateKey
+	AccessTokenURL string
 }
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, ghAppID, ghInstallID, ghPrivateKey, configDir string) (*TokenMintServer, error) {
-	privateKey, err := readPrivateKey(ghPrivateKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read private key: %w", err)
-	}
-	store, err := newInMemoryStore(configDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build configuration cache: %w", err)
-	}
-	jwtVerifier, err := jwtutil.NewVerifier(ctx, GitHubJWKSURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build jwt verifier: %w", err)
-	}
-
+func NewRouter(ctx context.Context, ghAppConfig GitHubAppConfig, configStore ConfigReader, jwtVerifier *jwtutil.Verifier) (*TokenMintServer, error) {
 	return &TokenMintServer{
-		gitHubAppID:          ghAppID,
-		gitHubInstallationID: ghInstallID,
-		gitHubPrivateKey:     privateKey,
-		configStore:          store,
-		verifier:             jwtVerifier,
+		gitHubAppConfig: ghAppConfig,
+		configStore:     configStore,
+		verifier:        jwtVerifier,
 	}, nil
 }
 
@@ -136,7 +122,7 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 		return http.StatusBadRequest, "request does not contain repository information", nil
 	}
 	// Get the repository's configuration data
-	config, err := s.configStore.ConfigFor(repo)
+	config, err := s.configStore.Read(repo)
 	if err != nil {
 		return http.StatusInternalServerError,
 			fmt.Sprintf("requested repository is not properly configured '%s'", repo),
@@ -168,7 +154,7 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, tokenMap map[string]interface{}, perm *config) (string, error) {
 	logger := logging.FromContext(ctx)
 
-	requestURL := fmt.Sprintf(GitHubAccessTokenURL, s.gitHubInstallationID)
+	requestURL := fmt.Sprintf(s.gitHubAppConfig.AccessTokenURL, s.gitHubAppConfig.InstallationID)
 	repository, ok := tokenMap["repository"].(string)
 	if !ok {
 		return "", fmt.Errorf("error reading repository information")
@@ -216,7 +202,7 @@ func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, g
 func (s *TokenMintServer) generateGitHubAppJWT(oidcToken map[string]interface{}) ([]byte, error) {
 	iat := time.Now()
 	exp := iat.Add(10 * time.Minute)
-	iss := s.gitHubAppID
+	iss := s.gitHubAppConfig.AppID
 
 	token, err := jwt.NewBuilder().
 		Expiration(exp).
@@ -226,17 +212,5 @@ func (s *TokenMintServer) generateGitHubAppJWT(oidcToken map[string]interface{})
 	if err != nil {
 		return nil, err
 	}
-	return jwt.Sign(token, jwt.WithKey(jwa.RS256, s.gitHubPrivateKey))
-}
-
-func readPrivateKey(privateKeyContent string) (*rsa.PrivateKey, error) {
-	parsedKey, _, err := jwk.DecodePEM([]byte(privateKeyContent))
-	if err != nil {
-		return nil, err
-	}
-	privateKey, ok := parsedKey.(*rsa.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("unable to parse RSA private key: %w", err)
-	}
-	return privateKey, nil
+	return jwt.Sign(token, jwt.WithKey(jwa.RS256, s.gitHubAppConfig.PrivateKey))
 }

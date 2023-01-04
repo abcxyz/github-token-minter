@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2023 The Authors (see AUTHORS file)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,7 +28,9 @@ import (
 	"time"
 
 	"github.com/abcxyz/github-token-minter/pkg/server"
+	"github.com/abcxyz/pkg/jwtutil"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/sethvargo/go-envconfig"
 )
 
@@ -49,11 +52,13 @@ func main() {
 // serviceConfig defines the set over environment variables required
 // for running this application.
 type serviceConfig struct {
-	Port                 string `env:"PORT,default=8080"`
-	GitHubAppID          string `env:"GITHUB_APP_ID,required"`
-	GitHubInstallationID string `env:"GITHUB_INSTALL_ID"`
-	GitHubPrivateKey     string `env:"GITHUB_PRIVATE_KEY"`
-	ConfigDir            string `env:"CONFIGS_DIR,default=configs"`
+	Port           string `env:"PORT,default=8080"`
+	AppID          string `env:"GITHUB_APP_ID,required"`
+	InstallationID string `env:"GITHUB_INSTALL_ID"`
+	PrivateKey     string `env:"GITHUB_PRIVATE_KEY"`
+	JWKSUrl        string `env:"GITHUB_JKWS_URL,default=https://token.actions.githubusercontent.com/.well-known/jwks"`
+	AccessTokenURL string `env:"GITHUB_ACCESS_TOKEN_URL,default=https://api.github.com/app/installations/%s/access_tokens"`
+	ConfigDir      string `env:"CONFIGS_DIR,default=configs"`
 }
 
 // realMain creates an HTTP server for use with minting GitHub app tokens
@@ -65,7 +70,35 @@ func realMain(ctx context.Context) error {
 	if err := envconfig.Process(ctx, &cfg); err != nil {
 		return err
 	}
-	tokenServer, err := server.NewRouter(ctx, cfg.GitHubAppID, cfg.GitHubInstallationID, cfg.GitHubPrivateKey, cfg.ConfigDir)
+	// Read the private key.
+	privateKey, err := readPrivateKey(cfg.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("failed to read private key: %w", err)
+	}
+
+	// Setup the GitHub App config.
+	appConfig := server.GitHubAppConfig{
+		AppID:          cfg.AppID,
+		InstallationID: cfg.InstallationID,
+		PrivateKey:     privateKey,
+		AccessTokenURL: cfg.AccessTokenURL,
+	}
+
+	// Create an in memory ConfigProvider which preloads all of
+	// the configuration files into memory.
+	store, err := server.NewInMemoryStore(cfg.ConfigDir)
+	if err != nil {
+		return fmt.Errorf("failed to build configuration cache: %w", err)
+	}
+
+	// Setup JWKS verification.
+	jwtVerifier, err := jwtutil.NewVerifier(ctx, cfg.JWKSUrl)
+	if err != nil {
+		return fmt.Errorf("failed to build jwt verifier: %w", err)
+	}
+
+	// Create the Router for the token minting server.
+	tokenServer, err := server.NewRouter(ctx, appConfig, store, jwtVerifier)
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
@@ -100,4 +133,17 @@ func realMain(ctx context.Context) error {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 	return nil
+}
+
+// readPrivateKey reads a PEM encouded private key from a string.
+func readPrivateKey(privateKeyContent string) (*rsa.PrivateKey, error) {
+	parsedKey, _, err := jwk.DecodePEM([]byte(privateKeyContent))
+	if err != nil {
+		return nil, err
+	}
+	privateKey, ok := parsedKey.(*rsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("unable to parse RSA private key: %w", err)
+	}
+	return privateKey, nil
 }

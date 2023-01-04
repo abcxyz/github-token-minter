@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2023 The Authors (see AUTHORS file)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package server
 
 import (
@@ -67,7 +66,7 @@ func loadStore(configLocation string) (map[string]*repositoryConfig, error) {
 // newInMemoryStore creates a ConfigStore implementation that stores
 // the configuration objects in memory. All configurations are loaded once
 // on creation.
-func newInMemoryStore(configLocation string) (configStore, error) {
+func NewInMemoryStore(configLocation string) (ConfigReader, error) {
 	store, err := loadStore(configLocation)
 	if err != nil {
 		return nil, fmt.Errorf("error loading configuration data cache %w", err)
@@ -75,9 +74,9 @@ func newInMemoryStore(configLocation string) (configStore, error) {
 	return &memoryStore{store: store}, nil
 }
 
-// ConfigFor retrieves the RepositoryConfig object for a given repository
+// Read retrieves the RepositoryConfig object for a given repository
 // e.g. abcxyz/somerepo.
-func (m *memoryStore) ConfigFor(repoKey string) (*repositoryConfig, error) {
+func (m *memoryStore) Read(repoKey string) (*repositoryConfig, error) {
 	if val, ok := m.store[repoKey]; ok {
 		return val, nil
 	}
