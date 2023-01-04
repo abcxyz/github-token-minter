@@ -37,13 +37,17 @@ import (
 )
 
 const (
-	AuthHeader           = "X-GitHub-OIDC-Token"
-	GitHubWellKnowURL    = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
-	GitHubJWKSURL        = "https://token.actions.githubusercontent.com/.well-known/jwks"
+	AuthHeader        = "X-GitHub-OIDC-Token"
+	GitHubWellKnowURL = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
+	GitHubJWKSURL     = "https://token.actions.githubusercontent.com/.well-known/jwks"
+	// false positive for hard coded credentials.
+	//nolint:gosec
 	GitHubAccessTokenURL = "https://api.github.com/app/installations/%s/access_tokens"
 )
 
-type tokenMintServer struct {
+// TokenMintServer is the implementation of an HTTP server that exchanges
+// a GitHub OIDC token for a GitHub application token with eleveated privlidges.
+type TokenMintServer struct {
 	gitHubAppID          string
 	gitHubInstallationID string
 	gitHubPrivateKey     *rsa.PrivateKey
@@ -53,7 +57,7 @@ type tokenMintServer struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, ghAppID, ghInstallID, ghPrivateKey, configDir string) (*tokenMintServer, error) {
+func NewRouter(ctx context.Context, ghAppID, ghInstallID, ghPrivateKey, configDir string) (*TokenMintServer, error) {
 	privateKey, err := readPrivateKey(ghPrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read private key: %w", err)
@@ -67,7 +71,7 @@ func NewRouter(ctx context.Context, ghAppID, ghInstallID, ghPrivateKey, configDi
 		return nil, fmt.Errorf("failed to build jwt verifier: %w", err)
 	}
 
-	return &tokenMintServer{
+	return &TokenMintServer{
 		gitHubAppID:          ghAppID,
 		gitHubInstallationID: ghInstallID,
 		gitHubPrivateKey:     privateKey,
@@ -77,7 +81,7 @@ func NewRouter(ctx context.Context, ghAppID, ghInstallID, ghPrivateKey, configDi
 }
 
 // handleToken creates a http.HandlerFunc implementation that processes token requests.
-func (s *tokenMintServer) handleToken() http.Handler {
+func (s *TokenMintServer) handleToken() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := logging.FromContext(r.Context())
 
@@ -92,7 +96,7 @@ func (s *tokenMintServer) handleToken() http.Handler {
 
 // handleVersion is a simple http.HandlerFunc that responds
 // with version information for the server.
-func (s *tokenMintServer) handleVersion() http.Handler {
+func (s *TokenMintServer) handleVersion() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `{"version":%q}\n`, version.HumanVersion)
 	})
@@ -100,21 +104,21 @@ func (s *tokenMintServer) handleVersion() http.Handler {
 
 // Routes creates a ServeMux of all of the routes that
 // this Router supports.
-func (s *tokenMintServer) Routes() http.Handler {
+func (s *TokenMintServer) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/token", s.handleToken())
 	mux.Handle("/version", s.handleVersion())
 	return mux
 }
 
-func (s *tokenMintServer) processRequest(r *http.Request) (int, string, error) {
+func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	ctx := r.Context()
 
 	// Retrieve the OIDC token from a header.
 	oidcHeader := r.Header.Get(AuthHeader)
 	// Ensure the token is in the header
 	if oidcHeader == "" {
-		return http.BadRequest, fmt.Sprintf("request not authorized: '%s' header is missing", AuthHeader), nil
+		return http.StatusBadRequest, fmt.Sprintf("request not authorized: '%s' header is missing", AuthHeader), nil
 	}
 	// Parse the token data into a JWT
 	oidcToken, err := s.verifier.ValidateJWT(oidcHeader)
@@ -124,12 +128,12 @@ func (s *tokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	// Extract all of the JWT attributes into a map
 	tokenMap, err := oidcToken.AsMap(ctx)
 	if err != nil {
-		return http.InternalServerError, fmt.Sprintf("request not authorized: '%s' jwt is invalid", AuthHeader), err
+		return http.StatusInternalServerError, fmt.Sprintf("request not authorized: '%s' jwt is invalid", AuthHeader), err
 	}
 	// Find the repository that is making the request
 	repo, ok := tokenMap["repository"].(string)
 	if !ok {
-		return http.BadRequest, "request does not contain repository information", nil
+		return http.StatusBadRequest, "request does not contain repository information", nil
 	}
 	// Get the repository's configuration data
 	config, err := s.configStore.ConfigFor(repo)
@@ -161,7 +165,7 @@ func (s *tokenMintServer) processRequest(r *http.Request) (int, string, error) {
 
 // generateInstallationAccessToken makes a call to the GitHub API to generate a new
 // application level access token.
-func (s *tokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, tokenMap map[string]interface{}, perm *config) (string, error) {
+func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, tokenMap map[string]interface{}, perm *config) (string, error) {
 	logger := logging.FromContext(ctx)
 
 	requestURL := fmt.Sprintf(GitHubAccessTokenURL, s.gitHubInstallationID)
@@ -209,7 +213,7 @@ func (s *tokenMintServer) generateInstallationAccessToken(ctx context.Context, g
 
 // generateGitHubAppJWT creates a signed JWT to authenticate this service as a
 // GitHub app that can make API calls to GitHub.
-func (s *tokenMintServer) generateGitHubAppJWT(oidcToken map[string]interface{}) ([]byte, error) {
+func (s *TokenMintServer) generateGitHubAppJWT(oidcToken map[string]interface{}) ([]byte, error) {
 	iat := time.Now()
 	exp := iat.Add(10 * time.Minute)
 	iss := s.gitHubAppID
