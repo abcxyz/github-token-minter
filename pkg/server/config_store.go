@@ -22,7 +22,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type memoryStore struct {
+// MemoryStore is an implementation of the ConfigReader interface
+// which stores its configuration in a map that is preloaded on
+// startup.
+type MemoryStore struct {
 	store map[string]*repositoryConfig
 }
 
@@ -66,17 +69,17 @@ func loadStore(configLocation string) (map[string]*repositoryConfig, error) {
 // NewInMemoryStore creates a ConfigReader implementation that stores
 // the configuration objects in memory. All configurations are loaded once
 // on creation.
-func NewInMemoryStore(configLocation string) (*memoryStore, error) {
+func NewInMemoryStore(configLocation string) (*MemoryStore, error) {
 	store, err := loadStore(configLocation)
 	if err != nil {
 		return nil, fmt.Errorf("error loading configuration data cache %w", err)
 	}
-	return &memoryStore{store: store}, nil
+	return &MemoryStore{store: store}, nil
 }
 
 // Read retrieves the RepositoryConfig object for a given repository
 // e.g. abcxyz/somerepo.
-func (m *memoryStore) Read(repoKey string) (*repositoryConfig, error) {
+func (m *MemoryStore) Read(repoKey string) (*repositoryConfig, error) {
 	if val, ok := m.store[repoKey]; ok {
 		return val, nil
 	}
