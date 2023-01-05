@@ -151,7 +151,7 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 
 // generateInstallationAccessToken makes a call to the GitHub API to generate a new
 // application level access token.
-func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, tokenMap map[string]interface{}, perm *config) (string, error) {
+func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, tokenMap map[string]interface{}, perm *Config) (string, error) {
 	logger := logging.FromContext(ctx)
 
 	requestURL := fmt.Sprintf(s.gitHubAppConfig.AccessTokenURL, s.gitHubAppConfig.InstallationID)

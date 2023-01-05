@@ -13,11 +13,11 @@
 // limitations under the License.
 package server
 
-// repositoryConfig defines a set of configurations for a GitHub repository.
-type repositoryConfig []config
+// RepositoryConfig defines a set of configurations for a GitHub repository.
+type RepositoryConfig []Config
 
-// config defines a conditional configuration for a set of permissions.
-type config struct {
+// Config defines a conditional configuration for a set of permissions.
+type Config struct {
 	If           string            `yaml:"if"`
 	Repositories []string          `yaml:"repositories"`
 	Permissions  map[string]string `yaml:"permissions"`
@@ -26,5 +26,5 @@ type config struct {
 // ConfigReader is an interface that will produce a repository config
 // for a given repository name.
 type ConfigReader interface {
-	Read(repoKey string) (*repositoryConfig, error)
+	Read(repoKey string) (*RepositoryConfig, error)
 }

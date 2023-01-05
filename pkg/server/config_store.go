@@ -26,11 +26,11 @@ import (
 // which stores its configuration in a map that is preloaded on
 // startup.
 type MemoryStore struct {
-	store map[string]*repositoryConfig
+	store map[string]*RepositoryConfig
 }
 
-func loadStore(configLocation string) (map[string]*repositoryConfig, error) {
-	store := map[string]*repositoryConfig{}
+func loadStore(configLocation string) (map[string]*RepositoryConfig, error) {
+	store := map[string]*RepositoryConfig{}
 	// Get the list of subdirectories in the config location. Each one represents
 	// a GitHub organization
 	dirs, err := os.ReadDir(configLocation)
@@ -79,20 +79,20 @@ func NewInMemoryStore(configLocation string) (*MemoryStore, error) {
 
 // Read retrieves the RepositoryConfig object for a given repository
 // e.g. abcxyz/somerepo.
-func (m *MemoryStore) Read(repoKey string) (*repositoryConfig, error) {
+func (m *MemoryStore) Read(repoKey string) (*RepositoryConfig, error) {
 	if val, ok := m.store[repoKey]; ok {
 		return val, nil
 	}
 	return nil, fmt.Errorf("repository configuration not found for '%s'", repoKey)
 }
 
-func parseFile(name string) (*repositoryConfig, error) {
+func parseFile(name string) (*RepositoryConfig, error) {
 	data, err := os.ReadFile(name)
 	if err != nil {
 		return nil, fmt.Errorf("error reading content from file: %w", err)
 	}
 
-	var content repositoryConfig
+	var content RepositoryConfig
 	if err := yaml.Unmarshal(data, &content); err != nil {
 		return nil, fmt.Errorf("error parsing yaml document: %w", err)
 	}

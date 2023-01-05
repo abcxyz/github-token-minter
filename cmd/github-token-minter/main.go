@@ -86,7 +86,7 @@ func realMain(ctx context.Context) error {
 		AccessTokenURL: cfg.AccessTokenURLPattern,
 	}
 
-	// Create an in memory ConfigProvider which preloads all of
+	// Create an in memory ConfigReader which preloads all of
 	// the configuration files into memory.
 	store, err := server.NewInMemoryStore(cfg.ConfigDir)
 	if err != nil {

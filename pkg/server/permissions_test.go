@@ -56,14 +56,14 @@ func TestGetPermissionsForToken(t *testing.T) {
 
 	cases := []struct {
 		name      string
-		pc        *repositoryConfig
+		pc        *RepositoryConfig
 		token     map[string]interface{}
-		want      *config
+		want      *Config
 		expErr    bool
 		expErrMsg string
 	}{{
 		name: "success",
-		pc: &repositoryConfig{
+		pc: &RepositoryConfig{
 			{
 				If:           "assertion.workflow == 'Test' && assertion.actor == 'test'",
 				Repositories: []string{"*"},
@@ -76,14 +76,14 @@ func TestGetPermissionsForToken(t *testing.T) {
 			},
 		},
 		token: testJWT,
-		want: &config{
+		want: &Config{
 			If:           "assertion.workflow == 'Test' && assertion.actor == 'test'",
 			Repositories: []string{"*"},
 			Permissions:  map[string]string{"issues": "write", "pull_requests": "write"},
 		},
 	}, {
 		name: "success_catch_all",
-		pc: &repositoryConfig{
+		pc: &RepositoryConfig{
 			{
 				If:           "assertion.workflow == 'Test' && assertion.actor == 'user'",
 				Repositories: []string{"*"},
@@ -96,14 +96,14 @@ func TestGetPermissionsForToken(t *testing.T) {
 			},
 		},
 		token: testJWT,
-		want: &config{
+		want: &Config{
 			If:           "true",
 			Repositories: []string{"abcxyz/test"},
 			Permissions:  map[string]string{"issues": "read"},
 		},
 	}, {
 		name: "success_cel_function",
-		pc: &repositoryConfig{
+		pc: &RepositoryConfig{
 			{
 				If:           "assertion.workflow_ref.startsWith('abcxyz/test/.github/workflows/test.yaml') && assertion.actor == 'test'",
 				Repositories: []string{"*"},
@@ -116,14 +116,14 @@ func TestGetPermissionsForToken(t *testing.T) {
 			},
 		},
 		token: testJWT,
-		want: &config{
+		want: &Config{
 			If:           "assertion.workflow_ref.startsWith('abcxyz/test/.github/workflows/test.yaml') && assertion.actor == 'test'",
 			Repositories: []string{"*"},
 			Permissions:  map[string]string{"issues": "write", "pull_requests": "read"},
 		},
 	}, {
 		name: "error_key_doesnt_exist",
-		pc: &repositoryConfig{
+		pc: &RepositoryConfig{
 			{
 				If:           "assertion.doesntexist == 'doesntexist'",
 				Repositories: []string{"*"},
@@ -135,7 +135,7 @@ func TestGetPermissionsForToken(t *testing.T) {
 		expErrMsg: "failed to evaluate CEL expression: no such key: doesntexist",
 	}, {
 		name: "error_no_permissions",
-		pc: &repositoryConfig{
+		pc: &RepositoryConfig{
 			{
 				If:           "assertion.actor == 'user'",
 				Repositories: []string{"*"},
