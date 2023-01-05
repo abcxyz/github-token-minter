@@ -66,7 +66,7 @@ func loadStore(configLocation string) (map[string]*repositoryConfig, error) {
 // NewInMemoryStore creates a ConfigReader implementation that stores
 // the configuration objects in memory. All configurations are loaded once
 // on creation.
-func NewInMemoryStore(configLocation string) (ConfigReader, error) {
+func NewInMemoryStore(configLocation string) (*memoryStore, error) {
 	store, err := loadStore(configLocation)
 	if err != nil {
 		return nil, fmt.Errorf("error loading configuration data cache %w", err)
