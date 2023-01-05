@@ -54,11 +54,13 @@ func main() {
 type serviceConfig struct {
 	Port           string `env:"PORT,default=8080"`
 	AppID          string `env:"GITHUB_APP_ID,required"`
-	InstallationID string `env:"GITHUB_INSTALL_ID"`
-	PrivateKey     string `env:"GITHUB_PRIVATE_KEY"`
+	InstallationID string `env:"GITHUB_INSTALL_ID,required"`
+	PrivateKey     string `env:"GITHUB_PRIVATE_KEY,required"`
 	JWKSUrl        string `env:"GITHUB_JKWS_URL,default=https://token.actions.githubusercontent.com/.well-known/jwks"`
-	AccessTokenURL string `env:"GITHUB_ACCESS_TOKEN_URL,default=https://api.github.com/app/installations/%s/access_tokens"`
-	ConfigDir      string `env:"CONFIGS_DIR,default=configs"`
+	// URL used to retrieve access tokens. The pattern must contain a single '%s' which represents where in the url
+	// to insert the installation id.
+	AccessTokenURLPattern string `env:"GITHUB_ACCESS_TOKEN_URL_PATTERN,default=https://api.github.com/app/installations/%s/access_tokens"`
+	ConfigDir             string `env:"CONFIGS_DIR,default=configs"`
 }
 
 // realMain creates an HTTP server for use with minting GitHub app tokens
@@ -81,7 +83,7 @@ func realMain(ctx context.Context) error {
 		AppID:          cfg.AppID,
 		InstallationID: cfg.InstallationID,
 		PrivateKey:     privateKey,
-		AccessTokenURL: cfg.AccessTokenURL,
+		AccessTokenURL: cfg.AccessTokenURLPattern,
 	}
 
 	// Create an in memory ConfigProvider which preloads all of
@@ -143,7 +145,7 @@ func readPrivateKey(privateKeyContent string) (*rsa.PrivateKey, error) {
 	}
 	privateKey, ok := parsedKey.(*rsa.PrivateKey)
 	if !ok {
-		return nil, fmt.Errorf("unable to parse RSA private key: %w", err)
+		return nil, fmt.Errorf("failed to convert to *rsa.PrivateKey (got %T)", parsedKey)
 	}
 	return privateKey, nil
 }

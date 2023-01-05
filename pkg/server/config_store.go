@@ -63,7 +63,7 @@ func loadStore(configLocation string) (map[string]*repositoryConfig, error) {
 	return store, nil
 }
 
-// newInMemoryStore creates a ConfigStore implementation that stores
+// NewInMemoryStore creates a ConfigReader implementation that stores
 // the configuration objects in memory. All configurations are loaded once
 // on creation.
 func NewInMemoryStore(configLocation string) (ConfigReader, error) {
