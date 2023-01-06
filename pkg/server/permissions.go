@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2023 The Authors (see AUTHORS file)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package server
 
 import (
@@ -26,7 +25,7 @@ const assertionKey string = "assertion"
 
 // permissionsForToken evaluates a RepositoryConfig using attributes provided in an OIDC token
 // to determine the level of permissions that should be requested from GitHub.
-func permissionsForToken(ctx context.Context, rc *repositoryConfig, token map[string]interface{}) (*config, error) {
+func permissionsForToken(ctx context.Context, rc *RepositoryConfig, token map[string]interface{}) (*Config, error) {
 	logger := logging.FromContext(ctx)
 
 	env, err := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))

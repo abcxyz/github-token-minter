@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2023 The Authors (see AUTHORS file)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package server
 
 import (
@@ -23,12 +22,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type memoryStore struct {
-	store map[string]*repositoryConfig
+// MemoryStore is an implementation of the ConfigReader interface
+// which stores its configuration in a map that is preloaded on
+// startup.
+type MemoryStore struct {
+	store map[string]*RepositoryConfig
 }
 
-func loadStore(configLocation string) (map[string]*repositoryConfig, error) {
-	store := map[string]*repositoryConfig{}
+func loadStore(configLocation string) (map[string]*RepositoryConfig, error) {
+	store := map[string]*RepositoryConfig{}
 	// Get the list of subdirectories in the config location. Each one represents
 	// a GitHub organization
 	dirs, err := os.ReadDir(configLocation)
@@ -64,33 +66,33 @@ func loadStore(configLocation string) (map[string]*repositoryConfig, error) {
 	return store, nil
 }
 
-// newInMemoryStore creates a ConfigStore implementation that stores
+// NewInMemoryStore creates a ConfigReader implementation that stores
 // the configuration objects in memory. All configurations are loaded once
 // on creation.
-func newInMemoryStore(configLocation string) (configStore, error) {
+func NewInMemoryStore(configLocation string) (*MemoryStore, error) {
 	store, err := loadStore(configLocation)
 	if err != nil {
 		return nil, fmt.Errorf("error loading configuration data cache %w", err)
 	}
-	return &memoryStore{store: store}, nil
+	return &MemoryStore{store: store}, nil
 }
 
-// ConfigFor retrieves the RepositoryConfig object for a given repository
+// Read retrieves the RepositoryConfig object for a given repository
 // e.g. abcxyz/somerepo.
-func (m *memoryStore) ConfigFor(repoKey string) (*repositoryConfig, error) {
+func (m *MemoryStore) Read(repoKey string) (*RepositoryConfig, error) {
 	if val, ok := m.store[repoKey]; ok {
 		return val, nil
 	}
 	return nil, fmt.Errorf("repository configuration not found for '%s'", repoKey)
 }
 
-func parseFile(name string) (*repositoryConfig, error) {
+func parseFile(name string) (*RepositoryConfig, error) {
 	data, err := os.ReadFile(name)
 	if err != nil {
 		return nil, fmt.Errorf("error reading content from file: %w", err)
 	}
 
-	var content repositoryConfig
+	var content RepositoryConfig
 	if err := yaml.Unmarshal(data, &content); err != nil {
 		return nil, fmt.Errorf("error parsing yaml document: %w", err)
 	}
