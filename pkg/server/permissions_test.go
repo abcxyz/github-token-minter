@@ -1,4 +1,4 @@
-// Copyright 2022 Google LLC
+// Copyright 2023 The Authors (see AUTHORS file)
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package server
 
 import (
@@ -57,14 +56,14 @@ func TestGetPermissionsForToken(t *testing.T) {
 
 	cases := []struct {
 		name      string
-		pc        *repositoryConfig
+		pc        *RepositoryConfig
 		token     map[string]interface{}
-		want      *config
+		want      *Config
 		expErr    bool
 		expErrMsg string
 	}{{
 		name: "success",
-		pc: &repositoryConfig{
+		pc: &RepositoryConfig{
 			{
 				If:           "assertion.workflow == 'Test' && assertion.actor == 'test'",
 				Repositories: []string{"*"},
@@ -77,14 +76,14 @@ func TestGetPermissionsForToken(t *testing.T) {
 			},
 		},
 		token: testJWT,
-		want: &config{
+		want: &Config{
 			If:           "assertion.workflow == 'Test' && assertion.actor == 'test'",
 			Repositories: []string{"*"},
 			Permissions:  map[string]string{"issues": "write", "pull_requests": "write"},
 		},
 	}, {
 		name: "success_catch_all",
-		pc: &repositoryConfig{
+		pc: &RepositoryConfig{
 			{
 				If:           "assertion.workflow == 'Test' && assertion.actor == 'user'",
 				Repositories: []string{"*"},
@@ -97,14 +96,14 @@ func TestGetPermissionsForToken(t *testing.T) {
 			},
 		},
 		token: testJWT,
-		want: &config{
+		want: &Config{
 			If:           "true",
 			Repositories: []string{"abcxyz/test"},
 			Permissions:  map[string]string{"issues": "read"},
 		},
 	}, {
 		name: "success_cel_function",
-		pc: &repositoryConfig{
+		pc: &RepositoryConfig{
 			{
 				If:           "assertion.workflow_ref.startsWith('abcxyz/test/.github/workflows/test.yaml') && assertion.actor == 'test'",
 				Repositories: []string{"*"},
@@ -117,14 +116,14 @@ func TestGetPermissionsForToken(t *testing.T) {
 			},
 		},
 		token: testJWT,
-		want: &config{
+		want: &Config{
 			If:           "assertion.workflow_ref.startsWith('abcxyz/test/.github/workflows/test.yaml') && assertion.actor == 'test'",
 			Repositories: []string{"*"},
 			Permissions:  map[string]string{"issues": "write", "pull_requests": "read"},
 		},
 	}, {
 		name: "error_key_doesnt_exist",
-		pc: &repositoryConfig{
+		pc: &RepositoryConfig{
 			{
 				If:           "assertion.doesntexist == 'doesntexist'",
 				Repositories: []string{"*"},
@@ -136,7 +135,7 @@ func TestGetPermissionsForToken(t *testing.T) {
 		expErrMsg: "failed to evaluate CEL expression: no such key: doesntexist",
 	}, {
 		name: "error_no_permissions",
-		pc: &repositoryConfig{
+		pc: &RepositoryConfig{
 			{
 				If:           "assertion.actor == 'user'",
 				Repositories: []string{"*"},
