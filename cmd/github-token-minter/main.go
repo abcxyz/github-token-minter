@@ -28,10 +28,10 @@ import (
 	"time"
 
 	"github.com/abcxyz/github-token-minter/pkg/server"
+	"github.com/abcxyz/pkg/cfgloader"
 	"github.com/abcxyz/pkg/jwtutil"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/sethvargo/go-envconfig"
 )
 
 // main is the application entry point. It primarily wraps the realMain function with
@@ -69,7 +69,7 @@ type serviceConfig struct {
 //   - listening to incoming requests in a goroutine
 func realMain(ctx context.Context) error {
 	var cfg serviceConfig
-	if err := envconfig.Process(ctx, &cfg); err != nil {
+	if err := cfgloader.Load(ctx, &cfg, []cfgloader.Option{}...); err != nil {
 		return err
 	}
 	// Read the private key.

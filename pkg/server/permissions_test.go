@@ -164,3 +164,64 @@ func TestGetPermissionsForToken(t *testing.T) {
 		})
 	}
 }
+
+func TestValidatePermissions(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		allowed   map[string]string
+		requested map[string]string
+		expErrMsg string
+	}{
+		{
+			name:      "success",
+			allowed:   map[string]string{"issues": "write"},
+			requested: map[string]string{"issues": "write"},
+			expErrMsg: "",
+		}, {
+			name:      "request lesser permission",
+			allowed:   map[string]string{"issues": "write"},
+			requested: map[string]string{"issues": "read"},
+			expErrMsg: "",
+		}, {
+			name:      "request permission not authorized",
+			allowed:   map[string]string{},
+			requested: map[string]string{"issues": "read"},
+			expErrMsg: "requested permission 'issues' is not authorized",
+		}, {
+			name:      "request multiple permissions success",
+			allowed:   map[string]string{"issues": "read", "pull_requests": "write"},
+			requested: map[string]string{"issues": "read", "pull_requests": "write"},
+			expErrMsg: "",
+		}, {
+			name:      "request multiple permissions with lesser",
+			allowed:   map[string]string{"issues": "read", "pull_requests": "write"},
+			requested: map[string]string{"issues": "read", "pull_requests": "read"},
+			expErrMsg: "",
+		}, {
+			name:      "request multiple permissions with failure",
+			allowed:   map[string]string{"issues": "read", "pull_requests": "write"},
+			requested: map[string]string{"issues": "read", "pull_requests": "write", "worflows": "read"},
+			expErrMsg: "requested permission 'worflows' is not authorized",
+		}, {
+			name:      "request greater permission",
+			allowed:   map[string]string{"issues": "read"},
+			requested: map[string]string{"issues": "write"},
+			expErrMsg: "requested permission level 'write' for permission 'issues' is not authorized",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := validatePermissions(context.Background(), tc.allowed, tc.requested)
+			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
+				t.Fatalf(msg)
+			}
+		})
+	}
+}

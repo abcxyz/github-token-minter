@@ -7,7 +7,6 @@ require (
 	github.com/google/cel-go v0.12.5
 	github.com/google/go-cmp v0.5.9
 	github.com/lestrrat-go/jwx/v2 v2.0.8
-	github.com/sethvargo/go-envconfig v0.8.3
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -24,6 +23,7 @@ require (
 	github.com/lestrrat-go/httprc v1.0.4 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.0 // indirect
+	github.com/sethvargo/go-envconfig v0.8.3 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
@@ -36,4 +36,5 @@ require (
 	google.golang.org/grpc v1.49.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

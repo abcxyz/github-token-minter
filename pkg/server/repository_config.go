@@ -13,6 +13,8 @@
 // limitations under the License.
 package server
 
+import "github.com/google/cel-go/cel"
+
 // RepositoryConfig defines a set of configurations for a GitHub repository.
 type RepositoryConfig []Config
 
@@ -21,6 +23,7 @@ type Config struct {
 	If           string            `yaml:"if"`
 	Repositories []string          `yaml:"repositories"`
 	Permissions  map[string]string `yaml:"permissions"`
+	Program      cel.Program
 }
 
 // ConfigReader is an interface that will produce a repository config
