@@ -30,18 +30,26 @@ func compileExpressions(rc *RepositoryConfig) error {
 	}
 
 	for _, p := range *rc {
-		ast, iss := env.Compile(p.If)
-		if iss.Err() != nil {
-			return fmt.Errorf("failed to compile CEL expression: %w", iss.Err())
-		}
-
-		prg, err := env.Program(ast)
+		prg, err := compileExpression(env, p.If)
 		if err != nil {
-			return fmt.Errorf("failed to create CEL program: %w", err)
+			return err
 		}
 		p.Program = prg
 	}
 	return nil
+}
+
+func compileExpression(env *cel.Env, expr string) (cel.Program, error) {
+	ast, iss := env.Compile(expr)
+	if iss.Err() != nil {
+		return nil, fmt.Errorf("failed to compile CEL expression: %w", iss.Err())
+	}
+
+	prg, err := env.Program(ast)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CEL program: %w", err)
+	}
+	return prg, nil
 }
 
 // permissionsForToken evaluates a RepositoryConfig using attributes provided in an OIDC token
@@ -56,7 +64,7 @@ func permissionsForToken(ctx context.Context, rc *RepositoryConfig, token map[st
 		}
 
 		if v, ok := (out.Value()).(bool); v && ok {
-			return &p, nil
+			return p, nil
 		}
 	}
 

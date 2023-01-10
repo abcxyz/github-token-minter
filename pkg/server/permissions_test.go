@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/abcxyz/pkg/testutil"
+	"github.com/google/cel-go/cel"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -49,6 +50,52 @@ var testJWT = map[string]interface{}{
 	"iss":                   "https://token.actions.githubusercontent.com",
 	"nbf":                   "1669925693",
 	"exp":                   "1669926893",
+}
+
+func TestCompileExpression(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		expr      string
+		expErr    bool
+		expErrMsg string
+	}{
+		{
+			name:      "success",
+			expr:      "assertion.workflow == 'Test' && assertion.actor == 'test'",
+			expErr:    false,
+			expErrMsg: "",
+		},
+		{
+			name:      "failure to parse, no assertion",
+			expr:      "actor == 'test'",
+			expErr:    true,
+			expErrMsg: "failed to compile CEL expression: ERROR: <input>:1:1: undeclared reference to 'actor' (in container '')\n | actor == 'test'\n | ^",
+		},
+		{
+			name:      "failure to parse",
+			expr:      "assertion == 'test'",
+			expErr:    true,
+			expErrMsg: "",
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+
+		env, _ := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			pgm, err := compileExpression(env, tc.expr)
+			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
+				t.Fatalf(msg)
+			}
+			if !tc.expErr && pgm == nil {
+				t.Errorf("program nil without error")
+			}
+		})
+	}
 }
 
 func TestGetPermissionsForToken(t *testing.T) {
@@ -153,11 +200,21 @@ func TestGetPermissionsForToken(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			err := compileExpressions(tc.pc)
+			if err != nil {
+				t.Fatalf("expressions failed to compile")
+			}
 			got, err := permissionsForToken(context.Background(), tc.pc, tc.token)
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
 				t.Fatalf(msg)
 			}
 
+			// It is nearly impossible to diff the Program object
+			// and we don't really care about the Program itself in
+			// this test so remove it from the object.
+			if got != nil {
+				got.Program = nil
+			}
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
