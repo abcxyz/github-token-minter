@@ -125,8 +125,7 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	}
 
 	var request requestPayload
-	err = json.Unmarshal(contents, &request)
-	if err != nil {
+	if err = json.Unmarshal(contents, &request); err != nil {
 		return http.StatusBadRequest, "error parsing request information - invalid JSON", err
 	}
 

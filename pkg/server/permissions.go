@@ -84,11 +84,11 @@ func validatePermissions(ctx context.Context, allowed, requested map[string]stri
 	for name, reqLevel := range requested {
 		allowLevel, ok := allowed[name]
 		if !ok {
-			return fmt.Errorf("requested permission '%s' is not authorized", name)
+			return fmt.Errorf("requested permission %q is not authorized", name)
 		}
 		// if the requested level is higher than allowed reject it
 		if levels[reqLevel] > levels[allowLevel] {
-			return fmt.Errorf("requested permission level '%s' for permission '%s' is not authorized", reqLevel, name)
+			return fmt.Errorf("requested permission level %q for permission %q is not authorized", reqLevel, name)
 		}
 	}
 	return nil

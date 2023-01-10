@@ -69,7 +69,7 @@ type serviceConfig struct {
 //   - listening to incoming requests in a goroutine
 func realMain(ctx context.Context) error {
 	var cfg serviceConfig
-	if err := cfgloader.Load(ctx, &cfg, []cfgloader.Option{}...); err != nil {
+	if err := cfgloader.Load(ctx, &cfg); err != nil {
 		return err
 	}
 	// Read the private key.

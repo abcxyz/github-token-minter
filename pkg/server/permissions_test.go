@@ -20,6 +20,7 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/cel-go/cel"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 var testJWT = map[string]interface{}{
@@ -62,10 +63,9 @@ func TestCompileExpression(t *testing.T) {
 		expErrMsg string
 	}{
 		{
-			name:      "success",
-			expr:      "assertion.workflow == 'Test' && assertion.actor == 'test'",
-			expErr:    false,
-			expErrMsg: "",
+			name:   "success",
+			expr:   "assertion.workflow == 'Test' && assertion.actor == 'test'",
+			expErr: false,
 		},
 		{
 			name:      "failure to parse, no assertion",
@@ -194,22 +194,15 @@ func TestGetPermissionsForToken(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := compileExpressions(tc.pc)
-			if err != nil {
+			if err := compileExpressions(tc.pc); err != nil {
 				t.Fatalf("expressions failed to compile")
 			}
 			got, err := permissionsForToken(context.Background(), tc.pc, tc.token)
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
+				t.Error(msg)
 			}
 
-			// It is nearly impossible to diff the Program object
-			// and we don't really care about the Program itself in
-			// this test so remove it from the object.
-			if got != nil {
-				got.Program = nil
-			}
-			if diff := cmp.Diff(tc.want, got); diff != "" {
+			if diff := cmp.Diff(tc.want, got, cmpopts.IgnoreFields(Config{}, "Program")); diff != "" {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
 		})
@@ -229,37 +222,33 @@ func TestValidatePermissions(t *testing.T) {
 			name:      "success",
 			allowed:   map[string]string{"issues": "write"},
 			requested: map[string]string{"issues": "write"},
-			expErrMsg: "",
 		}, {
 			name:      "request lesser permission",
 			allowed:   map[string]string{"issues": "write"},
 			requested: map[string]string{"issues": "read"},
-			expErrMsg: "",
 		}, {
 			name:      "request permission not authorized",
 			allowed:   map[string]string{},
 			requested: map[string]string{"issues": "read"},
-			expErrMsg: "requested permission 'issues' is not authorized",
+			expErrMsg: "requested permission \"issues\" is not authorized",
 		}, {
 			name:      "request multiple permissions success",
 			allowed:   map[string]string{"issues": "read", "pull_requests": "write"},
 			requested: map[string]string{"issues": "read", "pull_requests": "write"},
-			expErrMsg: "",
 		}, {
 			name:      "request multiple permissions with lesser",
 			allowed:   map[string]string{"issues": "read", "pull_requests": "write"},
 			requested: map[string]string{"issues": "read", "pull_requests": "read"},
-			expErrMsg: "",
 		}, {
 			name:      "request multiple permissions with failure",
 			allowed:   map[string]string{"issues": "read", "pull_requests": "write"},
 			requested: map[string]string{"issues": "read", "pull_requests": "write", "workflows": "read"},
-			expErrMsg: "requested permission 'workflows' is not authorized",
+			expErrMsg: "requested permission \"workflows\" is not authorized",
 		}, {
 			name:      "request greater permission",
 			allowed:   map[string]string{"issues": "read"},
 			requested: map[string]string{"issues": "write"},
-			expErrMsg: "requested permission level 'write' for permission 'issues' is not authorized",
+			expErrMsg: "requested permission level \"write\" for permission \"issues\" is not authorized",
 		},
 	}
 
@@ -271,7 +260,7 @@ func TestValidatePermissions(t *testing.T) {
 
 			err := validatePermissions(context.Background(), tc.allowed, tc.requested)
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
+				t.Error(msg)
 			}
 		})
 	}
