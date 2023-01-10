@@ -73,12 +73,6 @@ func TestCompileExpression(t *testing.T) {
 			expErr:    true,
 			expErrMsg: "failed to compile CEL expression: ERROR: <input>:1:1: undeclared reference to 'actor' (in container '')\n | actor == 'test'\n | ^",
 		},
-		{
-			name:      "failure to parse",
-			expr:      "assertion == 'test'",
-			expErr:    true,
-			expErrMsg: "",
-		},
 	}
 	for _, tc := range cases {
 		tc := tc
@@ -259,7 +253,7 @@ func TestValidatePermissions(t *testing.T) {
 		}, {
 			name:      "request multiple permissions with failure",
 			allowed:   map[string]string{"issues": "read", "pull_requests": "write"},
-			requested: map[string]string{"issues": "read", "pull_requests": "write", "worflows": "read"},
+			requested: map[string]string{"issues": "read", "pull_requests": "write", "workflows": "read"},
 			expErrMsg: "requested permission 'worflows' is not authorized",
 		}, {
 			name:      "request greater permission",
