@@ -22,6 +22,13 @@ import (
 
 const assertionKey string = "assertion"
 
+// mapping of level names to an integer value for comparative purposes.
+var levels = map[string]int{
+	"read":  1,
+	"write": 2,
+	"admin": 3,
+}
+
 // compileExpressions precompiles all of the CEL expressions for the configuration.
 func compileExpressions(rc *RepositoryConfig) error {
 	env, err := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))
@@ -79,7 +86,8 @@ func validatePermissions(ctx context.Context, allowed, requested map[string]stri
 		if !ok {
 			return fmt.Errorf("requested permission '%s' is not authorized", name)
 		}
-		if reqLevel != allowLevel && !(reqLevel == "read" && allowLevel == "write") {
+		// if the requested level is higher than allowed reject it
+		if levels[reqLevel] > levels[allowLevel] {
 			return fmt.Errorf("requested permission level '%s' for permission '%s' is not authorized", reqLevel, name)
 		}
 	}
