@@ -22,11 +22,27 @@ import (
 
 const assertionKey string = "assertion"
 
+type Level uint8
+
+const (
+	LevelInvalid Level = 1 << iota
+	LevelRead
+	LevelWrite
+	LevelAdmin
+)
+
 // mapping of level names to an integer value for comparative purposes.
-var levels = map[string]int{
-	"read":  1,
-	"write": 2,
-	"admin": 3,
+var levels = map[string]Level{
+	"read":  LevelRead,
+	"write": LevelWrite,
+	"admin": LevelAdmin,
+}
+
+// mapping of level names to the Levels that are part of them.
+var levelInheritence = map[string]Level{
+	"read":  LevelRead,
+	"write": LevelWrite | LevelRead,
+	"admin": LevelAdmin | LevelWrite | LevelRead,
 }
 
 // compileExpressions precompiles all of the CEL expressions for the configuration.
@@ -86,8 +102,8 @@ func validatePermissions(ctx context.Context, allowed, requested map[string]stri
 		if !ok {
 			return fmt.Errorf("requested permission %q is not authorized", name)
 		}
-		// if the requested level is higher than allowed reject it
-		if levels[reqLevel] > levels[allowLevel] {
+		// if the requested level is not part of the allowed level reject it
+		if levelInheritence[allowLevel]&levels[reqLevel] == 0 {
 			return fmt.Errorf("requested permission level %q for permission %q is not authorized", reqLevel, name)
 		}
 	}

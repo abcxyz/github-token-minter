@@ -61,7 +61,7 @@ func loadStore(configLocation string) (map[string]*RepositoryConfig, error) {
 				return nil, fmt.Errorf("error parsing config file %s: %w", name, err)
 			}
 			// Precompile the CEL expressions
-			if err = compileExpressions(content); err != nil {
+			if err := compileExpressions(content); err != nil {
 				return nil, err
 			}
 			store[id] = content

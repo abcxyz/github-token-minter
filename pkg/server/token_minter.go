@@ -71,7 +71,9 @@ func NewRouter(ctx context.Context, ghAppConfig GitHubAppConfig, configStore Con
 		gitHubAppConfig: ghAppConfig,
 		configStore:     configStore,
 		verifier:        jwtVerifier,
-		jwtCache:        cache.New[[]byte](9 * time.Minute),
+		// Tokens expire in 10 minutes. Storing it for 9 minutes ensures that it is evicted from the cache
+		// before it expires.
+		jwtCache: cache.New[[]byte](9 * time.Minute),
 	}, nil
 }
 
@@ -119,13 +121,9 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	// Parse the request information
 	defer r.Body.Close()
 
-	contents, err := io.ReadAll(io.LimitReader(r.Body, 64_000))
-	if err != nil {
-		return http.StatusBadRequest, "error reading request information", err
-	}
-
 	var request requestPayload
-	if err = json.Unmarshal(contents, &request); err != nil {
+	dec := json.NewDecoder(io.LimitReader(r.Body, 64_000))
+	if err := dec.Decode(&request); err != nil {
 		return http.StatusBadRequest, "error parsing request information - invalid JSON", err
 	}
 

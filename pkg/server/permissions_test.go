@@ -230,7 +230,7 @@ func TestValidatePermissions(t *testing.T) {
 			name:      "request permission not authorized",
 			allowed:   map[string]string{},
 			requested: map[string]string{"issues": "read"},
-			expErrMsg: "requested permission \"issues\" is not authorized",
+			expErrMsg: `requested permission "issues" is not authorized`,
 		}, {
 			name:      "request multiple permissions success",
 			allowed:   map[string]string{"issues": "read", "pull_requests": "write"},
@@ -243,12 +243,12 @@ func TestValidatePermissions(t *testing.T) {
 			name:      "request multiple permissions with failure",
 			allowed:   map[string]string{"issues": "read", "pull_requests": "write"},
 			requested: map[string]string{"issues": "read", "pull_requests": "write", "workflows": "read"},
-			expErrMsg: "requested permission \"workflows\" is not authorized",
+			expErrMsg: `requested permission "workflows" is not authorized`,
 		}, {
 			name:      "request greater permission",
 			allowed:   map[string]string{"issues": "read"},
 			requested: map[string]string{"issues": "write"},
-			expErrMsg: "requested permission level \"write\" for permission \"issues\" is not authorized",
+			expErrMsg: `requested permission level "write" for permission "issues" is not authorized`,
 		},
 	}
 
