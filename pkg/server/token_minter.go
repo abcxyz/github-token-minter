@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//	http://www.apache.org/licenses/LICENSE-2.0
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,7 @@
 
 // Package server defines the http request handlers and the route processing
 // for this service. The server accepts requests containing OIDC tokens from
-// GitHub, validates them against a configuartion and then mints a GitHub application
+// GitHub, validates them against a configuration and then mints a GitHub application
 // token with elevated privlidges.
 package server
 
@@ -124,7 +124,7 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	var request requestPayload
 	dec := json.NewDecoder(io.LimitReader(r.Body, 64_000))
 	if err := dec.Decode(&request); err != nil {
-		return http.StatusBadRequest, "error parsing request information - invalid JSON", err
+		return http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err)
 	}
 
 	// Parse the token data into a JWT
@@ -241,7 +241,11 @@ func (s *TokenMintServer) generateGitHubAppJWT(oidcToken map[string]interface{})
 		Issuer(iss).
 		Build()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error building JWT: %w", err)
 	}
-	return jwt.Sign(token, jwt.WithKey(jwa.RS256, s.gitHubAppConfig.PrivateKey))
+	signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256, s.gitHubAppConfig.PrivateKey))
+	if err != nil {
+		return nil, fmt.Errorf("error signing JWT: %w", err)
+	}
+	return signed, nil
 }

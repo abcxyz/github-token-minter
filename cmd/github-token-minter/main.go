@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//	http://www.apache.org/licenses/LICENSE-2.0
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -70,7 +70,7 @@ type serviceConfig struct {
 func realMain(ctx context.Context) error {
 	var cfg serviceConfig
 	if err := cfgloader.Load(ctx, &cfg); err != nil {
-		return err
+		return fmt.Errorf("failed to read configuration information: %w", err)
 	}
 	// Read the private key.
 	privateKey, err := readPrivateKey(cfg.PrivateKey)
@@ -141,7 +141,7 @@ func realMain(ctx context.Context) error {
 func readPrivateKey(privateKeyContent string) (*rsa.PrivateKey, error) {
 	parsedKey, _, err := jwk.DecodePEM([]byte(privateKeyContent))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode PEM formated key:  %w", err)
 	}
 	privateKey, ok := parsedKey.(*rsa.PrivateKey)
 	if !ok {
