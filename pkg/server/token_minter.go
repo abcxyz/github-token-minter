@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//	http://www.apache.org/licenses/LICENSE-2.0
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,7 +14,7 @@
 
 // Package server defines the http request handlers and the route processing
 // for this service. The server accepts requests containing OIDC tokens from
-// GitHub, validates them against a configuartion and then mints a GitHub application
+// GitHub, validates them against a configuration and then mints a GitHub application
 // token with elevated privlidges.
 package server
 
@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/abcxyz/github-token-minter/pkg/version"
+	"github.com/abcxyz/pkg/cache"
 	"github.com/abcxyz/pkg/jwtutil"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/lestrrat-go/jwx/v2/jwa"
@@ -36,7 +37,8 @@ import (
 )
 
 const (
-	AuthHeader = "X-GitHub-OIDC-Token"
+	AuthHeader  = "X-GitHub-OIDC-Token"
+	JWTCacheKey = "github-app-jwt"
 )
 
 // TokenMintServer is the implementation of an HTTP server that exchanges
@@ -45,6 +47,7 @@ type TokenMintServer struct {
 	gitHubAppConfig GitHubAppConfig
 	configStore     ConfigReader
 	verifier        *jwtutil.Verifier
+	jwtCache        *cache.Cache[[]byte]
 }
 
 // GitHubAppConfig contains all of the required configuration informaion for
@@ -56,6 +59,11 @@ type GitHubAppConfig struct {
 	AccessTokenURL string
 }
 
+type requestPayload struct {
+	Repositories map[string]string `json:"repositories"`
+	Permissions  map[string]string `json:"permissions"`
+}
+
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 func NewRouter(ctx context.Context, ghAppConfig GitHubAppConfig, configStore ConfigReader, jwtVerifier *jwtutil.Verifier) (*TokenMintServer, error) {
@@ -63,6 +71,9 @@ func NewRouter(ctx context.Context, ghAppConfig GitHubAppConfig, configStore Con
 		gitHubAppConfig: ghAppConfig,
 		configStore:     configStore,
 		verifier:        jwtVerifier,
+		// Tokens expire in 10 minutes. Storing it for 9 minutes ensures that it is evicted from the cache
+		// before it expires.
+		jwtCache: cache.New[[]byte](9 * time.Minute),
 	}, nil
 }
 
@@ -106,6 +117,16 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	if oidcHeader == "" {
 		return http.StatusBadRequest, fmt.Sprintf("request not authorized: '%s' header is missing", AuthHeader), nil
 	}
+
+	// Parse the request information
+	defer r.Body.Close()
+
+	var request requestPayload
+	dec := json.NewDecoder(io.LimitReader(r.Body, 64_000))
+	if err := dec.Decode(&request); err != nil {
+		return http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err)
+	}
+
 	// Parse the token data into a JWT
 	oidcToken, err := s.verifier.ValidateJWT(oidcHeader)
 	if err != nil {
@@ -132,15 +153,25 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	// Get the permissions for the token
 	perm, err := permissionsForToken(ctx, config, tokenMap)
 	if err != nil {
-		return http.StatusForbidden, "no permissions available", err
+		return http.StatusForbidden, "no permissions available for repository", err
 	}
 
-	// Create a JWT for reading instance information from GitHub
-	signedJwt, err := s.generateGitHubAppJWT(tokenMap)
-	if err != nil {
-		return http.StatusInternalServerError,
-			"error authenticating with GitHub",
-			fmt.Errorf("error generating the JWT for GitHub app access: %w", err)
+	// Validate the permissions that were requested are within what is allowed for the repository
+	if err = validatePermissions(ctx, perm.Permissions, request.Permissions); err != nil {
+		return http.StatusForbidden, "requested permissions are not authorized for this repository", err
+	}
+
+	// Check for a valid JWT in the cache
+	signedJwt, ok := s.jwtCache.Lookup(JWTCacheKey)
+	if !ok {
+		// Create a JWT for reading instance information from GitHub
+		signedJwt, err = s.generateGitHubAppJWT(tokenMap)
+		if err != nil {
+			return http.StatusInternalServerError,
+				"error authenticating with GitHub",
+				fmt.Errorf("error generating the JWT for GitHub app access: %w", err)
+		}
+		s.jwtCache.Set(JWTCacheKey, signedJwt)
 	}
 	accessToken, err := s.generateInstallationAccessToken(ctx, string(signedJwt), tokenMap, perm)
 	if err != nil {
@@ -210,7 +241,11 @@ func (s *TokenMintServer) generateGitHubAppJWT(oidcToken map[string]interface{})
 		Issuer(iss).
 		Build()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error building JWT: %w", err)
 	}
-	return jwt.Sign(token, jwt.WithKey(jwa.RS256, s.gitHubAppConfig.PrivateKey))
+	signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256, s.gitHubAppConfig.PrivateKey))
+	if err != nil {
+		return nil, fmt.Errorf("error signing JWT: %w", err)
+	}
+	return signed, nil
 }

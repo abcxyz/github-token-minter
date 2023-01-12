@@ -18,7 +18,9 @@ import (
 	"testing"
 
 	"github.com/abcxyz/pkg/testutil"
+	"github.com/google/cel-go/cel"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 var testJWT = map[string]interface{}{
@@ -49,6 +51,45 @@ var testJWT = map[string]interface{}{
 	"iss":                   "https://token.actions.githubusercontent.com",
 	"nbf":                   "1669925693",
 	"exp":                   "1669926893",
+}
+
+func TestCompileExpression(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		expr      string
+		expErr    bool
+		expErrMsg string
+	}{
+		{
+			name:   "success",
+			expr:   "assertion.workflow == 'Test' && assertion.actor == 'test'",
+			expErr: false,
+		},
+		{
+			name:      "failure to parse, no assertion",
+			expr:      "actor == 'test'",
+			expErr:    true,
+			expErrMsg: "failed to compile CEL expression: ERROR: <input>:1:1: undeclared reference to 'actor' (in container '')\n | actor == 'test'\n | ^",
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+
+		env, _ := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			pgm, err := compileExpression(env, tc.expr)
+			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
+				t.Fatalf(msg)
+			}
+			if !tc.expErr && pgm == nil {
+				t.Errorf("program nil without error")
+			}
+		})
+	}
 }
 
 func TestGetPermissionsForToken(t *testing.T) {
@@ -153,13 +194,73 @@ func TestGetPermissionsForToken(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			if err := compileExpressions(tc.pc); err != nil {
+				t.Fatalf("expressions failed to compile")
+			}
 			got, err := permissionsForToken(context.Background(), tc.pc, tc.token)
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
+				t.Error(msg)
 			}
 
-			if diff := cmp.Diff(tc.want, got); diff != "" {
+			if diff := cmp.Diff(tc.want, got, cmpopts.IgnoreFields(Config{}, "Program")); diff != "" {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestValidatePermissions(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		allowed   map[string]string
+		requested map[string]string
+		expErrMsg string
+	}{
+		{
+			name:      "success",
+			allowed:   map[string]string{"issues": "write"},
+			requested: map[string]string{"issues": "write"},
+		}, {
+			name:      "request lesser permission",
+			allowed:   map[string]string{"issues": "write"},
+			requested: map[string]string{"issues": "read"},
+		}, {
+			name:      "request permission not authorized",
+			allowed:   map[string]string{},
+			requested: map[string]string{"issues": "read"},
+			expErrMsg: `requested permission "issues" is not authorized`,
+		}, {
+			name:      "request multiple permissions success",
+			allowed:   map[string]string{"issues": "read", "pull_requests": "write"},
+			requested: map[string]string{"issues": "read", "pull_requests": "write"},
+		}, {
+			name:      "request multiple permissions with lesser",
+			allowed:   map[string]string{"issues": "read", "pull_requests": "write"},
+			requested: map[string]string{"issues": "read", "pull_requests": "read"},
+		}, {
+			name:      "request multiple permissions with failure",
+			allowed:   map[string]string{"issues": "read", "pull_requests": "write"},
+			requested: map[string]string{"issues": "read", "pull_requests": "write", "workflows": "read"},
+			expErrMsg: `requested permission "workflows" is not authorized`,
+		}, {
+			name:      "request greater permission",
+			allowed:   map[string]string{"issues": "read"},
+			requested: map[string]string{"issues": "write"},
+			expErrMsg: `requested permission level "write" for permission "issues" is not authorized`,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := validatePermissions(context.Background(), tc.allowed, tc.requested)
+			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
+				t.Error(msg)
 			}
 		})
 	}

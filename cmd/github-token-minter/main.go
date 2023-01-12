@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//	http://www.apache.org/licenses/LICENSE-2.0
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -28,10 +28,10 @@ import (
 	"time"
 
 	"github.com/abcxyz/github-token-minter/pkg/server"
+	"github.com/abcxyz/pkg/cfgloader"
 	"github.com/abcxyz/pkg/jwtutil"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/sethvargo/go-envconfig"
 )
 
 // main is the application entry point. It primarily wraps the realMain function with
@@ -69,8 +69,8 @@ type serviceConfig struct {
 //   - listening to incoming requests in a goroutine
 func realMain(ctx context.Context) error {
 	var cfg serviceConfig
-	if err := envconfig.Process(ctx, &cfg); err != nil {
-		return err
+	if err := cfgloader.Load(ctx, &cfg); err != nil {
+		return fmt.Errorf("failed to read configuration information: %w", err)
 	}
 	// Read the private key.
 	privateKey, err := readPrivateKey(cfg.PrivateKey)
@@ -141,7 +141,7 @@ func realMain(ctx context.Context) error {
 func readPrivateKey(privateKeyContent string) (*rsa.PrivateKey, error) {
 	parsedKey, _, err := jwk.DecodePEM([]byte(privateKeyContent))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode PEM formated key:  %w", err)
 	}
 	privateKey, ok := parsedKey.(*rsa.PrivateKey)
 	if !ok {

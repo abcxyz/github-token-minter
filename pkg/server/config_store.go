@@ -40,7 +40,7 @@ func loadStore(configLocation string) (map[string]*RepositoryConfig, error) {
 	// Loop over each top level directory / "organization" and read config files
 	for _, dir := range dirs {
 		if !dir.IsDir() {
-			continue
+			return nil, fmt.Errorf("found unexpected file at organization level: %s", dir)
 		}
 		dname := dir.Name()
 		files, err := os.ReadDir(filepath.Join(configLocation, dname))
@@ -51,7 +51,7 @@ func loadStore(configLocation string) (map[string]*RepositoryConfig, error) {
 		for _, f := range files {
 			fname := f.Name()
 			if f.IsDir() || !(strings.HasSuffix(fname, ".yaml") || strings.HasSuffix(fname, ".yml")) {
-				continue
+				return nil, fmt.Errorf("found unexpected file type in organization: %s/%s", dir, fname)
 			}
 			name := filepath.Join(configLocation, dname, fname)
 			// Parse the configuration file and build the in memory representation
@@ -59,6 +59,10 @@ func loadStore(configLocation string) (map[string]*RepositoryConfig, error) {
 			content, err := parseFile(name)
 			if err != nil {
 				return nil, fmt.Errorf("error parsing config file %s: %w", name, err)
+			}
+			// Precompile the CEL expressions
+			if err := compileExpressions(content); err != nil {
+				return nil, err
 			}
 			store[id] = content
 		}
