@@ -16,12 +16,14 @@ package server
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/cel-go/cel"
 )
 
 const assertionKey string = "assertion"
 
+//go:generate stringer -type=Level -trimprefix=Level
 type Level uint8
 
 const (
@@ -33,16 +35,16 @@ const (
 
 // mapping of level names to an integer value for comparative purposes.
 var levels = map[string]Level{
-	"read":  LevelRead,
-	"write": LevelWrite,
-	"admin": LevelAdmin,
+	strings.ToLower(LevelRead.String()):  LevelRead,
+	strings.ToLower(LevelWrite.String()): LevelWrite,
+	strings.ToLower(LevelAdmin.String()): LevelAdmin,
 }
 
 // mapping of level names to the Levels that are part of them.
 var levelInheritence = map[string]Level{
-	"read":  LevelRead,
-	"write": LevelWrite | LevelRead,
-	"admin": LevelAdmin | LevelWrite | LevelRead,
+	strings.ToLower(LevelRead.String()):  LevelRead,
+	strings.ToLower(LevelWrite.String()): LevelWrite | LevelRead,
+	strings.ToLower(LevelAdmin.String()): LevelAdmin | LevelWrite | LevelRead,
 }
 
 // compileExpressions precompiles all of the CEL expressions for the configuration.
@@ -103,7 +105,7 @@ func validatePermissions(ctx context.Context, allowed, requested map[string]stri
 			return fmt.Errorf("requested permission %q is not authorized", name)
 		}
 		// if the requested level is not part of the allowed level reject it
-		if levelInheritence[allowLevel]&levels[reqLevel] == 0 {
+		if levelInheritence[strings.ToLower(allowLevel)]&levels[strings.ToLower(reqLevel)] == 0 {
 			return fmt.Errorf("requested permission level %q for permission %q is not authorized", reqLevel, name)
 		}
 	}
