@@ -48,6 +48,7 @@ type TokenMintServer struct {
 	configStore     ConfigReader
 	verifier        *jwtutil.Verifier
 	jwtCache        *cache.Cache[[]byte]
+	messenger       *PubSubMessenger
 }
 
 // GitHubAppConfig contains all of the required configuration informaion for
@@ -64,28 +65,79 @@ type requestPayload struct {
 	Permissions  map[string]string `json:"permissions"`
 }
 
+type oidcClaims struct {
+	Audience          []string
+	Subject           string
+	Issuer            string
+	Ref               string
+	RefType           string
+	Sha               string
+	Repository        string
+	RepositoryID      string
+	RepositoryOwner   string
+	RepositoryOwnerID string
+	RunID             string
+	RunNumber         string
+	Actor             string
+	ActorID           string
+	EventName         string
+	Workflow          string
+	WorkflowRef       string
+	WorkflowSha       string
+	JobWorkflowRef    string
+	JobWorkflowSha    string
+}
+
+type auditEvent struct {
+	ID               string           `json:"id"`
+	Received         time.Time        `json:"received"`
+	HTTPStatusCode   int              `json:"http_status_code"`
+	HTTPErrorMessage string           `json:"http_error_msg"`
+	Token            oidcClaims       `json:"oidc_token_claims"`
+	Request          requestPayload   `json:"request"`
+	Config           RepositoryConfig `json:"repository_config"`
+}
+
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, ghAppConfig GitHubAppConfig, configStore ConfigReader, jwtVerifier *jwtutil.Verifier) (*TokenMintServer, error) {
+func NewRouter(ctx context.Context, ghAppConfig GitHubAppConfig, configStore ConfigReader, jwtVerifier *jwtutil.Verifier, messenger *PubSubMessenger) (*TokenMintServer, error) {
 	return &TokenMintServer{
 		gitHubAppConfig: ghAppConfig,
 		configStore:     configStore,
 		verifier:        jwtVerifier,
 		// Tokens expire in 10 minutes. Storing it for 9 minutes ensures that it is evicted from the cache
 		// before it expires.
-		jwtCache: cache.New[[]byte](9 * time.Minute),
+		jwtCache:  cache.New[[]byte](9 * time.Minute),
+		messenger: messenger,
 	}, nil
 }
 
 // handleToken creates a http.HandlerFunc implementation that processes token requests.
 func (s *TokenMintServer) handleToken() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger := logging.FromContext(r.Context())
+		ctx := r.Context()
+		logger := logging.FromContext(ctx)
 
-		respCode, respMsg, err := s.processRequest(r)
-		if err != nil {
-			logger.Errorw("error processing request", "code", respCode, "body", "erspMsg", "error", err)
+		auditEvent := auditEvent{
+			Received: time.Now().UTC(),
 		}
+
+		respCode, respMsg, err := s.processRequest(r, &auditEvent)
+		if err != nil {
+			auditEvent.HTTPErrorMessage = err.Error()
+			logger.Errorw("error processing request", "code", respCode, "body", respMsg, "error", err)
+		}
+		auditEvent.HTTPStatusCode = respCode
+
+		// Marshal the audit event and post it to pubsub.
+		eventBytes, err := json.Marshal(&auditEvent)
+		if err != nil {
+			logger.Errorw("failed to marshal event json", "error", err)
+		}
+		if err := s.messenger.Send(ctx, eventBytes); err != nil {
+			logger.Errorw("failed to send audit event to pubsub", "error", err)
+		}
+
 		w.WriteHeader(respCode)
 		fmt.Fprint(w, respMsg)
 	})
@@ -108,7 +160,7 @@ func (s *TokenMintServer) Routes() http.Handler {
 	return mux
 }
 
-func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
+func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent) (int, string, error) {
 	ctx := r.Context()
 
 	// Retrieve the OIDC token from a header.
@@ -132,24 +184,24 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	if err != nil {
 		return http.StatusUnauthorized, fmt.Sprintf("request not authorized: '%s' header is invalid", AuthHeader), err
 	}
+
+	claims, err := parsePrivateClaims(ctx, oidcToken)
+	if err != nil {
+		return http.StatusBadRequest, "request does not contain required information", err
+	}
+	// Get the repository's configuration data
+	config, err := s.configStore.Read(claims.Repository)
+	if err != nil {
+		return http.StatusInternalServerError,
+			fmt.Sprintf("requested repository is not properly configured '%s'", claims.Repository),
+			fmt.Errorf("error reading configuration for repository %s from cache: %w", claims.Repository, err)
+	}
+
 	// Extract all of the JWT attributes into a map
 	tokenMap, err := oidcToken.AsMap(ctx)
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Sprintf("request not authorized: '%s' jwt is invalid", AuthHeader), err
 	}
-	// Find the repository that is making the request
-	repo, ok := tokenMap["repository"].(string)
-	if !ok {
-		return http.StatusBadRequest, "request does not contain repository information", nil
-	}
-	// Get the repository's configuration data
-	config, err := s.configStore.Read(repo)
-	if err != nil {
-		return http.StatusInternalServerError,
-			fmt.Sprintf("requested repository is not properly configured '%s'", repo),
-			fmt.Errorf("error reading configuration for repository %s from cache: %w", repo, err)
-	}
-
 	// Get the permissions for the token
 	perm, err := permissionsForToken(ctx, config, tokenMap)
 	if err != nil {
@@ -165,7 +217,7 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	signedJwt, ok := s.jwtCache.Lookup(JWTCacheKey)
 	if !ok {
 		// Create a JWT for reading instance information from GitHub
-		signedJwt, err = s.generateGitHubAppJWT(tokenMap)
+		signedJwt, err = s.generateGitHubAppJWT()
 		if err != nil {
 			return http.StatusInternalServerError,
 				"error authenticating with GitHub",
@@ -230,7 +282,7 @@ func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, g
 
 // generateGitHubAppJWT creates a signed JWT to authenticate this service as a
 // GitHub app that can make API calls to GitHub.
-func (s *TokenMintServer) generateGitHubAppJWT(oidcToken map[string]interface{}) ([]byte, error) {
+func (s *TokenMintServer) generateGitHubAppJWT() ([]byte, error) {
 	iat := time.Now()
 	exp := iat.Add(10 * time.Minute)
 	iss := s.gitHubAppConfig.AppID
@@ -248,4 +300,61 @@ func (s *TokenMintServer) generateGitHubAppJWT(oidcToken map[string]interface{})
 		return nil, fmt.Errorf("error signing JWT: %w", err)
 	}
 	return signed, nil
+}
+
+// parsePrivateClaims extracts the private claims from the OIDC token into an internal
+// representation and validates that all required claims are present.
+func parsePrivateClaims(ctx context.Context, oidcToken jwt.Token) (*oidcClaims, error) {
+	var claims oidcClaims
+
+	claims.Audience = oidcToken.Audience()
+	claims.Subject = oidcToken.Subject()
+	claims.Issuer = oidcToken.Issuer()
+
+	r, err := requiredClaim(oidcToken, "repository")
+	if err != nil {
+		return nil, err
+	}
+	claims.Repository = r
+
+	claims.Ref = optionalClaim(oidcToken, "ref")
+	claims.RefType = optionalClaim(oidcToken, "ref_type")
+	claims.Sha = optionalClaim(oidcToken, "sha")
+	claims.RepositoryID = optionalClaim(oidcToken, "repository_id")
+	claims.RepositoryOwner = optionalClaim(oidcToken, "repository_owner")
+	claims.RepositoryOwnerID = optionalClaim(oidcToken, "repository_owner_id")
+	claims.RunID = optionalClaim(oidcToken, "run_id")
+	claims.RunNumber = optionalClaim(oidcToken, "run_number")
+	claims.Actor = optionalClaim(oidcToken, "actor")
+	claims.ActorID = optionalClaim(oidcToken, "actor_id")
+	claims.EventName = optionalClaim(oidcToken, "event_name")
+	claims.Workflow = optionalClaim(oidcToken, "workflow")
+	claims.WorkflowRef = optionalClaim(oidcToken, "workflow_ref")
+	claims.WorkflowSha = optionalClaim(oidcToken, "workflow_sha")
+	claims.JobWorkflowRef = optionalClaim(oidcToken, "job_workflow_ref")
+	claims.JobWorkflowSha = optionalClaim(oidcToken, "job_workflow_sha")
+
+	return &claims, nil
+}
+
+func requiredClaim(oidcToken jwt.Token, claim string) (string, error) {
+	return tokenClaimString(oidcToken, claim, true)
+}
+
+func optionalClaim(oidcToken jwt.Token, claim string) string {
+	// Intentionally dropping the error here since the existence of the claim does not matter
+	result, _ := tokenClaimString(oidcToken, claim, false)
+	return result
+}
+
+func tokenClaimString(oidcToken jwt.Token, claim string, required bool) (string, error) {
+	val, ok := oidcToken.Get(claim)
+	if required && !ok {
+		return "", fmt.Errorf("required claim %q not found", claim)
+	}
+	result, ok := val.(string)
+	if required && !ok {
+		return "", fmt.Errorf("required claim %q not the correct type want=string, got=%t", claim, val)
+	}
+	return result, nil
 }
