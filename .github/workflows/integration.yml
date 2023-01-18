@@ -65,7 +65,7 @@ jobs:
               core.setSecret(idToken)
               return idToken
             }catch(err){
-              core.setFailed(`Failed to get id token:`, ${err})
+              core.setFailed(`Failed to get id token:`, err)
             }
 
       - uses: "actions/github-script@v6"
