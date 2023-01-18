@@ -15,6 +15,9 @@
 name: 'Test Token Minting'
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - 'main'
 
 jobs:
   test:
