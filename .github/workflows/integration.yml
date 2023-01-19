@@ -33,12 +33,6 @@ jobs:
     steps:
       - uses: "actions/checkout@v3"
 
-      # - uses: "actions/setup-node@v3"
-      #   with:
-      #     node-version: "16"
-
-      # - run: npm install node-fetch@v2
-
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@c4799db9111fba4461e9f9da8732e5057b394f72' # ratchet:google-github-actions/auth@v0
@@ -60,52 +54,3 @@ jobs:
             -H "Authorization: Bearer ${{env.token}}" \
             -H "X-GitHub-OIDC-Token: ${JWT}" \
             https://github-token-minter-w2nrasvzeq-uc.a.run.app/token
-
-      # - id: "token"
-      #   uses: "actions/github-script@v6"
-      #   env:
-      #     auth_token: ${{ steps.auth.outputs.id_token }}
-      #   with:
-      #     result-encoding: "string"
-      #     retries: 3
-      #     script: |-
-      #       try{
-      #         const fetch = require('node-fetch');
-      #         const authToken = process.env['auth_token'];
-      #         const workflowIdToken = await core.getIDToken()
-
-      #         const tokenRequest = {
-      #           repos: ['github-token-minter'],
-      #           scopes: {
-      #             'issues': 'read',
-      #           }
-      #         }
-
-      #         const tokenResponse = await fetch("https://github-token-minter-w2nrasvzeq-uc.a.run.app/token", {
-      #           method: 'POST',
-      #           headers: {
-      #             'Accept': `text/plain`,
-      #             'Authorization': `Bearer ${authToken}`,
-      #             'X-GitHub-OIDC-Token: ${workflowIdToken}'
-      #             'Content-Type': `application/json`
-      #           },
-      #           body: JSON.stringify(tokenRequest)
-      #         })
-
-      #         const idToken = await tokenResponse.text()
-      #         core.setSecret(idToken)
-      #         return idToken
-      #       }catch(err){
-      #         core.setFailed(`Failed to get id token: ${err}`)
-      #       }
-
-      # - uses: "actions/github-script@v6"
-      #   with:
-      #     result-encoding: "string"
-      #     retries: 3
-      #     github-token: "${{ steps.token.outputs.result }}"
-      #     script: |-
-      #       await github.rest.issues.listCommentsForRepo({
-      #         org: '${{ github.repository_owner }}',
-      #         repo: 'github-token-minter',
-      #       });

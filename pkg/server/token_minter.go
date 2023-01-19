@@ -272,7 +272,7 @@ func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, g
 		return "", fmt.Errorf("error reading http response for GitHub installation access token %w", err)
 	}
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusCreated {
 		logger.Errorf("failed to retrieve token from GitHub - Status: %s - Body: %s", res.Status, string(b))
 		return "", fmt.Errorf("error generating access token")
 	}
