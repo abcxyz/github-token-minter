@@ -55,6 +55,8 @@ jobs:
         run: |
           OIDC_TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=github-token-minter" -H "User-Agent: actions/oidc-client" -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN")
 
+          echo "OIDC_TOKEN: [${OIDC_TOKEN}]"
+
           curl -X POST -d'{"repos":["github-token-minter"],"scopes":{"issues":"read"}}' \
             -H "Authorization: Bearer ${{env.token}}" \
             -H "X-GitHub-OIDC-Token: ${OIDC_TOKEN}" \
