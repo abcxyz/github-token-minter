@@ -89,13 +89,13 @@ type oidcClaims struct {
 }
 
 type auditEvent struct {
-	ID               string           `json:"id"`
-	Received         time.Time        `json:"received"`
-	HTTPStatusCode   int              `json:"http_status_code"`
-	HTTPErrorMessage string           `json:"http_error_msg"`
-	Token            oidcClaims       `json:"oidc_token_claims"`
-	Request          requestPayload   `json:"request"`
-	Config           RepositoryConfig `json:"repository_config"`
+	ID               string            `json:"id"`
+	Received         time.Time         `json:"received"`
+	HTTPStatusCode   int               `json:"http_status_code"`
+	HTTPErrorMessage string            `json:"http_error_msg"`
+	Token            *oidcClaims       `json:"oidc_token_claims"`
+	Request          *requestPayload   `json:"request"`
+	Config           *RepositoryConfig `json:"repository_config"`
 }
 
 // NewRouter creates a new HTTP server implementation that will exchange
@@ -178,6 +178,7 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 	if err := dec.Decode(&request); err != nil {
 		return http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err)
 	}
+	auditEvent.Request = &request
 
 	// Parse the token data into a JWT
 	oidcToken, err := s.verifier.ValidateJWT(oidcHeader)
@@ -189,6 +190,7 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 	if err != nil {
 		return http.StatusBadRequest, "request does not contain required information", err
 	}
+	auditEvent.Token = claims
 	// Get the repository's configuration data
 	config, err := s.configStore.Read(claims.Repository)
 	if err != nil {
@@ -196,6 +198,7 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 			fmt.Sprintf("requested repository is not properly configured '%s'", claims.Repository),
 			fmt.Errorf("error reading configuration for repository %s from cache: %w", claims.Repository, err)
 	}
+	auditEvent.Config = config
 
 	// Extract all of the JWT attributes into a map
 	tokenMap, err := oidcToken.AsMap(ctx)
