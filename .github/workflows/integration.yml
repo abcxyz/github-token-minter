@@ -43,14 +43,27 @@ jobs:
           id_token_audience: 'https://github-token-minter-w2nrasvzeq-uc.a.run.app'
           id_token_include_email: true
 
-      - id: "another-way"
+      - id: "mint-token"
         env:
           token: ${{ steps.auth.outputs.id_token }}
         run: |
           OIDC_TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=github-token-minter" -H "User-Agent: actions/oidc-client" -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN")
           JWT=$(echo $OIDC_TOKEN | jq -j '.value')
 
-          curl -X POST -d'{"repos":["github-token-minter"],"scopes":{"issues":"read"}}' \
+          APP_TOKEN=$(curl -X POST -d'{"repos":["github-token-minter"],"scopes":{"issues":"read"}}' \
             -H "Authorization: Bearer ${{env.token}}" \
             -H "X-GitHub-OIDC-Token: ${JWT}" \
-            https://github-token-minter-w2nrasvzeq-uc.a.run.app/token
+            https://github-token-minter-w2nrasvzeq-uc.a.run.app/token)
+
+          echo "token=${APP_TOKEN}" >> $GITHUB_OUTPUT
+
+      - id: 'use-token'
+        env:
+          token: ${{ steps.mint-token.outputs}}
+        run: |
+          curl \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{env.token}}"\
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/OWNER/REPO/issues/events
+
