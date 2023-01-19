@@ -59,7 +59,7 @@ jobs:
 
       - id: 'use-token'
         env:
-          token: ${{ steps.mint-token.outputs}}
+          token: ${{ steps.mint-token.outputs.token }}
         run: |
           curl \
             -H "Accept: application/vnd.github+json" \
