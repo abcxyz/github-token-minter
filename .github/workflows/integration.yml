@@ -47,6 +47,12 @@ jobs:
           service_account: '${{ env.wif_service_account }}'
           token_format: 'access_token'
 
+      - id: "another-way"
+        env:
+          token: ${{ steps.auth.outputs.access_token }}
+        run: |
+          curl -X -d '{"repos":["github-token-minter"],"scopes":{"issues":"read"}}' https://github-token-minter-w2nrasvzeq-uc.a.run.app/token
+
       - id: "token"
         uses: "actions/github-script@v6"
         with:
@@ -64,7 +70,7 @@ jobs:
                 }
               }
 
-              const tokenResponse = await fetch("https://github-token-minter-w2nrasvzeq-uc.a.run.app", {
+              const tokenResponse = await fetch("https://github-token-minter-w2nrasvzeq-uc.a.run.app/token", {
                 method: 'POST',
                 headers: {
                   'Accept': `text/plain`,
