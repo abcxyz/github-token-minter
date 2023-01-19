@@ -56,7 +56,7 @@ jobs:
                 method: 'POST',
                 headers: {
                   'Accept': `text/plain`,
-                  'Authorization': `Bearer ${actionIdToken}`,
+                  'Authorization': `Bearer ${workflowIdToken}`,
                   'Content-Type': `application/json`
                 },
                 body: JSON.stringify(tokenRequest)
