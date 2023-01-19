@@ -55,7 +55,7 @@ jobs:
             -H "X-GitHub-OIDC-Token: ${JWT}" \
             https://github-token-minter-w2nrasvzeq-uc.a.run.app/token)
 
-          echo "token=${APP_TOKEN}" >> $GITHUB_OUTPUT
+          echo "token=$(echo ${APP_TOKEN} | jq -j '.token')" >> $GITHUB_OUTPUT
 
       - id: 'use-token'
         env:
