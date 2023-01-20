@@ -50,7 +50,7 @@ jobs:
           OIDC_TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=github-token-minter" -H "User-Agent: actions/oidc-client" -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN")
           JWT=$(echo $OIDC_TOKEN | jq -j '.value')
 
-          APP_TOKEN=$(curl -X POST -d'{"repositories":["github-token-minter"],"permissions":[{"issues":"read"}]}' \
+          APP_TOKEN=$(curl -X POST -d'{"repositories":["github-token-minter"],"permissions":{"issues":"read"}}' \
             -H "Authorization: Bearer ${{env.token}}" \
             -H "X-GitHub-OIDC-Token: ${JWT}" \
             https://github-token-minter-w2nrasvzeq-uc.a.run.app/token)
