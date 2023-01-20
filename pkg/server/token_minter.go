@@ -89,7 +89,6 @@ type oidcClaims struct {
 }
 
 type auditEvent struct {
-	ID               string            `json:"id"`
 	Received         time.Time         `json:"received"`
 	HTTPStatusCode   int               `json:"http_status_code"`
 	HTTPErrorMessage string            `json:"http_error_msg"`
@@ -228,7 +227,7 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 		}
 		s.jwtCache.Set(JWTCacheKey, signedJwt)
 	}
-	accessToken, err := s.generateInstallationAccessToken(ctx, string(signedJwt), tokenMap, perm)
+	accessToken, err := s.generateInstallationAccessToken(ctx, string(signedJwt), &request)
 	if err != nil {
 		return http.StatusInternalServerError, "error generating GitHub access token", err
 	}
@@ -237,19 +236,10 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 
 // generateInstallationAccessToken makes a call to the GitHub API to generate a new
 // application level access token.
-func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, tokenMap map[string]interface{}, perm *Config) (string, error) {
+func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, request *requestPayload) (string, error) {
 	logger := logging.FromContext(ctx)
 
 	requestURL := fmt.Sprintf(s.gitHubAppConfig.AccessTokenURL, s.gitHubAppConfig.InstallationID)
-	repository, ok := tokenMap["repository"].(string)
-	if !ok {
-		return "", fmt.Errorf("error reading repository information")
-	}
-	permissions := perm.Permissions
-	request := map[string]interface{}{
-		"repository":  repository,
-		"permissions": permissions,
-	}
 	requestJSON, err := json.Marshal(request)
 	if err != nil {
 		return "", fmt.Errorf("error marshalling request data: %w", err)
@@ -353,11 +343,11 @@ func optionalClaim(oidcToken jwt.Token, claim string) string {
 func tokenClaimString(oidcToken jwt.Token, claim string, required bool) (string, error) {
 	val, ok := oidcToken.Get(claim)
 	if required && !ok {
-		return "", fmt.Errorf("required claim %q not found", claim)
+		return "", fmt.Errorf("claim %q not found", claim)
 	}
 	result, ok := val.(string)
 	if required && !ok {
-		return "", fmt.Errorf("required claim %q not the correct type want=string, got=%t", claim, val)
+		return "", fmt.Errorf("claim %q not the correct type want=string, got=%t", claim, val)
 	}
 	return result, nil
 }
