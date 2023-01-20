@@ -244,6 +244,8 @@ func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, g
 	if err != nil {
 		return "", fmt.Errorf("error marshalling request data: %w", err)
 	}
+
+	fmt.Printf("TokenRequest: %v", request)
 	requestReader := bytes.NewReader(requestJSON)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, requestReader)
 	if err != nil {
