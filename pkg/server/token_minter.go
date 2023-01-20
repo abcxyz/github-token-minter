@@ -61,7 +61,7 @@ type GitHubAppConfig struct {
 }
 
 type requestPayload struct {
-	Repositories map[string]string `json:"repositories"`
+	Repositories []string          `json:"repositories"`
 	Permissions  map[string]string `json:"permissions"`
 }
 
@@ -245,7 +245,6 @@ func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, g
 		return "", fmt.Errorf("error marshalling request data: %w", err)
 	}
 
-	fmt.Printf("TokenRequest: %v", request)
 	requestReader := bytes.NewReader(requestJSON)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, requestReader)
 	if err != nil {
