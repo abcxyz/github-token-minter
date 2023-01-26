@@ -25,10 +25,9 @@ COPY --from=builder /tmp/etc-passwd /etc/passwd
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /go/bin/server /server
 COPY --from=builder /go/src/app/configs /configs
-
+COPY --from=builder /go/src/app/lumberjack_config.yml /etc/lumberjack/config.yaml
 
 USER nobody
-
 
 ENV CONFIGS_DIR=/configs
 

@@ -1,0 +1,5 @@
+backend:
+  cloudlogging:
+    default_project: true
+labels:
+  service: 'github-token-minter' 

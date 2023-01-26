@@ -26,14 +26,20 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/abcxyz/github-token-minter/pkg/version"
+	api "github.com/abcxyz/lumberjack/clients/go/apis/v1alpha1"
+	lj "github.com/abcxyz/lumberjack/clients/go/pkg/audit"
 	"github.com/abcxyz/pkg/cache"
 	"github.com/abcxyz/pkg/jwtutil"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+	"google.golang.org/genproto/googleapis/cloud/audit"
+	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
@@ -48,7 +54,7 @@ type TokenMintServer struct {
 	configStore     ConfigReader
 	verifier        *jwtutil.Verifier
 	jwtCache        *cache.Cache[[]byte]
-	messenger       *PubSubMessenger
+	lumberjack      *lj.Client
 }
 
 // GitHubAppConfig contains all of the required configuration informaion for
@@ -99,15 +105,15 @@ type auditEvent struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, ghAppConfig GitHubAppConfig, configStore ConfigReader, jwtVerifier *jwtutil.Verifier, messenger *PubSubMessenger) (*TokenMintServer, error) {
+func NewRouter(ctx context.Context, ghAppConfig GitHubAppConfig, configStore ConfigReader, jwtVerifier *jwtutil.Verifier, lumberjack *lj.Client) (*TokenMintServer, error) {
 	return &TokenMintServer{
 		gitHubAppConfig: ghAppConfig,
 		configStore:     configStore,
 		verifier:        jwtVerifier,
 		// Tokens expire in 10 minutes. Storing it for 9 minutes ensures that it is evicted from the cache
 		// before it expires.
-		jwtCache:  cache.New[[]byte](9 * time.Minute),
-		messenger: messenger,
+		jwtCache:   cache.New[[]byte](9 * time.Minute),
+		lumberjack: lumberjack,
 	}, nil
 }
 
@@ -128,18 +134,55 @@ func (s *TokenMintServer) handleToken() http.Handler {
 		}
 		auditEvent.HTTPStatusCode = respCode
 
-		// Marshal the audit event and post it to pubsub.
-		eventBytes, err := json.Marshal(&auditEvent)
-		if err != nil {
-			logger.Errorw("failed to marshal event json", "error", err)
-		}
-		if err := s.messenger.Send(ctx, eventBytes); err != nil {
-			logger.Errorw("failed to send audit event to pubsub", "error", err)
+		// Write the audit information
+		if err = s.writeAuditLog(ctx, &auditEvent); err != nil {
+			logger.Errorw("failed to send audit event to lumberjack", "error", err)
 		}
 
 		w.WriteHeader(respCode)
 		fmt.Fprint(w, respMsg)
 	})
+}
+
+// writeAuditLog takes all of the data about the request and its success or failure and
+// writes it to cloud logging via Lumberjack.
+func (s *TokenMintServer) writeAuditLog(ctx context.Context, auditEvent *auditEvent) error {
+	token, err := json.Marshal(auditEvent.Token)
+	if err != nil {
+		return fmt.Errorf("error marshaling token: %w", err)
+	}
+	req, err := json.Marshal(auditEvent.Request)
+	if err != nil {
+		return fmt.Errorf("error marshaling request: %w", err)
+	}
+	config, err := json.Marshal(auditEvent.Config)
+	if err != nil {
+		return fmt.Errorf("error marshaling config: %w", err)
+	}
+
+	logRequest := &api.AuditLogRequest{
+		Type: api.AuditLogRequest_ADMIN_ACTIVITY,
+		Payload: &audit.AuditLog{
+			ServiceName:  "abcxyz.dev/github-token-minter",
+			MethodName:   "abcxyz.dev/github-token-minter/HandleTokenRequest",
+			ResourceName: strings.Join(auditEvent.Request.Repositories, ","),
+			Status: &status.Status{
+				Code:    int32(auditEvent.HTTPStatusCode),
+				Message: auditEvent.HTTPErrorMessage,
+			},
+			Request: &structpb.Struct{Fields: map[string]*structpb.Value{
+				"token":   structpb.NewStringValue(string(token)),
+				"request": structpb.NewStringValue(string(req)),
+				"config":  structpb.NewStringValue(string(config)),
+			}},
+			AuthenticationInfo: &audit.AuthenticationInfo{},
+		},
+	}
+
+	if err := s.lumberjack.Log(ctx, logRequest); err != nil {
+		return fmt.Errorf("error writing log with lumberjack: %w", err)
+	}
+	return nil
 }
 
 // handleVersion is a simple http.HandlerFunc that responds
