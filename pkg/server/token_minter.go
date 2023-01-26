@@ -175,7 +175,9 @@ func (s *TokenMintServer) writeAuditLog(ctx context.Context, auditEvent *auditEv
 				"request": structpb.NewStringValue(string(req)),
 				"config":  structpb.NewStringValue(string(config)),
 			}},
-			AuthenticationInfo: &audit.AuthenticationInfo{},
+			AuthenticationInfo: &audit.AuthenticationInfo{
+				PrincipalEmail: auditEvent.Token.WorkflowRef,
+			},
 		},
 	}
 

@@ -18,6 +18,7 @@ RUN strip -s /go/bin/server
 
 RUN echo "nobody:*:65534:65534:nobody:/:/bin/false" > /tmp/etc-passwd
 RUN chmod -R 555 /go/src/app/configs
+RUN chmod -R 555 /go/src/app/lumberjack_config.yml
 
 # Use a scratch image to host our binary.
 FROM scratch
