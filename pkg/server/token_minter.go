@@ -72,26 +72,26 @@ type requestPayload struct {
 }
 
 type oidcClaims struct {
-	Audience          []string
-	Subject           string
-	Issuer            string
-	Ref               string
-	RefType           string
-	Sha               string
-	Repository        string
-	RepositoryID      string
-	RepositoryOwner   string
-	RepositoryOwnerID string
-	RunID             string
-	RunNumber         string
-	Actor             string
-	ActorID           string
-	EventName         string
-	Workflow          string
-	WorkflowRef       string
-	WorkflowSha       string
-	JobWorkflowRef    string
-	JobWorkflowSha    string
+	Audience          []string `json:"audience"`
+	Subject           string   `json:"subject"`
+	Issuer            string   `json:"issuer"`
+	Ref               string   `json:"ref"`
+	RefType           string   `json:"ref_type"`
+	Sha               string   `json:"sha"`
+	Repository        string   `json:"repository"`
+	RepositoryID      string   `json:"repository_id"`
+	RepositoryOwner   string   `json:"repository_owner"`
+	RepositoryOwnerID string   `json:"repository_owner_id"`
+	RunID             string   `json:"run_id"`
+	RunNumber         string   `json:"run_number"`
+	Actor             string   `json:"actor"`
+	ActorID           string   `json:"actor_id"`
+	EventName         string   `json:"event_name"`
+	Workflow          string   `json:"workflow"`
+	WorkflowRef       string   `json:"workflow_ref"`
+	WorkflowSha       string   `json:"workflow_sha"`
+	JobWorkflowRef    string   `json:"job_workflow_ref"`
+	JobWorkflowSha    string   `json:"job_workflow_sha"`
 }
 
 type auditEvent struct {
@@ -135,7 +135,7 @@ func (s *TokenMintServer) handleToken() http.Handler {
 		auditEvent.HTTPStatusCode = respCode
 
 		// Write the audit information
-		if err = s.writeAuditLog(ctx, &auditEvent); err != nil {
+		if err := s.writeAuditLog(ctx, &auditEvent); err != nil {
 			logger.Errorw("failed to send audit event to lumberjack", "error", err)
 			// Fail the request if it could not be audited
 			respCode = http.StatusInternalServerError
@@ -179,6 +179,7 @@ func (s *TokenMintServer) writeAuditLog(ctx context.Context, auditEvent *auditEv
 				"config":  structpb.NewStringValue(string(config)),
 			}},
 			AuthenticationInfo: &audit.AuthenticationInfo{
+				// WorkflowRef: abcxyz/github-token-minter/.github/workflows/integration.yml@refs/pull/8/merge
 				PrincipalEmail: auditEvent.Token.WorkflowRef,
 			},
 		},
