@@ -3,13 +3,11 @@ module github.com/abcxyz/github-token-minter
 go 1.19
 
 require (
-	cloud.google.com/go/pubsub v1.28.0
 	github.com/abcxyz/lumberjack/clients/go v0.0.0-20220923211834-05145c811069
 	github.com/abcxyz/pkg v0.0.0-20221103175748-c03ef029ec29
 	github.com/google/cel-go v0.12.5
 	github.com/google/go-cmp v0.5.9
 	github.com/lestrrat-go/jwx/v2 v2.0.8
-	google.golang.org/api v0.107.0
 	google.golang.org/genproto v0.0.0-20221227171554-f9683d7f8bef
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/yaml.v3 v3.0.1
@@ -54,6 +52,7 @@ require (
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8 // indirect
 	golang.org/x/text v0.5.0 // indirect
+	google.golang.org/api v0.107.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/grpc v1.51.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
