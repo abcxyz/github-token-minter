@@ -31,7 +31,7 @@ import (
 
 	"github.com/abcxyz/github-token-minter/pkg/version"
 	api "github.com/abcxyz/lumberjack/clients/go/apis/v1alpha1"
-	lj "github.com/abcxyz/lumberjack/clients/go/pkg/audit"
+	lumberjack "github.com/abcxyz/lumberjack/clients/go/pkg/audit"
 	"github.com/abcxyz/pkg/cache"
 	"github.com/abcxyz/pkg/jwtutil"
 	"github.com/abcxyz/pkg/logging"
@@ -50,11 +50,11 @@ const (
 // TokenMintServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMintServer struct {
-	gitHubAppConfig GitHubAppConfig
-	configStore     ConfigReader
-	verifier        *jwtutil.Verifier
-	jwtCache        *cache.Cache[[]byte]
-	lumberjack      *lj.Client
+	gitHubAppConfig  GitHubAppConfig
+	configStore      ConfigReader
+	verifier         *jwtutil.Verifier
+	jwtCache         *cache.Cache[[]byte]
+	lumberjackClient *lumberjack.Client
 }
 
 // GitHubAppConfig contains all of the required configuration informaion for
@@ -105,15 +105,15 @@ type auditEvent struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, ghAppConfig GitHubAppConfig, configStore ConfigReader, jwtVerifier *jwtutil.Verifier, lumberjack *lj.Client) (*TokenMintServer, error) {
+func NewRouter(ctx context.Context, ghAppConfig GitHubAppConfig, configStore ConfigReader, jwtVerifier *jwtutil.Verifier, lumberjackClient *lumberjack.Client) (*TokenMintServer, error) {
 	return &TokenMintServer{
 		gitHubAppConfig: ghAppConfig,
 		configStore:     configStore,
 		verifier:        jwtVerifier,
 		// Tokens expire in 10 minutes. Storing it for 9 minutes ensures that it is evicted from the cache
 		// before it expires.
-		jwtCache:   cache.New[[]byte](9 * time.Minute),
-		lumberjack: lumberjack,
+		jwtCache:         cache.New[[]byte](9 * time.Minute),
+		lumberjackClient: lumberjackClient,
 	}, nil
 }
 
@@ -181,7 +181,7 @@ func (s *TokenMintServer) writeAuditLog(ctx context.Context, auditEvent *auditEv
 		},
 	}
 
-	if err := s.lumberjack.Log(ctx, logRequest); err != nil {
+	if err := s.lumberjackClient.Log(ctx, logRequest); err != nil {
 		return fmt.Errorf("error writing log with lumberjack: %w", err)
 	}
 	return nil
