@@ -137,6 +137,9 @@ func (s *TokenMintServer) handleToken() http.Handler {
 		// Write the audit information
 		if err = s.writeAuditLog(ctx, &auditEvent); err != nil {
 			logger.Errorw("failed to send audit event to lumberjack", "error", err)
+			// Fail the request if it could not be audited
+			respCode = http.StatusInternalServerError
+			respMsg = "failed to persist audit information"
 		}
 
 		w.WriteHeader(respCode)
