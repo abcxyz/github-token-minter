@@ -28,6 +28,8 @@ import (
 	"time"
 
 	"github.com/abcxyz/github-token-minter/pkg/server"
+	"github.com/abcxyz/lumberjack/clients/go/pkg/audit"
+	"github.com/abcxyz/lumberjack/clients/go/pkg/auditopt"
 	"github.com/abcxyz/pkg/cfgloader"
 	"github.com/abcxyz/pkg/jwtutil"
 	"github.com/abcxyz/pkg/logging"
@@ -61,6 +63,7 @@ type serviceConfig struct {
 	// to insert the installation id.
 	AccessTokenURLPattern string `env:"GITHUB_ACCESS_TOKEN_URL_PATTERN,default=https://api.github.com/app/installations/%s/access_tokens"`
 	ConfigDir             string `env:"CONFIGS_DIR,default=configs"`
+	LumberjackConfigFile  string `env:"LUMBERJACK_CONFIG_FILE,default=/etc/lumberjack/config.yaml"`
 }
 
 // realMain creates an HTTP server for use with minting GitHub app tokens
@@ -99,8 +102,16 @@ func realMain(ctx context.Context) error {
 		return fmt.Errorf("failed to build jwt verifier: %w", err)
 	}
 
+	opts := auditopt.FromConfigFile(ctx, cfg.LumberjackConfigFile)
+
+	// Create the lumberjack client
+	lumberjack, err := audit.NewClient(opts)
+	if err != nil {
+		return fmt.Errorf("failed to create Lumberjack client: %w", err)
+	}
+
 	// Create the Router for the token minting server.
-	tokenServer, err := server.NewRouter(ctx, appConfig, store, jwtVerifier)
+	tokenServer, err := server.NewRouter(ctx, appConfig, store, jwtVerifier, lumberjack)
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
@@ -131,6 +142,11 @@ func realMain(ctx context.Context) error {
 	// Gracefully shut down the server.
 	shutdownCtx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
+
+	if err := lumberjack.Stop(); err != nil {
+		return fmt.Errorf("failed to cleanup lumberjack logging: %w", err)
+	}
+
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}

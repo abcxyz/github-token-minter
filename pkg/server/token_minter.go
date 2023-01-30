@@ -26,14 +26,20 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/abcxyz/github-token-minter/pkg/version"
+	api "github.com/abcxyz/lumberjack/clients/go/apis/v1alpha1"
+	lumberjack "github.com/abcxyz/lumberjack/clients/go/pkg/audit"
 	"github.com/abcxyz/pkg/cache"
 	"github.com/abcxyz/pkg/jwtutil"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+	"google.golang.org/genproto/googleapis/cloud/audit"
+	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
@@ -44,10 +50,11 @@ const (
 // TokenMintServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMintServer struct {
-	gitHubAppConfig GitHubAppConfig
-	configStore     ConfigReader
-	verifier        *jwtutil.Verifier
-	jwtCache        *cache.Cache[[]byte]
+	gitHubAppConfig  GitHubAppConfig
+	configStore      ConfigReader
+	verifier         *jwtutil.Verifier
+	jwtCache         *cache.Cache[[]byte]
+	lumberjackClient *lumberjack.Client
 }
 
 // GitHubAppConfig contains all of the required configuration informaion for
@@ -60,35 +67,128 @@ type GitHubAppConfig struct {
 }
 
 type requestPayload struct {
-	Repositories map[string]string `json:"repositories"`
+	Repositories []string          `json:"repositories"`
 	Permissions  map[string]string `json:"permissions"`
+}
+
+type oidcClaims struct {
+	Audience          []string `json:"audience"`
+	Subject           string   `json:"subject"`
+	Issuer            string   `json:"issuer"`
+	Ref               string   `json:"ref"`
+	RefType           string   `json:"ref_type"`
+	Sha               string   `json:"sha"`
+	Repository        string   `json:"repository"`
+	RepositoryID      string   `json:"repository_id"`
+	RepositoryOwner   string   `json:"repository_owner"`
+	RepositoryOwnerID string   `json:"repository_owner_id"`
+	RunID             string   `json:"run_id"`
+	RunNumber         string   `json:"run_number"`
+	Actor             string   `json:"actor"`
+	ActorID           string   `json:"actor_id"`
+	EventName         string   `json:"event_name"`
+	Workflow          string   `json:"workflow"`
+	WorkflowRef       string   `json:"workflow_ref"`
+	WorkflowSha       string   `json:"workflow_sha"`
+	JobWorkflowRef    string   `json:"job_workflow_ref"`
+	JobWorkflowSha    string   `json:"job_workflow_sha"`
+}
+
+type auditEvent struct {
+	Received         time.Time         `json:"received"`
+	HTTPStatusCode   int               `json:"http_status_code"`
+	HTTPErrorMessage string            `json:"http_error_msg"`
+	Token            *oidcClaims       `json:"oidc_token_claims"`
+	Request          *requestPayload   `json:"request"`
+	Config           *RepositoryConfig `json:"repository_config"`
 }
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, ghAppConfig GitHubAppConfig, configStore ConfigReader, jwtVerifier *jwtutil.Verifier) (*TokenMintServer, error) {
+func NewRouter(ctx context.Context, ghAppConfig GitHubAppConfig, configStore ConfigReader, jwtVerifier *jwtutil.Verifier, lumberjackClient *lumberjack.Client) (*TokenMintServer, error) {
 	return &TokenMintServer{
 		gitHubAppConfig: ghAppConfig,
 		configStore:     configStore,
 		verifier:        jwtVerifier,
 		// Tokens expire in 10 minutes. Storing it for 9 minutes ensures that it is evicted from the cache
 		// before it expires.
-		jwtCache: cache.New[[]byte](9 * time.Minute),
+		jwtCache:         cache.New[[]byte](9 * time.Minute),
+		lumberjackClient: lumberjackClient,
 	}, nil
 }
 
 // handleToken creates a http.HandlerFunc implementation that processes token requests.
 func (s *TokenMintServer) handleToken() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger := logging.FromContext(r.Context())
+		ctx := r.Context()
+		logger := logging.FromContext(ctx)
 
-		respCode, respMsg, err := s.processRequest(r)
-		if err != nil {
-			logger.Errorw("error processing request", "code", respCode, "body", "erspMsg", "error", err)
+		auditEvent := auditEvent{
+			Received: time.Now().UTC(),
 		}
+
+		respCode, respMsg, err := s.processRequest(r, &auditEvent)
+		if err != nil {
+			auditEvent.HTTPErrorMessage = err.Error()
+			logger.Errorw("error processing request", "code", respCode, "body", respMsg, "error", err)
+		}
+		auditEvent.HTTPStatusCode = respCode
+
+		// Write the audit information
+		if err := s.writeAuditLog(ctx, &auditEvent); err != nil {
+			logger.Errorw("failed to send audit event to lumberjack", "error", err)
+			// Fail the request if it could not be audited
+			respCode = http.StatusInternalServerError
+			respMsg = "failed to persist audit information"
+		}
+
 		w.WriteHeader(respCode)
 		fmt.Fprint(w, respMsg)
 	})
+}
+
+// writeAuditLog takes all of the data about the request and its success or failure and
+// writes it to cloud logging via Lumberjack.
+func (s *TokenMintServer) writeAuditLog(ctx context.Context, auditEvent *auditEvent) error {
+	token, err := json.Marshal(auditEvent.Token)
+	if err != nil {
+		return fmt.Errorf("error marshaling token: %w", err)
+	}
+	req, err := json.Marshal(auditEvent.Request)
+	if err != nil {
+		return fmt.Errorf("error marshaling request: %w", err)
+	}
+	config, err := json.Marshal(auditEvent.Config)
+	if err != nil {
+		return fmt.Errorf("error marshaling config: %w", err)
+	}
+
+	logRequest := &api.AuditLogRequest{
+		Type: api.AuditLogRequest_ADMIN_ACTIVITY,
+		Payload: &audit.AuditLog{
+			ServiceName:  "abcxyz.dev/github-token-minter",
+			MethodName:   "abcxyz.dev/github-token-minter/HandleTokenRequest",
+			ResourceName: strings.Join(auditEvent.Request.Repositories, ","),
+			Status: &status.Status{
+				Code:    int32(auditEvent.HTTPStatusCode),
+				Message: auditEvent.HTTPErrorMessage,
+			},
+			Request: &structpb.Struct{Fields: map[string]*structpb.Value{
+				"token":   structpb.NewStringValue(string(token)),
+				"request": structpb.NewStringValue(string(req)),
+				"config":  structpb.NewStringValue(string(config)),
+			}},
+			AuthenticationInfo: &audit.AuthenticationInfo{
+				// WorkflowRef: abcxyz/github-token-minter/.github/workflows/integration.yml@refs/pull/8/merge
+				PrincipalEmail: auditEvent.Token.WorkflowRef,
+			},
+		},
+	}
+
+	if err := s.lumberjackClient.Log(ctx, logRequest); err != nil {
+		return fmt.Errorf("error writing log with lumberjack: %w", err)
+	}
+	return nil
 }
 
 // handleVersion is a simple http.HandlerFunc that responds
@@ -108,7 +208,7 @@ func (s *TokenMintServer) Routes() http.Handler {
 	return mux
 }
 
-func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
+func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent) (int, string, error) {
 	ctx := r.Context()
 
 	// Retrieve the OIDC token from a header.
@@ -126,30 +226,33 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	if err := dec.Decode(&request); err != nil {
 		return http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err)
 	}
+	auditEvent.Request = &request
 
 	// Parse the token data into a JWT
 	oidcToken, err := s.verifier.ValidateJWT(oidcHeader)
 	if err != nil {
 		return http.StatusUnauthorized, fmt.Sprintf("request not authorized: '%s' header is invalid", AuthHeader), err
 	}
+
+	claims, err := parsePrivateClaims(ctx, oidcToken)
+	if err != nil {
+		return http.StatusBadRequest, "request does not contain required information", err
+	}
+	auditEvent.Token = claims
+	// Get the repository's configuration data
+	config, err := s.configStore.Read(claims.Repository)
+	if err != nil {
+		return http.StatusInternalServerError,
+			fmt.Sprintf("requested repository is not properly configured '%s'", claims.Repository),
+			fmt.Errorf("error reading configuration for repository %s from cache: %w", claims.Repository, err)
+	}
+	auditEvent.Config = config
+
 	// Extract all of the JWT attributes into a map
 	tokenMap, err := oidcToken.AsMap(ctx)
 	if err != nil {
 		return http.StatusInternalServerError, fmt.Sprintf("request not authorized: '%s' jwt is invalid", AuthHeader), err
 	}
-	// Find the repository that is making the request
-	repo, ok := tokenMap["repository"].(string)
-	if !ok {
-		return http.StatusBadRequest, "request does not contain repository information", nil
-	}
-	// Get the repository's configuration data
-	config, err := s.configStore.Read(repo)
-	if err != nil {
-		return http.StatusInternalServerError,
-			fmt.Sprintf("requested repository is not properly configured '%s'", repo),
-			fmt.Errorf("error reading configuration for repository %s from cache: %w", repo, err)
-	}
-
 	// Get the permissions for the token
 	perm, err := permissionsForToken(ctx, config, tokenMap)
 	if err != nil {
@@ -165,7 +268,7 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	signedJwt, ok := s.jwtCache.Lookup(JWTCacheKey)
 	if !ok {
 		// Create a JWT for reading instance information from GitHub
-		signedJwt, err = s.generateGitHubAppJWT(tokenMap)
+		signedJwt, err = s.generateGitHubAppJWT()
 		if err != nil {
 			return http.StatusInternalServerError,
 				"error authenticating with GitHub",
@@ -173,7 +276,7 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 		}
 		s.jwtCache.Set(JWTCacheKey, signedJwt)
 	}
-	accessToken, err := s.generateInstallationAccessToken(ctx, string(signedJwt), tokenMap, perm)
+	accessToken, err := s.generateInstallationAccessToken(ctx, string(signedJwt), &request)
 	if err != nil {
 		return http.StatusInternalServerError, "error generating GitHub access token", err
 	}
@@ -182,23 +285,15 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 
 // generateInstallationAccessToken makes a call to the GitHub API to generate a new
 // application level access token.
-func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, tokenMap map[string]interface{}, perm *Config) (string, error) {
+func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, request *requestPayload) (string, error) {
 	logger := logging.FromContext(ctx)
 
 	requestURL := fmt.Sprintf(s.gitHubAppConfig.AccessTokenURL, s.gitHubAppConfig.InstallationID)
-	repository, ok := tokenMap["repository"].(string)
-	if !ok {
-		return "", fmt.Errorf("error reading repository information")
-	}
-	permissions := perm.Permissions
-	request := map[string]interface{}{
-		"repository":  repository,
-		"permissions": permissions,
-	}
 	requestJSON, err := json.Marshal(request)
 	if err != nil {
 		return "", fmt.Errorf("error marshalling request data: %w", err)
 	}
+
 	requestReader := bytes.NewReader(requestJSON)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, requestReader)
 	if err != nil {
@@ -220,7 +315,7 @@ func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, g
 		return "", fmt.Errorf("error reading http response for GitHub installation access token %w", err)
 	}
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusCreated {
 		logger.Errorf("failed to retrieve token from GitHub - Status: %s - Body: %s", res.Status, string(b))
 		return "", fmt.Errorf("error generating access token")
 	}
@@ -230,7 +325,7 @@ func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, g
 
 // generateGitHubAppJWT creates a signed JWT to authenticate this service as a
 // GitHub app that can make API calls to GitHub.
-func (s *TokenMintServer) generateGitHubAppJWT(oidcToken map[string]interface{}) ([]byte, error) {
+func (s *TokenMintServer) generateGitHubAppJWT() ([]byte, error) {
 	iat := time.Now()
 	exp := iat.Add(10 * time.Minute)
 	iss := s.gitHubAppConfig.AppID
@@ -248,4 +343,61 @@ func (s *TokenMintServer) generateGitHubAppJWT(oidcToken map[string]interface{})
 		return nil, fmt.Errorf("error signing JWT: %w", err)
 	}
 	return signed, nil
+}
+
+// parsePrivateClaims extracts the private claims from the OIDC token into an internal
+// representation and validates that all required claims are present.
+func parsePrivateClaims(ctx context.Context, oidcToken jwt.Token) (*oidcClaims, error) {
+	var claims oidcClaims
+
+	claims.Audience = oidcToken.Audience()
+	claims.Subject = oidcToken.Subject()
+	claims.Issuer = oidcToken.Issuer()
+
+	r, err := requiredClaim(oidcToken, "repository")
+	if err != nil {
+		return nil, err
+	}
+	claims.Repository = r
+
+	claims.Ref = optionalClaim(oidcToken, "ref")
+	claims.RefType = optionalClaim(oidcToken, "ref_type")
+	claims.Sha = optionalClaim(oidcToken, "sha")
+	claims.RepositoryID = optionalClaim(oidcToken, "repository_id")
+	claims.RepositoryOwner = optionalClaim(oidcToken, "repository_owner")
+	claims.RepositoryOwnerID = optionalClaim(oidcToken, "repository_owner_id")
+	claims.RunID = optionalClaim(oidcToken, "run_id")
+	claims.RunNumber = optionalClaim(oidcToken, "run_number")
+	claims.Actor = optionalClaim(oidcToken, "actor")
+	claims.ActorID = optionalClaim(oidcToken, "actor_id")
+	claims.EventName = optionalClaim(oidcToken, "event_name")
+	claims.Workflow = optionalClaim(oidcToken, "workflow")
+	claims.WorkflowRef = optionalClaim(oidcToken, "workflow_ref")
+	claims.WorkflowSha = optionalClaim(oidcToken, "workflow_sha")
+	claims.JobWorkflowRef = optionalClaim(oidcToken, "job_workflow_ref")
+	claims.JobWorkflowSha = optionalClaim(oidcToken, "job_workflow_sha")
+
+	return &claims, nil
+}
+
+func requiredClaim(oidcToken jwt.Token, claim string) (string, error) {
+	return tokenClaimString(oidcToken, claim, true)
+}
+
+func optionalClaim(oidcToken jwt.Token, claim string) string {
+	// Intentionally dropping the error here since the existence of the claim does not matter
+	result, _ := tokenClaimString(oidcToken, claim, false)
+	return result
+}
+
+func tokenClaimString(oidcToken jwt.Token, claim string, required bool) (string, error) {
+	val, ok := oidcToken.Get(claim)
+	if required && !ok {
+		return "", fmt.Errorf("claim %q not found", claim)
+	}
+	result, ok := val.(string)
+	if required && !ok {
+		return "", fmt.Errorf("claim %q not the correct type want=string, got=%T", claim, val)
+	}
+	return result, nil
 }

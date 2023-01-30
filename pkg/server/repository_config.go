@@ -20,10 +20,10 @@ type RepositoryConfig []*Config
 
 // Config defines a conditional configuration for a set of permissions.
 type Config struct {
-	If           string            `yaml:"if"`
-	Repositories []string          `yaml:"repositories"`
-	Permissions  map[string]string `yaml:"permissions"`
-	Program      cel.Program
+	If           string            `yaml:"if" json:"if"`
+	Repositories []string          `yaml:"repositories" json:"repositories"`
+	Permissions  map[string]string `yaml:"permissions" json:"permissions"`
+	Program      cel.Program       `yaml:"-" json:"-"`
 }
 
 // ConfigReader is an interface that will produce a repository config
