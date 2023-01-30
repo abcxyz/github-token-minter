@@ -37,6 +37,11 @@ output "run_service_account_member" {
   value       = google_service_account.run_service_account.member
 }
 
+output "run_service_account_name" {
+  description = "Cloud Run service account name."
+  value       = google_service_account.run_service_account.name
+}
+
 output "bigquery_dataset_id" {
   description = "BigQuery dataset resource."
   value       = google_bigquery_dataset.sink.dataset_id
