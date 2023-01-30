@@ -10,11 +10,9 @@ on:
 env:
   docker_registry: 'us-docker.pkg.dev'
   docker_tag: '${{ github.sha }}'
-  docker_repo: 'us-docker.pkg.dev/github-token-minter-dev/images'
-  wif_provider: 'projects/576818306874/locations/global/workloadIdentityPools/wif-gh-pool/providers/wif-gh-provider'
-  wif_service_account: 'github-token-minter-wif-sa@github-token-minter-dev.iam.gserviceaccount.com'
-  server_project_id: 'github-token-minter-dev'
-  server_service_account: 'github-token-minter-sa@github-token-minter-dev.iam.gserviceaccount.com'
+  docker_repo: 'us-docker.pkg.dev/github-token-minter-ci/ci-images'
+  wif_provider_name: 'projects/30971435804/locations/global/workloadIdentityPools/github-pool-8d5d/providers/github-provider'
+  ci_service_account_email: 'github-token-minter-8d5d-ci-sa@github-token-minter-ci.iam.gserviceaccount.com'
 concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
   cancel-in-progress: true
@@ -51,8 +49,8 @@ jobs:
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@c4799db9111fba4461e9f9da8732e5057b394f72' # ratchet:google-github-actions/auth@v0
         with:
-          workload_identity_provider: '${{ env.wif_provider }}'
-          service_account: '${{ env.wif_service_account }}'
+          workload_identity_provider: '${{ env.wif_provider_name }}'
+          service_account: '${{ env.ci_service_account_email }}'
           token_format: 'access_token'
       - name: 'Authenticate to Artifact Registry'
         uses: 'docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a' # ratchet:docker/login-action@v2
@@ -72,3 +70,4 @@ jobs:
       - 'build-github-token-minter-server'
     steps:
       - run: 'echo build complete'
+
