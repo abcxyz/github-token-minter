@@ -397,7 +397,7 @@ func tokenClaimString(oidcToken jwt.Token, claim string, required bool) (string,
 	}
 	result, ok := val.(string)
 	if required && !ok {
-		return "", fmt.Errorf("claim %q not the correct type want=string, got=%t", claim, val)
+		return "", fmt.Errorf("claim %q not the correct type want=string, got=%T", claim, val)
 	}
 	return result, nil
 }
