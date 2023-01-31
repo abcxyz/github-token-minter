@@ -61,3 +61,8 @@ variable "log_sink_name" {
   default     = "github-token-minter-logs"
   description = "The log sink name that filters for audit logs."
 }
+
+variable "domain" {
+  description = "Domain name for the Google Cloud Load Balancer."
+  type        = string
+}
