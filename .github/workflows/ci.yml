@@ -129,12 +129,17 @@ jobs:
           token: ${{ steps.auth.outputs.id_token }}
         run: |
           OIDC_TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=github-token-minter" -H "User-Agent: actions/oidc-client" -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+          echo ${OIDC_TOKEN}
+
           JWT=$(echo $OIDC_TOKEN | jq -j '.value')
+          echo ${JWT}
 
           APP_TOKEN=$(curl -X POST -d'{"repositories":["github-token-minter"],"permissions":{"issues":"read"}}' \
             -H "Authorization: Bearer ${{env.token}}" \
             -H "X-GitHub-OIDC-Token: ${JWT}" \
             ${{ env.SERVICE_URL}}/token)
+          
+          echo ${APP_TOKEN}
 
           echo "token=$(echo ${APP_TOKEN} | jq -j '.token')" >> $GITHUB_OUTPUT
 
