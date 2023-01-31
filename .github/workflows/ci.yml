@@ -122,7 +122,7 @@ jobs:
           workload_identity_provider: '${{ env.WIF_PROVIDER }}'
           service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
           token_format: 'id_token'
-          id_token_audience: '${{ env.SERVICE_URL }}'
+          id_token_audience: '${{ env.SERVICE_AUDIENCE }}'
           id_token_include_email: true
 
       - id: "mint-token"
