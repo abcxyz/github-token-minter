@@ -15,7 +15,8 @@ env:
   WIF_PROVIDER: 'projects/30971435804/locations/global/workloadIdentityPools/github-pool-8d5d/providers/github-provider'
   WIF_SERVICE_ACCOUNT: 'github-token-minter-8d5d-ci-sa@github-token-minter-ci.iam.gserviceaccount.com'
   SERVICE_NAME: 'github-token-minter-4b03'
-  SERVICE_URL: 'https://github-token-minter-4b03-czzqdawzea-uc.a.run.app'
+  SERVICE_URL: 'https://github-token-minter-ci.tycho.joonix.net'
+  SERVICE_AUDIENCE: 'https://github-token-minter-4b03-czzqdawzea-uc.a.run.app'
   PROJECT_ID: 'github-token-minter-ci'
   REGION: 'us-central1'
 
