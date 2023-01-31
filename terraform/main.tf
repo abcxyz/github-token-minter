@@ -33,6 +33,14 @@ resource "google_service_account" "run_service_account" {
   display_name = "${var.name}-sa Cloud Run Service Account"
 }
 
+module "gclb" {
+  source           = "git::https://github.com/abcxyz/terraform-modules.git//modules/gclb_cloud_run_backend?ref=main"
+  project_id       = data.google_project.default.project_id
+  name             = var.name
+  run_service_name = module.cloud_run.service_name
+  domain           = var.domain
+}
+
 module "cloud_run" {
   source                = "git::https://github.com/abcxyz/terraform-modules.git//modules/cloud_run?ref=main"
   project_id            = data.google_project.default.project_id
@@ -57,3 +65,4 @@ module "cloud_run" {
     }
   }
 }
+
