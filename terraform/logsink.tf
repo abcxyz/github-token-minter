@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-resource "google_logging_project_sink" "bigquery_sink" {
+resource "google_logging_project_sink" "default" {
   name        = format("%s-%s", var.log_sink_name, var.dataset_id)
   project     = var.project_id
   destination = "bigquery.googleapis.com/projects/${var.project_id}/datasets/${var.dataset_id}"
@@ -33,8 +33,8 @@ resource "google_logging_project_sink" "bigquery_sink" {
 }
 
 resource "google_bigquery_dataset_iam_member" "bigquery_sink_memeber" {
-  dataset_id = google_bigquery_dataset.sink.dataset_id
+  dataset_id = google_bigquery_dataset.default.dataset_id
   project    = var.project_id
   role       = "roles/bigquery.dataEditor"
-  member     = google_logging_project_sink.bigquery_sink.writer_identity
+  member     = google_logging_project_sink.default.writer_identity
 }
