@@ -1,0 +1,86 @@
+# Copyright 2023 The Authors (see AUTHORS file)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 'release'
+
+on:
+  push:
+    tags:
+      - 'v*'
+env:
+  WIF_PROVIDER: 'projects/30971435804/locations/global/workloadIdentityPools/github-pool-8d5d/providers/github-provider'
+  WIF_SERVICE_ACCOUNT: 'github-token-minter-8d5d-ci-sa@github-token-minter-ci.iam.gserviceaccount.com'
+
+  SOURCE_DOCKER_IMAGE: 'us-docker.pkg.dev/github-token-minter-ci/ci-images/github-token-minter-server:${{ github.sha }}'
+  TARGET_DOCKER_IMAGE: 'us-docker.pkg.dev/abcxyz-artifacts/docker-images/github-token-minter-server:${{ github.ref_name }}'
+
+  PROD_PROJECT_ID: 'github-token-minter-prod'
+  PROD_REGION: 'us-central1'
+  PROD_SERVICE_NAME: 'github-token-minter-a1ee'
+
+# Don't cancel in progress since we don't want to have half-baked releases.
+concurrency: '${{ github.workflow }}-${{ github.head_ref || github.ref }}-release'
+
+jobs:
+  image-release:
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      - name: 'Setup QEMU'
+        uses: 'docker/setup-qemu-action@e81a89b1732b9c48d79cd809d8d81d79c4647a18' # ratchet:docker/setup-qemu-action@v2
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@c4799db9111fba4461e9f9da8732e5057b394f72' # ratchet:google-github-actions/auth@v0
+        with:
+          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
+          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
+          token_format: 'access_token'
+      - name: 'Authenticate to Artifact Registry'
+        uses: 'docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a' # ratchet:docker/login-action@v2
+        with:
+          username: 'oauth2accesstoken'
+          password: '${{ steps.auth.outputs.access_token }}'
+          registry: 'us-docker.pkg.dev'
+      - name: 'Copy images to Release registry'
+        run: |-
+          gcloud container images add-tag --quiet ${{ env.SOURCE_DOCKER_IMAGE }}-amd64 ${{ env.TARGET_DOCKER_IMAGE }}-amd64
+          gcloud container images add-tag --quiet ${{ env.SOURCE_DOCKER_IMAGE }}-arm64 ${{ env.TARGET_DOCKER_IMAGE }}-arm64
+
+  production:
+    runs-on: 'ubuntu-latest'
+    environment: 'production'
+    needs:
+      - 'image-release'
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d' # ratchet:google-github-actions/auth@v1
+        with:
+          workload_identity_provider: '${{ env.WIF_PROVIDER }}'
+          service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
+      - name: 'Setup gcloud'
+        uses: 'google-github-actions/setup-gcloud@d51b5346f85640ec2aa2fa057354d2b82c2fcbce' # ratchet:google-github-actions/setup-gcloud@v1
+      - name: 'Deploy to Cloud Run'
+        run: |-
+          gcloud run services update ${{ env.PROD_SERVICE_NAME }} \
+            --project="${{ env.PROD_PROJECT_ID }}" \
+            --region="${{ env.PROD_REGION }}" \
+            --image="${{ env.TARGET_DOCKER_IMAGE }}-amd64"
