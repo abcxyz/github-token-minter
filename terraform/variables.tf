@@ -34,9 +34,17 @@ variable "image" {
 }
 
 variable "service_iam" {
-  description = "IAM bindings in {ROLE => [MEMBERS]} format for the Cloud Run service."
-  type        = map(list(string))
-  default     = {}
+  description = "IAM member bindings for the Cloud Run service."
+  type = object({
+    admins     = list(string)
+    developers = list(string)
+    invokers   = list(string)
+  })
+  default = {
+    admins     = []
+    developers = []
+    invokers   = []
+  }
 }
 
 variable "dataset_location" {
@@ -51,9 +59,17 @@ variable "dataset_id" {
 }
 
 variable "dataset_iam" {
-  description = "IAM bindings in {ROLE => [MEMBERS]} format for the BigQuery dataset."
-  type        = map(list(string))
-  default     = {}
+  description = "IAM member bindings for the BigQuery dataset."
+  type = object({
+    owners  = list(string)
+    editors = list(string)
+    viewers = list(string)
+  })
+  default = {
+    owners  = []
+    editors = []
+    viewers = []
+  }
 }
 
 variable "log_sink_name" {
