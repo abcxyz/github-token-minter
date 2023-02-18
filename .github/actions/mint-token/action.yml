@@ -31,7 +31,7 @@ runs:
         workload_identity_provider: '${{ inputs.wif_provider }}'
         service_account: '${{ inputs.wif_service_account }}'
         token_format: 'id_token'
-        id_token_audience: '${{ wif.service_audience }}'
+        id_token_audience: '${{ inputs.service_audience }}'
         id_token_include_email: true
     - id: 'mint-token'
       shell: "bash"
