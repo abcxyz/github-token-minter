@@ -1,0 +1,49 @@
+name: 'github-token-minter action'
+description: 'Exchange a GitHub OIDC token for one with elevated privlidges.'
+inputs:
+  wif_provider:
+    description: 'Workload identity federation provider.'
+    required: true
+  wif_service_account:
+    description: 'Workload identity federation service account.'
+    required: true
+  service_audience:
+    description: 'Cloud Run audience for the production github-token-minter service'
+    required: false
+    default: 'https://github-token-minter-a1ee-6lcn23mq2q-uc.a.run.app'
+  service_url:
+    description: 'URL for the production github-token-minter service'
+    required: false
+    default: 'https://github-token-minter.tycho.joonix.net'
+outputs:
+  token:
+    description: "Newly minted token"
+    value: ${{ steps.mint-token.outputs.token }}
+
+
+runs:
+  using: 'composite'
+  steps:
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@c4799db9111fba4461e9f9da8732e5057b394f72' # ratchet:google-github-actions/auth@v0
+      with:
+        workload_identity_provider: '${{ inputs.wif_provider }}'
+        service_account: '${{ inputs.wif_service_account }}'
+        token_format: 'id_token'
+        id_token_audience: '${{ wif.service_audience }}'
+        id_token_include_email: true
+    - id: 'mint-token'
+      shell: "bash"
+      env:
+        token: ${{ steps.auth.outputs.id_token }}
+      run: |
+        OIDC_TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=github-token-minter" -H "User-Agent: actions/oidc-client" -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN");
+        JWT=$(echo $OIDC_TOKEN | jq -j '.value');
+        APP_TOKEN=$(curl -X POST -d'{"repositories":["github-token-minter"],"permissions":{"issues":"read"}}' \
+          -H "Authorization: Bearer ${{env.token}}" \
+          -H "X-GitHub-OIDC-Token: ${JWT}" \
+          ${{ inputs.service_url}}/token | jq -j '.token');
+        TOKEN=$(echo ${APP_TOKEN} | jq -j '.token');
+        echo "token=$(echo $TOKEN)" >> $GITHUB_OUTPUT;
+
