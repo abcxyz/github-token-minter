@@ -125,7 +125,7 @@ jobs:
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c' # ratchet:actions/checkout@v3
-      - name: 'mint-token'
+      - id: 'mint-token'
         uses: './.github/actions/mint-token'
         with:
           wif_provider: '${{ env.WIF_PROVIDER }}'
@@ -133,7 +133,7 @@ jobs:
           service_audience: '${{ env.SERVICE_AUDIENCE }}'
           service_url: '${{ env.SERVICE_URL }}'
 
-      - name: 'verifiy'
+      - name: 'verify'
         run: |
           curl --fail \
             -H "Accept: application/vnd.github+json" \
