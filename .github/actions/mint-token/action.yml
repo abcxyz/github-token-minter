@@ -9,12 +9,10 @@ inputs:
     required: true
   service_audience:
     description: 'Cloud Run audience for the production github-token-minter service'
-    required: false
-    default: 'https://github-token-minter-a1ee-6lcn23mq2q-uc.a.run.app'
+    required: true
   service_url:
     description: 'URL for the production github-token-minter service'
-    required: false
-    default: 'https://github-token-minter.tycho.joonix.net'
+    required: true
 outputs:
   token:
     description: "Newly minted token"
