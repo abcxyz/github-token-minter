@@ -3,20 +3,16 @@ description: 'Exchange a GitHub OIDC token for one with elevated privlidges.'
 inputs:
   wif_provider:
     description: 'Workload identity federation provider.'
-    required: false
-    default: 'projects/193818417959/locations/global/workloadIdentityPools/github-pool-0b21/providers/github-provider'
+    required: true
   wif_service_account:
     description: 'Workload identity federation service account.'
-    required: false
-    default: 'ghtm-0b21-prod-sa@github-token-minter-prod.iam.gserviceaccount.com'
+    required: true
   service_audience:
     description: 'Cloud Run audience for the production github-token-minter service'
-    required: false
-    default: 'https://github-token-minter-a1ee-6lcn23mq2q-uc.a.run.app'
+    required: true
   service_url:
     description: 'URL for the production github-token-minter service'
-    required: false
-    default: 'https://github-token-minter.tycho.joonix.net'
+    required: true
 outputs:
   token:
     description: "Newly minted token"
