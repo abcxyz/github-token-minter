@@ -55,11 +55,11 @@ runs:
                       'Authorization': `Bearer ${TOKEN}`,
                   }
               });
-              const resp = await response.json();
-              if resp.ok {
+              if response.ok {
+                const resp = await response.json();
                 core.setOutput('token', resp.token);
               } else {
-                throw new Error(`HTTP Error Response: ${resp.status} ${resp.statusText}`);
+                throw new Error(`HTTP Error Response: ${response.status} ${response.statusText}`);
               }
           }
           catch (err) {
