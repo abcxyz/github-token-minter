@@ -37,21 +37,21 @@ runs:
     - id: 'mint-token'
       env:
         TOKEN: '${{ steps.auth.outputs.id_token }}'
+        SERVICE_URL: '${{ inputs.service_url }}'
+        REQUESTED_PERMISSIONS: '${{ inputs.requested_permissions }}'
       uses: actions/github-script@v6
       with:
         script: |
           try {
-              const {TOKEN} = process.env;
-              const service_url = core.getInput('service_url', { required: true });
-              const request_body = core.getInput('requested_permissions', { required: true});
-              const id_token = await core.getIDToken('github-token-minter');
-              const id_token_value = JSON.parse(id_token).value;
-              const response = await fetch(`${service_url}/token`, {
+              const {TOKEN, SERVICE_URL, REQUESTED_PERMISSIONS} = process.env;
+              const idToken = await core.getIDToken('github-token-minter');
+              const idTokenValue = JSON.parse(id_token).value;
+              const response = await fetch(`${SERVICE_URL}/token`, {
                   method: 'post',
-                  body: request_body,
+                  body: REQUESTED_PERMISSIONS,
                   headers: {
                       'Content-Type': 'application/json',
-                      'X-GitHub-OIDC-Token': id_token_value,
+                      'X-GitHub-OIDC-Token': idTokenValue,
                       'Authorization': `Bearer ${TOKEN}`,
                   }
               });
