@@ -45,13 +45,12 @@ runs:
           try {
               const { TOKEN, SERVICE_URL, REQUESTED_PERMISSIONS } = process.env;
               const idToken = await core.getIDToken('github-token-minter');
-              const idTokenValue = JSON.parse(idToken).value;
               const response = await fetch(`${SERVICE_URL}/token`, {
                   method: 'post',
                   body: REQUESTED_PERMISSIONS,
                   headers: {
                       'Content-Type': 'application/json',
-                      'X-GitHub-OIDC-Token': idTokenValue,
+                      'X-GitHub-OIDC-Token': idToken,
                       'Authorization': `Bearer ${TOKEN}`,
                   }
               });
