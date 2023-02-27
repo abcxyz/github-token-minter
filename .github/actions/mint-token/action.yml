@@ -59,7 +59,7 @@ runs:
                 const resp = await response.json();
                 core.setOutput('token', resp.token);
               } else {
-                const errorBody = await error.response.text();
+                const errorBody = await response.text();
                 core.error(`Error response from server ${errorBody}`)
                 throw new Error(`HTTP Error Response: ${response.status} ${response.statusText}`);
               }
