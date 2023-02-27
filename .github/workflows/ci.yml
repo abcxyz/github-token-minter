@@ -132,6 +132,7 @@ jobs:
           wif_service_account: '${{ env.WIF_SERVICE_ACCOUNT }}'
           service_audience: '${{ env.SERVICE_AUDIENCE }}'
           service_url: '${{ env.SERVICE_URL }}'
+          requested_permissions: '{"repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
 
       - name: 'verify'
         run: |
