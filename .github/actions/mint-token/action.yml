@@ -56,7 +56,11 @@ runs:
                   }
               });
               const resp = await response.json();
-              core.setOutput('token', resp.token);
+              if resp.ok {
+                core.setOutput('token', resp.token);
+              } else {
+                throw new Error(`HTTP Error Response: ${resp.status} ${resp.statusText}`);
+              }
           }
           catch (err) {
               core.setFailed(err); 
