@@ -43,7 +43,7 @@ runs:
           try {
               const {TOKEN} = process.env;
               const service_url = core.getInput('service_url', { required: true });
-              const request_body = core.getInput('request_permissions', { required: true});
+              const request_body = core.getInput('requested_permissions', { required: true});
               const id_token = await core.getIDToken('github-token-minter');
               const id_token_value = JSON.parse(id_token).value;
               const response = await fetch(`${service_url}/token`, {
