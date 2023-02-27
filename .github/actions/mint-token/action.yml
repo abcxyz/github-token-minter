@@ -39,13 +39,13 @@ runs:
         TOKEN: '${{ steps.auth.outputs.id_token }}'
         SERVICE_URL: '${{ inputs.service_url }}'
         REQUESTED_PERMISSIONS: '${{ inputs.requested_permissions }}'
-      uses: actions/github-script@v6
+      uses: 'actions/github-script@v6'
       with:
         script: |
           try {
-              const {TOKEN, SERVICE_URL, REQUESTED_PERMISSIONS} = process.env;
+              const { TOKEN, SERVICE_URL, REQUESTED_PERMISSIONS } = process.env;
               const idToken = await core.getIDToken('github-token-minter');
-              const idTokenValue = JSON.parse(id_token).value;
+              const idTokenValue = JSON.parse(idToken).value;
               const response = await fetch(`${SERVICE_URL}/token`, {
                   method: 'post',
                   body: REQUESTED_PERMISSIONS,
