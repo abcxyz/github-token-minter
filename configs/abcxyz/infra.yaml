@@ -5,9 +5,10 @@
   respositories:
     - 'abcxyz/github-metrics-aggregator'
     - 'abcxyz/github-token-minter'
+    - 'abcxyz/guardian'
     - 'abcxyz/infra'
     - 'abcxyz/jvs'
     - 'abcxyz/lumberjack'
     - 'abcxyz/pmap'
   permissions:
-    repo: 'read'
+    contents: 'read'
