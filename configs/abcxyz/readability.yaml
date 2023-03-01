@@ -1,0 +1,6 @@
+# abcxyz/readability.yaml
+- 
+  if: 'assertion.workflow_ref.startsWith("abcxyz/readability/.github/workflows/terraform.yml")'
+  respositories: []
+  permissions:
+    members: 'write'
