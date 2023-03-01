@@ -1,0 +1,9 @@
+# abcxyz/readability.yaml
+- 
+  if: |-
+    assertion.workflow_ref.startsWith("abcxyz/readability/.github/workflows/terraform.yml") &&
+    assertion.event_name == 'push' && 
+    assertion.ref == 'refs/head/main'
+  respositories: []
+  permissions:
+    members: 'write'
