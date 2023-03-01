@@ -20,25 +20,29 @@ resource "google_bigquery_dataset" "default" {
   depends_on = [
     google_project_service.default["bigquery.googleapis.com"]
   ]
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
-resource "google_bigquery_dataset_iam_binding" "owners" {
-  project    = data.google_project.default.project_id
+resource "google_bigquery_dataset_iam_member" "owners" {
+  for_each   = toset(var.dataset_iam.owners)
   dataset_id = google_bigquery_dataset.default.dataset_id
   role       = "roles/bigquery.dataOwner"
-  members    = toset(var.dataset_iam.owners)
+  member     = each.value
 }
 
-resource "google_bigquery_dataset_iam_binding" "editors" {
-  project    = data.google_project.default.project_id
+resource "google_bigquery_dataset_iam_member" "editors" {
+  for_each   = toset(var.dataset_iam.editors)
   dataset_id = google_bigquery_dataset.default.dataset_id
   role       = "roles/bigquery.dataEditor"
-  members    = toset(var.dataset_iam.editors)
+  member     = each.value
 }
 
-resource "google_bigquery_dataset_iam_binding" "viewers" {
-  project    = data.google_project.default.project_id
+resource "google_bigquery_dataset_iam_member" "viewers" {
+  for_each   = toset(var.dataset_iam.viewers)
   dataset_id = google_bigquery_dataset.default.dataset_id
   role       = "roles/bigquery.dataViewer"
-  members    = toset(var.dataset_iam.viewers)
+  member     = each.value
 }
