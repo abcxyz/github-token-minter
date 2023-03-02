@@ -325,7 +325,7 @@ func validateRepositories(allowed, requested []string) ([]string, error) {
 	return repositories, nil
 }
 
-func matchesAllowed(allow string, repo string) bool {
+func matchesAllowed(allow, repo string) bool {
 	switch {
 	// Matches all repositories in the allow list
 	case repo == "*":
