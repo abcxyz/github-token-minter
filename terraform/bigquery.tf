@@ -35,7 +35,12 @@ resource "google_bigquery_dataset_iam_member" "owners" {
 }
 
 resource "google_bigquery_dataset_iam_member" "editors" {
-  for_each   = toset(var.dataset_iam.editors)
+  for_each = toset(
+    concat(
+      [google_service_account.run_service_account.member],
+      var.dataset_iam.editors
+    )
+  )
   project    = data.google_project.default.project_id
   dataset_id = google_bigquery_dataset.default.dataset_id
   role       = "roles/bigquery.dataEditor"
