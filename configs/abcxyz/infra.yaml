@@ -1,12 +1,12 @@
 # abcxyz/infra.yaml
 - if: 'assertion.workflow_ref.startsWith("abcxyz/infra/.github/workflows/terraform.yml")'
-  respositories:
-    - 'abcxyz/github-metrics-aggregator'
-    - 'abcxyz/github-token-minter'
-    - 'abcxyz/guardian'
-    - 'abcxyz/infra'
-    - 'abcxyz/jvs'
-    - 'abcxyz/lumberjack'
-    - 'abcxyz/pmap'
+  repositories:
+    - 'github-metrics-aggregator'
+    - 'github-token-minter'
+    - 'guardian'
+    - 'infra'
+    - 'jvs'
+    - 'lumberjack'
+    - 'pmap'
   permissions:
     contents: 'read'
