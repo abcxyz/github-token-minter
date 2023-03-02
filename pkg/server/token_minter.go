@@ -316,7 +316,7 @@ func validateRepositories(allowed, requested []string) ([]string, error) {
 		}
 		// If there is no match then respond with an error
 		if !matched {
-			return nil, fmt.Errorf("requested repository %q is not in the allow list", repo)
+			return nil, fmt.Errorf("requested repository %q is not in the allow list", request)
 		}
 	}
 	// Return the set of repositories that are allowed. If no repositories are requested
