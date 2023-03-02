@@ -306,10 +306,10 @@ func validateRepositories(allowed, requested []string) ([]string, error) {
 	repositories := []string{}
 	// Loop through all of the requested repositories to verifiy that are in the configured
 	// allow list
-	for _, repo := range requested {
+	for _, request := range requested {
 		matched := false
 		for _, allow := range allowed {
-			if matchesAllowed(allow, repo) {
+			if matchesAllowed(allow, request) {
 				repositories = append(repositories, allow)
 				matched = true
 			}
@@ -325,16 +325,16 @@ func validateRepositories(allowed, requested []string) ([]string, error) {
 	return repositories, nil
 }
 
-func matchesAllowed(allow, repo string) bool {
+func matchesAllowed(allow, request string) bool {
 	switch {
 	// Matches all repositories in the allow list
-	case repo == "*":
+	case request == "*":
 		return true
 	// Prefix matching if given a wildcard e.g. github-*
-	case repo[len(repo)-1] == '*' && strings.HasPrefix(allow, repo[:len(repo)-1]):
+	case request[len(request)-1] == '*' && strings.HasPrefix(allow, request[:len(request)-1]):
 		return true
 	// Exact match
-	case repo == allow:
+	case request == allow:
 		return true
 	default:
 		return false
