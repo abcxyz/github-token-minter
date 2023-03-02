@@ -268,6 +268,13 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 		return http.StatusForbidden, "no permissions available for repository", err
 	}
 
+	// Validate that all of the requested repositories are allowed
+	repos, err := validateRepositories(perm.Repositories, request.Repositories)
+	if err != nil {
+		return http.StatusForbidden, "one or more of the requested repositories is not authorized", err
+	}
+	// Replace the requested repository list with actual values
+	request.Repositories = repos
 	// Validate the permissions that were requested are within what is allowed for the repository
 	if err = validatePermissions(ctx, perm.Permissions, request.Permissions); err != nil {
 		return http.StatusForbidden, "requested permissions are not authorized for this repository", err
@@ -290,6 +297,48 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 		return http.StatusInternalServerError, "error generating GitHub access token", err
 	}
 	return http.StatusOK, accessToken, nil
+}
+
+// validateRepositories checks the set of requested repositories against the allow list
+// to verity that it is authorizaed. Response contains the list of allowed repositories
+// after wild card match expansion.
+func validateRepositories(allowed, requested []string) ([]string, error) {
+	repositories := []string{}
+	// Loop through all of the requested repositories to verifiy that are in the configured
+	// allow list
+	for _, request := range requested {
+		matched := false
+		for _, allow := range allowed {
+			if matchesAllowed(allow, request) {
+				repositories = append(repositories, allow)
+				matched = true
+			}
+		}
+		// If there is no match then respond with an error
+		if !matched {
+			return nil, fmt.Errorf("requested repository %q is not in the allow list", request)
+		}
+	}
+	// Return the set of repositories that are allowed. If no repositories are requested
+	// this will result in an empty list which will work for organization level updates
+	// such as adding members to teams.
+	return repositories, nil
+}
+
+func matchesAllowed(allow, request string) bool {
+	switch {
+	// Matches all repositories in the allow list
+	case request == "*":
+		return true
+	// Prefix matching if given a wildcard e.g. github-*
+	case request[len(request)-1] == '*' && strings.HasPrefix(allow, request[:len(request)-1]):
+		return true
+	// Exact match
+	case request == allow:
+		return true
+	default:
+		return false
+	}
 }
 
 // generateInstallationAccessToken makes a call to the GitHub API to generate a new
