@@ -5,6 +5,6 @@
     assertion.event_name == 'schedule' &&
     assertion.ref == 'refs/head/main'
   repositories:
-    - 'abcxyz/secure-setup-terraform'
+    - 'secure-setup-terraform'
   permissions:
     pull_request: 'write'

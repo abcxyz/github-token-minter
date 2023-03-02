@@ -95,7 +95,6 @@ func parseFile(name string) (*RepositoryConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading content from file: %w", err)
 	}
-
 	var content RepositoryConfig
 	if err := yaml.Unmarshal(data, &content); err != nil {
 		return nil, fmt.Errorf("error parsing yaml document: %w", err)
