@@ -1,7 +1,5 @@
 # abcxyz/infra.yaml
-- if: |-
-    assertion.workflow_ref.startsWith("abcxyz/infra/.github/workflows/terraform.yml") &&
-    assertion.job_workflow_ref.startsWith("abcxyz/pkg/.github/workflows/terraform-lint.yml")
+- if: 'assertion.workflow_ref.startsWith("abcxyz/infra/.github/workflows/terraform.yml")'
   respositories:
     - 'abcxyz/github-metrics-aggregator'
     - 'abcxyz/github-token-minter'
