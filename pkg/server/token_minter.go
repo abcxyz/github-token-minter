@@ -163,12 +163,21 @@ func (s *TokenMintServer) writeAuditLog(ctx context.Context, auditEvent *auditEv
 		return fmt.Errorf("error marshaling config: %w", err)
 	}
 
+	resourceName := "not specified"
+	if auditEvent.Request != nil {
+		resourceName = strings.Join(auditEvent.Request.Repositories, ",")
+	}
+	principal := "unknown"
+	if auditEvent.Token != nil {
+		principal = auditEvent.Token.WorkflowRef
+	}
+
 	logRequest := &api.AuditLogRequest{
 		Type: api.AuditLogRequest_ADMIN_ACTIVITY,
 		Payload: &audit.AuditLog{
 			ServiceName:  "abcxyz.dev/github-token-minter",
 			MethodName:   "abcxyz.dev/github-token-minter/HandleTokenRequest",
-			ResourceName: strings.Join(auditEvent.Request.Repositories, ","),
+			ResourceName: resourceName,
 			Status: &status.Status{
 				Code:    int32(auditEvent.HTTPStatusCode),
 				Message: auditEvent.HTTPErrorMessage,
@@ -180,7 +189,7 @@ func (s *TokenMintServer) writeAuditLog(ctx context.Context, auditEvent *auditEv
 			}},
 			AuthenticationInfo: &audit.AuthenticationInfo{
 				// WorkflowRef: abcxyz/github-token-minter/.github/workflows/integration.yml@refs/pull/8/merge
-				PrincipalEmail: auditEvent.Token.WorkflowRef,
+				PrincipalEmail: principal,
 			},
 		},
 	}
