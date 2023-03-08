@@ -44,11 +44,6 @@ runs:
           try {
               const { TOKEN, SERVICE_URL, REQUESTED_PERMISSIONS } = process.env;
               const idToken = await core.getIDToken('github-token-minter');
-
-              // if we try to validate JWT in under 1 second, the JWT is considered invalid ('iat' claim is in seconds)
-              // wait for 2 seconds to ensure token is validated in the future
-              await new Promise((r) => setTimeout(r, 2000));
-
               const response = await fetch(`${SERVICE_URL}/token`, {
                   method: 'post',
                   body: REQUESTED_PERMISSIONS,
@@ -68,5 +63,5 @@ runs:
               }
           }
           catch (err) {
-              core.setFailed(err); 
+              core.setFailed(err);
           }
