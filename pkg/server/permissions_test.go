@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-var testJWT = map[string]interface{}{
+var testJWT = map[string]any{
 	"jti":                   "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
 	"sub":                   "repo:abcxyz/test:ref:refs/heads/main",
 	"aud":                   "https://github.com/abcxyz",
@@ -98,7 +98,7 @@ func TestGetPermissionsForToken(t *testing.T) {
 	cases := []struct {
 		name      string
 		pc        *RepositoryConfig
-		token     map[string]interface{}
+		token     map[string]any
 		want      *Config
 		expErr    bool
 		expErrMsg string
