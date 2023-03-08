@@ -5,6 +5,6 @@
     assertion.workflow_ref.startsWith("abcxyz/guardian/.github/workflows/test-plan.yml")
   repositories:
     - 'guardian'
-    - 'pmap' # needed a private repo to test token access
+    - 'infra'
   permissions:
     contents: 'read'
