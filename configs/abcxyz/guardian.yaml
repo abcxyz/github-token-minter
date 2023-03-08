@@ -1,0 +1,10 @@
+# abcxyz/guardian.yaml
+- if: |-
+    assertion.workflow_ref.startsWith("abcxyz/guardian/.github/workflows/test-admin.yml") ||
+    assertion.workflow_ref.startsWith("abcxyz/guardian/.github/workflows/test-apply.yml") ||
+    assertion.workflow_ref.startsWith("abcxyz/guardian/.github/workflows/test-plan.yml")
+  repositories:
+    - 'guardian'
+    - 'pmap' # needed a private repo to test token access
+  permissions:
+    contents: 'read'
