@@ -35,8 +35,6 @@ import (
 	"github.com/abcxyz/pkg/cache"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"google.golang.org/genproto/googleapis/cloud/audit"
 	"google.golang.org/genproto/googleapis/rpc/status"
@@ -51,9 +49,9 @@ const (
 // TokenMintServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMintServer struct {
-	gitHubAppConfig  GitHubAppConfig
+	gitHubAppConfig  *GitHubAppConfig
 	configStore      ConfigReader
-	jwkKeys          jwk.Set
+	jwtParseOptions  []jwt.ParseOption
 	jwtCache         *cache.Cache[[]byte]
 	lumberjackClient *lumberjack.Client
 }
@@ -106,11 +104,11 @@ type auditEvent struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, ghAppConfig GitHubAppConfig, configStore ConfigReader, jwkKeys jwk.Set, lumberjackClient *lumberjack.Client) (*TokenMintServer, error) {
+func NewRouter(ctx context.Context, ghAppConfig *GitHubAppConfig, configStore ConfigReader, jwtParseOptions []jwt.ParseOption, lumberjackClient *lumberjack.Client) (*TokenMintServer, error) {
 	return &TokenMintServer{
 		gitHubAppConfig: ghAppConfig,
 		configStore:     configStore,
-		jwkKeys:         jwkKeys,
+		jwtParseOptions: jwtParseOptions,
 		// Tokens expire in 10 minutes. Storing it for 9 minutes ensures that it is evicted from the cache
 		// before it expires.
 		jwtCache:         cache.New[[]byte](9 * time.Minute),
@@ -239,12 +237,10 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 	auditEvent.Request = &request
 
 	// Parse the token data into a JWT
-	oidcToken, err := jwt.Parse([]byte(oidcHeader),
-		jwt.WithContext(ctx),
-		jwt.WithKeySet(s.jwkKeys, jws.WithInferAlgorithmFromKey(true)),
-		jwt.WithAcceptableSkew(5*time.Second))
+	parseOpts := append([]jwt.ParseOption{jwt.WithContext(ctx)}, s.jwtParseOptions...)
+	oidcToken, err := jwt.Parse([]byte(oidcHeader), parseOpts...)
 	if err != nil {
-		return http.StatusUnauthorized, fmt.Sprintf("request not authorized: '%s' header is invalid", AuthHeader), err
+		return http.StatusUnauthorized, fmt.Sprintf("request not authorized: '%s' header is invalid", AuthHeader), fmt.Errorf("failed to validate jwt: %w", err)
 	}
 
 	claims, err := parsePrivateClaims(ctx, oidcToken)
