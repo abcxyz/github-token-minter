@@ -31,7 +31,6 @@ import (
 	"github.com/abcxyz/lumberjack/clients/go/pkg/audit"
 	"github.com/abcxyz/lumberjack/clients/go/pkg/auditopt"
 	"github.com/abcxyz/pkg/cfgloader"
-	"github.com/abcxyz/pkg/jwtutil"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 )
@@ -97,10 +96,16 @@ func realMain(ctx context.Context) error {
 	}
 
 	// Setup JWKS verification.
-	jwtVerifier, err := jwtutil.NewVerifier(ctx, cfg.JWKSUrl)
-	if err != nil {
-		return fmt.Errorf("failed to build jwt verifier: %w", err)
+	c := jwk.NewCache(ctx)
+	if err := c.Register(cfg.JWKSUrl); err != nil {
+		return fmt.Errorf("failed to register JWK url: %w", err)
 	}
+
+	// check that cache is correctly set up and certs are available
+	if _, err := c.Refresh(ctx, cfg.JWKSUrl); err != nil {
+		return fmt.Errorf("failed to retrieve JWK public keys: %w", err)
+	}
+	jwkKeys := jwk.NewCachedSet(c, cfg.JWKSUrl)
 
 	opts := auditopt.FromConfigFile(ctx, cfg.LumberjackConfigFile)
 
@@ -111,7 +116,7 @@ func realMain(ctx context.Context) error {
 	}
 
 	// Create the Router for the token minting server.
-	tokenServer, err := server.NewRouter(ctx, appConfig, store, jwtVerifier, lumberjack)
+	tokenServer, err := server.NewRouter(ctx, appConfig, store, jwkKeys, lumberjack)
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
