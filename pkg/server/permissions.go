@@ -79,9 +79,9 @@ func compileExpression(env *cel.Env, expr string) (cel.Program, error) {
 
 // permissionsForToken evaluates a RepositoryConfig using attributes provided in an OIDC token
 // to determine the level of permissions that should be requested from GitHub.
-func permissionsForToken(ctx context.Context, rc *RepositoryConfig, token map[string]interface{}) (*Config, error) {
+func permissionsForToken(ctx context.Context, rc *RepositoryConfig, token map[string]any) (*Config, error) {
 	for _, p := range *rc {
-		out, _, err := p.Program.Eval(map[string]interface{}{
+		out, _, err := p.Program.Eval(map[string]any{
 			assertionKey: token,
 		})
 		if err != nil {

@@ -33,6 +33,8 @@ import (
 	"github.com/abcxyz/pkg/cfgloader"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jws"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 // main is the application entry point. It primarily wraps the realMain function with
@@ -81,7 +83,7 @@ func realMain(ctx context.Context) error {
 	}
 
 	// Setup the GitHub App config.
-	appConfig := server.GitHubAppConfig{
+	appConfig := &server.GitHubAppConfig{
 		AppID:          cfg.AppID,
 		InstallationID: cfg.InstallationID,
 		PrivateKey:     privateKey,
@@ -96,27 +98,25 @@ func realMain(ctx context.Context) error {
 	}
 
 	// Setup JWKS verification.
-	c := jwk.NewCache(ctx)
-	if err := c.Register(cfg.JWKSUrl); err != nil {
-		return fmt.Errorf("failed to register JWK url: %w", err)
+	jwkCache := jwk.NewCache(ctx)
+	if err := jwkCache.Register(cfg.JWKSUrl); err != nil {
+		return fmt.Errorf("failed to register jwks endpoint: %w", err)
 	}
-
-	// check that cache is correctly set up and certs are available
-	if _, err := c.Refresh(ctx, cfg.JWKSUrl); err != nil {
-		return fmt.Errorf("failed to retrieve JWK public keys: %w", err)
+	jwkCachedSet := jwk.NewCachedSet(jwkCache, cfg.JWKSUrl)
+	jwtParseOptions := []jwt.ParseOption{
+		jwt.WithKeySet(jwkCachedSet, jws.WithInferAlgorithmFromKey(true)),
+		jwt.WithAcceptableSkew(5 * time.Second),
 	}
-	jwkKeys := jwk.NewCachedSet(c, cfg.JWKSUrl)
-
-	opts := auditopt.FromConfigFile(ctx, cfg.LumberjackConfigFile)
 
 	// Create the lumberjack client
-	lumberjack, err := audit.NewClient(opts)
+	lumberjackOpts := auditopt.FromConfigFile(ctx, cfg.LumberjackConfigFile)
+	lumberjack, err := audit.NewClient(lumberjackOpts)
 	if err != nil {
 		return fmt.Errorf("failed to create Lumberjack client: %w", err)
 	}
 
 	// Create the Router for the token minting server.
-	tokenServer, err := server.NewRouter(ctx, appConfig, store, jwkKeys, lumberjack)
+	tokenServer, err := server.NewRouter(ctx, appConfig, store, jwtParseOptions, lumberjack)
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}

@@ -1,0 +1,6 @@
+-
+  if: 'assertion.workflow_ref.startsWith("abcxyz/pkg/.github/workflows/test.yml")'
+  repositories:
+    - 'pkg'
+  permissions:
+    issues: 'read'
