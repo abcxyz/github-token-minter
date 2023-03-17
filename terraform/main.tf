@@ -17,33 +17,40 @@ data "google_project" "default" {
 }
 
 resource "google_project_service" "default" {
-  project = var.project_id
   for_each = toset([
     "cloudresourcemanager.googleapis.com",
     "bigquery.googleapis.com",
     "logging.googleapis.com",
   ])
+
+  project = var.project_id
+
   service            = each.value
   disable_on_destroy = false
 }
 
 resource "google_service_account" "run_service_account" {
-  project      = data.google_project.default.project_id
+  project = data.google_project.default.project_id
+
   account_id   = "${var.name}-sa"
   display_name = "${var.name}-sa Cloud Run Service Account"
 }
 
 module "gclb" {
-  source           = "git::https://github.com/abcxyz/terraform-modules.git//modules/gclb_cloud_run_backend?ref=main"
-  project_id       = data.google_project.default.project_id
+  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/gclb_cloud_run_backend?ref=main"
+
+  project_id = data.google_project.default.project_id
+
   name             = var.name
   run_service_name = module.cloud_run.service_name
   domain           = var.domain
 }
 
 module "cloud_run" {
-  source                = "git::https://github.com/abcxyz/terraform-modules.git//modules/cloud_run?ref=main"
-  project_id            = data.google_project.default.project_id
+  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/cloud_run?ref=main"
+
+  project_id = data.google_project.default.project_id
+
   name                  = var.name
   image                 = var.image
   ingress               = "internal-and-cloud-load-balancing"

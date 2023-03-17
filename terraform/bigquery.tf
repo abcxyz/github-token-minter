@@ -13,7 +13,8 @@
 # limitations under the License.
 
 resource "google_bigquery_dataset" "default" {
-  project    = data.google_project.default.project_id
+  project = data.google_project.default.project_id
+
   dataset_id = var.dataset_id
   location   = var.dataset_location
 
@@ -27,29 +28,30 @@ resource "google_bigquery_dataset" "default" {
 }
 
 resource "google_bigquery_dataset_iam_member" "owners" {
-  for_each   = toset(var.dataset_iam.owners)
-  project    = data.google_project.default.project_id
+  for_each = toset(var.dataset_iam.owners)
+
+  project = data.google_project.default.project_id
+
   dataset_id = google_bigquery_dataset.default.dataset_id
   role       = "roles/bigquery.dataOwner"
   member     = each.value
 }
 
 resource "google_bigquery_dataset_iam_member" "editors" {
-  for_each = toset(
-    concat(
-      [google_service_account.run_service_account.member],
-      var.dataset_iam.editors
-    )
-  )
-  project    = data.google_project.default.project_id
+  for_each = toset(concat([google_service_account.run_service_account.member], var.dataset_iam.editors))
+
+  project = data.google_project.default.project_id
+
   dataset_id = google_bigquery_dataset.default.dataset_id
   role       = "roles/bigquery.dataEditor"
   member     = each.value
 }
 
 resource "google_bigquery_dataset_iam_member" "viewers" {
-  for_each   = toset(var.dataset_iam.viewers)
-  project    = data.google_project.default.project_id
+  for_each = toset(var.dataset_iam.viewers)
+
+  project = data.google_project.default.project_id
+
   dataset_id = google_bigquery_dataset.default.dataset_id
   role       = "roles/bigquery.dataViewer"
   member     = each.value
