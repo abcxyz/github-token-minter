@@ -13,8 +13,9 @@
 # limitations under the License.
 
 resource "google_logging_project_sink" "default" {
+  project = var.project_id
+
   name        = format("%s-%s", var.log_sink_name, var.dataset_id)
-  project     = var.project_id
   destination = "bigquery.googleapis.com/projects/${var.project_id}/datasets/${var.dataset_id}"
 
   filter = <<-EOT
@@ -33,8 +34,9 @@ resource "google_logging_project_sink" "default" {
 }
 
 resource "google_bigquery_dataset_iam_member" "bigquery_sink_memeber" {
+  project = var.project_id
+
   dataset_id = google_bigquery_dataset.default.dataset_id
-  project    = var.project_id
   role       = "roles/bigquery.dataEditor"
   member     = google_logging_project_sink.default.writer_identity
 }
