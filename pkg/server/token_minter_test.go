@@ -56,7 +56,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 
 	fakeGitHub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(201)
-		fmt.Fprintf(w, `this-is-the-token-from-github`)
+		fmt.Fprintf(w, `{"token":"this-is-the-token-from-github"}`)
 	}))
 
 	cases := []struct {
