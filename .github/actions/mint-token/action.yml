@@ -54,8 +54,14 @@ runs:
                   }
               });
               if (response.ok) {
-                const resp = await response.json();
-                core.setOutput('token', resp.token);
+                try {
+                  const resp = await response.json();
+                  core.setOutput('token', resp.token);
+                } catch (err) {
+                  // Handle an invalid JSON response and log the response body
+                  const respBody = await response.text();
+                  throw new Error(`Invalid JSON Response: ${respBody}`);
+                }
               } else {
                 const errorBody = await response.text();
                 core.error(`Error response from server ${errorBody}`)
