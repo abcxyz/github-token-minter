@@ -382,7 +382,7 @@ func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, g
 	// e.g. 'issues':'write' for an empty repository list. This 201 comes with a response that is not actually JSON.
 	// Attempt to parse the JSON to see if this is a valid token, if it is not then respond with an error and log the
 	// actual response from GitHub.
-	tokenContent := map[string]string{}
+	tokenContent := map[string]interface{}{}
 	if err := json.Unmarshal(b, &tokenContent); err != nil {
 		logger.Errorf("invalid access token from GitHub - Body: %s", string(b))
 		return "", fmt.Errorf("invalid access token response from GitHub")
