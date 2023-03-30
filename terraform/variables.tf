@@ -58,9 +58,9 @@ variable "dataset_id" {
   description = "The BigQuery dataset id to create."
 }
 
-variable "dataset_editor_service_account_member" {
+variable "invoker_service_account_member" {
   type        = string
-  description = "The service account that will be used to invoke the Cloud Run service that needs to be able to edit the BQ dataset."
+  description = "The service account that will be used to invoke the Cloud Run service."
 }
 
 variable "log_sink_name" {
