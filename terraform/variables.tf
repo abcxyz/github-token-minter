@@ -58,18 +58,9 @@ variable "dataset_id" {
   description = "The BigQuery dataset id to create."
 }
 
-variable "dataset_iam" {
-  description = "IAM member bindings for the BigQuery dataset."
-  type = object({
-    owners  = list(string)
-    editors = list(string)
-    viewers = list(string)
-  })
-  default = {
-    owners  = []
-    editors = []
-    viewers = []
-  }
+variable "dataset_editor_service_account_member" {
+  type        = string
+  description = "The service account that will be used to invoke the Cloud Run service that needs to be able to edit the BQ dataset."
 }
 
 variable "log_sink_name" {

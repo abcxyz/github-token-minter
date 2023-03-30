@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-data "google_project" "default" {
-  project_id = var.project_id
-}
-
 resource "google_project_service" "default" {
   for_each = toset([
     "cloudresourcemanager.googleapis.com",
@@ -30,7 +26,7 @@ resource "google_project_service" "default" {
 }
 
 resource "google_service_account" "run_service_account" {
-  project = data.google_project.default.project_id
+  project = var.project_id
 
   account_id   = "${var.name}-sa"
   display_name = "${var.name}-sa Cloud Run Service Account"
@@ -39,7 +35,7 @@ resource "google_service_account" "run_service_account" {
 module "gclb" {
   source = "git::https://github.com/abcxyz/terraform-modules.git//modules/gclb_cloud_run_backend?ref=main"
 
-  project_id = data.google_project.default.project_id
+  project_id = var.project_id
 
   name             = var.name
   run_service_name = module.cloud_run.service_name
@@ -49,7 +45,7 @@ module "gclb" {
 module "cloud_run" {
   source = "git::https://github.com/abcxyz/terraform-modules.git//modules/cloud_run?ref=main"
 
-  project_id = data.google_project.default.project_id
+  project_id = var.project_id
 
   name                  = var.name
   image                 = var.image
