@@ -22,7 +22,6 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
-	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
@@ -32,6 +31,7 @@ import (
 	"github.com/abcxyz/lumberjack/clients/go/pkg/auditopt"
 	"github.com/abcxyz/pkg/cfgloader"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/serving"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -71,7 +71,7 @@ type serviceConfig struct {
 // This server supports graceful stopping and cancellation by:
 //   - using a cancellable context
 //   - listening to incoming requests in a goroutine
-func realMain(ctx context.Context) error {
+func realMain(ctx context.Context) (retErr error) {
 	var cfg serviceConfig
 	if err := cfgloader.Load(ctx, &cfg); err != nil {
 		return fmt.Errorf("failed to read configuration information: %w", err)
@@ -114,6 +114,11 @@ func realMain(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create Lumberjack client: %w", err)
 	}
+	defer func() {
+		if err := lumberjack.Stop(); err != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("failed to cleanup lumberjack logging: %w", err))
+		}
+	}()
 
 	// Create the Router for the token minting server.
 	tokenServer, err := server.NewRouter(ctx, appConfig, store, jwtParseOptions, lumberjack)
@@ -121,41 +126,12 @@ func realMain(ctx context.Context) error {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
 
-	// Create the server and listen in a goroutine.
-	server := &http.Server{
-		Addr:              ":" + cfg.Port,
-		Handler:           tokenServer.Routes(),
-		ReadHeaderTimeout: 2 * time.Second,
+	// Create the server and listen.
+	server, err := serving.New(cfg.Port)
+	if err != nil {
+		return fmt.Errorf("failed to create serving infrastructure: %w", err)
 	}
-	serverErrCh := make(chan error, 1)
-	go func() {
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			select {
-			case serverErrCh <- err:
-			default:
-			}
-		}
-	}()
-
-	// Wait for shutdown signal or error from the listener.
-	select {
-	case err := <-serverErrCh:
-		return fmt.Errorf("error from server listener: %w", err)
-	case <-ctx.Done():
-	}
-
-	// Gracefully shut down the server.
-	shutdownCtx, done := context.WithTimeout(context.Background(), 5*time.Second)
-	defer done()
-
-	if err := lumberjack.Stop(); err != nil {
-		return fmt.Errorf("failed to cleanup lumberjack logging: %w", err)
-	}
-
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("failed to shutdown server: %w", err)
-	}
-	return nil
+	return server.StartHTTPHandler(ctx, tokenServer.Routes())
 }
 
 // readPrivateKey reads a PEM encouded private key from a string.
