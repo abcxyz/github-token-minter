@@ -33,6 +33,10 @@ runs:
         token_format: 'id_token'
         id_token_audience: '${{ inputs.service_audience }}'
         id_token_include_email: true
+        retries: 3
+        backoff: 250
+        backoff_limit: 1000
+        
     - id: 'mint-token'
       env:
         TOKEN: '${{ steps.auth.outputs.id_token }}'
