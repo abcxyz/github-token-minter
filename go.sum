@@ -18,8 +18,8 @@ github.com/abcxyz/jvs/client-lib/go v0.0.0-20220922231939-74efb454b360 h1:O2rWo1
 github.com/abcxyz/jvs/client-lib/go v0.0.0-20220922231939-74efb454b360/go.mod h1:DW65zvH0Rwtkou1e/6yg2ug4Q2XXjzfDh9C/yw7ZTN8=
 github.com/abcxyz/lumberjack/clients/go v0.0.0-20220923211834-05145c811069 h1:gT48Lv5iHc3l7bQC8J5ujBNkr7jwIjDFcMUEP84L6F8=
 github.com/abcxyz/lumberjack/clients/go v0.0.0-20220923211834-05145c811069/go.mod h1:4pkbSnAlY5o7Bz6MZxA/o1pVQATppivJadE3rTsgqYM=
-github.com/abcxyz/pkg v0.3.1-0.20230404002641-d3ec7e491b02 h1:XVlD8vFGLcAA1JULHh/EVJtE17wWrh2hfr0z7IANIZU=
-github.com/abcxyz/pkg v0.3.1-0.20230404002641-d3ec7e491b02/go.mod h1:eGVWC+pDBOUVNtGwQwkllVOctUCHCnLHkDyRpDE9x/g=
+github.com/abcxyz/pkg v0.3.1-0.20230502211753-40c7008e8fcf h1:7qS6jqAQLVEuxQrHWXLxhdY3zppeo7YsigGCFEE9Lho=
+github.com/abcxyz/pkg v0.3.1-0.20230502211753-40c7008e8fcf/go.mod h1:sqyDkFYfAOfh91AaKI0r73kHUxqrnthi07ZkCalXqec=
 github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220418222510-f25a4f6275ed h1:ue9pVfIcP+QMEjfgo/Ez4ZjNZfonGgR6NgjMaJMu1Cg=
 github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220418222510-f25a4f6275ed/go.mod h1:F7bn7fEU90QkQ3tnmaTx3LTKLEDqnwWODIYppRQ5hnY=
 github.com/benbjohnson/clock v1.3.0 h1:ip6w0uFQkncKQ979AypyG0ER7mqUSBdKLOgAle/AT8A=
@@ -194,8 +194,8 @@ google.golang.org/grpc v1.23.0/go.mod h1:Y5yQAOtifL1yxbo5wqy6BxZv8vAUGQwXBOALyac
 google.golang.org/grpc v1.25.1/go.mod h1:c3i+UQWmh7LiEpx4sFZnkU36qjEYZ0imhYfXVyQciAY=
 google.golang.org/grpc v1.27.0/go.mod h1:qbnxyOmOxrQa7FizSgH+ReBfzJrCY1pSN7KXBS8abTk=
 google.golang.org/grpc v1.33.2/go.mod h1:JMHMWHQWaTccqQQlmk3MJZS+GWXOdAesneDmEnv2fbc=
-google.golang.org/grpc v1.53.0 h1:LAv2ds7cmFV/XTS3XG1NneeENYrXGmorPxsBbptIjNc=
-google.golang.org/grpc v1.53.0/go.mod h1:OnIrk0ipVdj4N5d9IUoFUx72/VlD7+jUsHwZgwSMQpw=
+google.golang.org/grpc v1.54.0 h1:EhTqbhiYeixwWQtAEZAxmV9MGqcjEU2mFx52xCzNyag=
+google.golang.org/grpc v1.54.0/go.mod h1:PUSEXI6iWghWaB6lXM4knEgpJNu2qUcKfDtNci3EC2g=
 google.golang.org/protobuf v0.0.0-20200109180630-ec00e32a8dfd/go.mod h1:DFci5gLYBciE7Vtevhsrf46CRTquxDuWsQurQQe4oz8=
 google.golang.org/protobuf v0.0.0-20200221191635-4d8936d0db64/go.mod h1:kwYJMbMJ01Woi6D6+Kah6886xMZcty6N08ah7+eCXa0=
 google.golang.org/protobuf v0.0.0-20200228230310-ab0ca4ff8a60/go.mod h1:cfTl7dwQJ+fmap5saPgwCLgHXTUD7jkjRqWcaiX5VyM=

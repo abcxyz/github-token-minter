@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/abcxyz/pkg/githubapp"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
@@ -146,12 +147,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			githubAppConfig := &GitHubAppConfig{
-				AppID:          "app-id",
-				InstallationID: "install-id",
-				PrivateKey:     rsaPrivateKey,
-				AccessTokenURL: fakeGitHub.URL + "/%s/access_tokens",
-			}
+			githubAppConfig := githubapp.NewConfig("app-id", "install-id", rsaPrivateKey, githubapp.WithAccessTokenURLPattern(fakeGitHub.URL+"/%s/access_tokens"))
 
 			server, err := NewRouter(ctx, githubAppConfig, configStore, jwtParseOptions, nil)
 			if err != nil {

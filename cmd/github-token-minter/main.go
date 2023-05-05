@@ -30,6 +30,7 @@ import (
 	"github.com/abcxyz/lumberjack/clients/go/pkg/audit"
 	"github.com/abcxyz/lumberjack/clients/go/pkg/auditopt"
 	"github.com/abcxyz/pkg/cfgloader"
+	"github.com/abcxyz/pkg/githubapp"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/serving"
 	"github.com/lestrrat-go/jwx/v2/jwk"
@@ -62,7 +63,7 @@ type serviceConfig struct {
 	JWKSUrl        string `env:"GITHUB_JKWS_URL,default=https://token.actions.githubusercontent.com/.well-known/jwks"`
 	// URL used to retrieve access tokens. The pattern must contain a single '%s' which represents where in the url
 	// to insert the installation id.
-	AccessTokenURLPattern string `env:"GITHUB_ACCESS_TOKEN_URL_PATTERN,default=https://api.github.com/app/installations/%s/access_tokens"`
+	AccessTokenURLPattern string `env:"GITHUB_ACCESS_TOKEN_URL_PATTERN"`
 	ConfigDir             string `env:"CONFIGS_DIR,default=configs"`
 	LumberjackConfigFile  string `env:"LUMBERJACK_CONFIG_FILE,default=/etc/lumberjack/config.yaml"`
 }
@@ -82,13 +83,14 @@ func realMain(ctx context.Context) (retErr error) {
 		return fmt.Errorf("failed to read private key: %w", err)
 	}
 
-	// Setup the GitHub App config.
-	appConfig := &server.GitHubAppConfig{
-		AppID:          cfg.AppID,
-		InstallationID: cfg.InstallationID,
-		PrivateKey:     privateKey,
-		AccessTokenURL: cfg.AccessTokenURLPattern,
+	// Set the access token url pattern if it is provided.
+	var options []githubapp.ConfigOption
+	if cfg.AccessTokenURLPattern != "" {
+		options = append(options, githubapp.WithAccessTokenURLPattern(cfg.AccessTokenURLPattern))
 	}
+
+	// Setup the GitHub App config.
+	appConfig := githubapp.NewConfig(cfg.AppID, cfg.InstallationID, privateKey, options...)
 
 	// Create an in memory ConfigReader which preloads all of
 	// the configuration files into memory.
