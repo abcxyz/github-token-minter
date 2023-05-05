@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/abcxyz/lumberjack/clients/go v0.0.0-20220923211834-05145c811069
-	github.com/abcxyz/pkg v0.3.1-0.20230404002641-d3ec7e491b02
+	github.com/abcxyz/pkg v0.3.1-0.20230502211753-40c7008e8fcf
 	github.com/google/cel-go v0.12.5
 	github.com/google/go-cmp v0.5.9
 	github.com/lestrrat-go/jwx/v2 v2.0.8
@@ -54,7 +54,7 @@ require (
 	golang.org/x/text v0.8.0 // indirect
 	google.golang.org/api v0.110.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/grpc v1.53.0 // indirect
+	google.golang.org/grpc v1.54.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

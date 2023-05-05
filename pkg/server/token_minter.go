@@ -19,9 +19,7 @@
 package server
 
 import (
-	"bytes"
 	"context"
-	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -32,9 +30,8 @@ import (
 	"github.com/abcxyz/github-token-minter/pkg/version"
 	api "github.com/abcxyz/lumberjack/clients/go/apis/v1alpha1"
 	lumberjack "github.com/abcxyz/lumberjack/clients/go/pkg/audit"
-	"github.com/abcxyz/pkg/cache"
+	"github.com/abcxyz/pkg/githubapp"
 	"github.com/abcxyz/pkg/logging"
-	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"google.golang.org/genproto/googleapis/cloud/audit"
 	"google.golang.org/genproto/googleapis/rpc/status"
@@ -49,25 +46,10 @@ const (
 // TokenMintServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMintServer struct {
-	gitHubAppConfig  *GitHubAppConfig
+	gitHubApp        *githubapp.GitHubApp
 	configStore      ConfigReader
 	jwtParseOptions  []jwt.ParseOption
-	jwtCache         *cache.Cache[[]byte]
 	lumberjackClient *lumberjack.Client
-}
-
-// GitHubAppConfig contains all of the required configuration informaion for
-// operating as a GitHub App.
-type GitHubAppConfig struct {
-	AppID          string
-	InstallationID string
-	PrivateKey     *rsa.PrivateKey
-	AccessTokenURL string
-}
-
-type requestPayload struct {
-	Repositories []string          `json:"repositories"`
-	Permissions  map[string]string `json:"permissions"`
 }
 
 type oidcClaims struct {
@@ -94,24 +76,21 @@ type oidcClaims struct {
 }
 
 type auditEvent struct {
-	Received         time.Time         `json:"received"`
-	HTTPStatusCode   int               `json:"http_status_code"`
-	HTTPErrorMessage string            `json:"http_error_msg"`
-	Token            *oidcClaims       `json:"oidc_token_claims"`
-	Request          *requestPayload   `json:"request"`
-	Config           *RepositoryConfig `json:"repository_config"`
+	Received         time.Time               `json:"received"`
+	HTTPStatusCode   int                     `json:"http_status_code"`
+	HTTPErrorMessage string                  `json:"http_error_msg"`
+	Token            *oidcClaims             `json:"oidc_token_claims"`
+	Request          *githubapp.TokenRequest `json:"request"`
+	Config           *RepositoryConfig       `json:"repository_config"`
 }
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, ghAppConfig *GitHubAppConfig, configStore ConfigReader, jwtParseOptions []jwt.ParseOption, lumberjackClient *lumberjack.Client) (*TokenMintServer, error) {
+func NewRouter(ctx context.Context, ghAppConfig *githubapp.Config, configStore ConfigReader, jwtParseOptions []jwt.ParseOption, lumberjackClient *lumberjack.Client) (*TokenMintServer, error) {
 	return &TokenMintServer{
-		gitHubAppConfig: ghAppConfig,
-		configStore:     configStore,
-		jwtParseOptions: jwtParseOptions,
-		// Tokens expire in 10 minutes. Storing it for 9 minutes ensures that it is evicted from the cache
-		// before it expires.
-		jwtCache:         cache.New[[]byte](9 * time.Minute),
+		gitHubApp:        githubapp.New(ghAppConfig),
+		configStore:      configStore,
+		jwtParseOptions:  jwtParseOptions,
 		lumberjackClient: lumberjackClient,
 	}, nil
 }
@@ -229,7 +208,7 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 	// Parse the request information
 	defer r.Body.Close()
 
-	var request requestPayload
+	var request githubapp.TokenRequest
 	dec := json.NewDecoder(io.LimitReader(r.Body, 64_000))
 	if err := dec.Decode(&request); err != nil {
 		return http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err)
@@ -280,21 +259,9 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 		return http.StatusForbidden, "requested permissions are not authorized for this repository", err
 	}
 
-	// Check for a valid JWT in the cache
-	signedJwt, ok := s.jwtCache.Lookup(JWTCacheKey)
-	if !ok {
-		// Create a JWT for reading instance information from GitHub
-		signedJwt, err = s.generateGitHubAppJWT()
-		if err != nil {
-			return http.StatusInternalServerError,
-				"error authenticating with GitHub",
-				fmt.Errorf("error generating the JWT for GitHub app access: %w", err)
-		}
-		s.jwtCache.Set(JWTCacheKey, signedJwt)
-	}
-	accessToken, err := s.generateInstallationAccessToken(ctx, string(signedJwt), &request)
+	accessToken, err := s.gitHubApp.AccessToken(ctx, &request)
 	if err != nil {
-		return http.StatusInternalServerError, "error generating GitHub access token", err
+		return http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)
 	}
 	return http.StatusOK, accessToken, nil
 }
@@ -339,78 +306,6 @@ func matchesAllowed(allow, request string) bool {
 	default:
 		return false
 	}
-}
-
-// generateInstallationAccessToken makes a call to the GitHub API to generate a new
-// application level access token.
-func (s *TokenMintServer) generateInstallationAccessToken(ctx context.Context, ghAppJwt string, request *requestPayload) (string, error) {
-	logger := logging.FromContext(ctx)
-
-	requestURL := fmt.Sprintf(s.gitHubAppConfig.AccessTokenURL, s.gitHubAppConfig.InstallationID)
-	requestJSON, err := json.Marshal(request)
-	if err != nil {
-		return "", fmt.Errorf("error marshalling request data: %w", err)
-	}
-
-	requestReader := bytes.NewReader(requestJSON)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, requestReader)
-	if err != nil {
-		return "", fmt.Errorf("error creating http request for GitHub installation information: %w", err)
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ghAppJwt))
-
-	client := http.Client{Timeout: 10 * time.Second}
-
-	res, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("error making http request for GitHub installation access token %w", err)
-	}
-	defer res.Body.Close()
-
-	b, err := io.ReadAll(io.LimitReader(res.Body, 64_000))
-	if err != nil {
-		return "", fmt.Errorf("error reading http response for GitHub installation access token %w", err)
-	}
-
-	if res.StatusCode != http.StatusCreated {
-		logger.Errorf("failed to retrieve token from GitHub - Status: %s - Body: %s", res.Status, string(b))
-		return "", fmt.Errorf("error generating access token")
-	}
-
-	// Issue #42 - GitHub will respond with a 201 when you send a request for an invalid combination,
-	// e.g. 'issues':'write' for an empty repository list. This 201 comes with a response that is not actually JSON.
-	// Attempt to parse the JSON to see if this is a valid token, if it is not then respond with an error and log the
-	// actual response from GitHub.
-	tokenContent := map[string]any{}
-	if err := json.Unmarshal(b, &tokenContent); err != nil {
-		logger.Errorf("invalid access token from GitHub - Body: %s", string(b))
-		return "", fmt.Errorf("invalid access token response from GitHub")
-	}
-
-	return string(b), nil
-}
-
-// generateGitHubAppJWT creates a signed JWT to authenticate this service as a
-// GitHub app that can make API calls to GitHub.
-func (s *TokenMintServer) generateGitHubAppJWT() ([]byte, error) {
-	iat := time.Now()
-	exp := iat.Add(10 * time.Minute)
-	iss := s.gitHubAppConfig.AppID
-
-	token, err := jwt.NewBuilder().
-		Expiration(exp).
-		IssuedAt(iat).
-		Issuer(iss).
-		Build()
-	if err != nil {
-		return nil, fmt.Errorf("error building JWT: %w", err)
-	}
-	signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256, s.gitHubAppConfig.PrivateKey))
-	if err != nil {
-		return nil, fmt.Errorf("error signing JWT: %w", err)
-	}
-	return signed, nil
 }
 
 // parsePrivateClaims extracts the private claims from the OIDC token into an internal
