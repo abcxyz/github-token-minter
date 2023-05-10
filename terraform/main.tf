@@ -33,7 +33,7 @@ resource "google_service_account" "run_service_account" {
 }
 
 module "gclb" {
-  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/gclb_cloud_run_backend?ref=main"
+  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/gclb_cloud_run_backend?ref=c0787907413e7c755147fff9bf1265665a646505"
 
   project_id = var.project_id
 
@@ -43,7 +43,7 @@ module "gclb" {
 }
 
 module "cloud_run" {
-  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/cloud_run?ref=main"
+  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/cloud_run?ref=c0787907413e7c755147fff9bf1265665a646505"
 
   project_id = var.project_id
 
