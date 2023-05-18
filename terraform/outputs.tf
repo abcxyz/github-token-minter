@@ -12,6 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+output "gclb_external_ip_name" {
+  description = "The external IPv4 name assigned to the global fowarding rule for the global load balancer fronting the Cloud Run service."
+  value       = try(module.gclb[0].external_ip_name, null)
+}
+
+output "gclb_external_ip_address" {
+  description = "The external IPv4 assigned to the global fowarding rule for the global load balancer fronting the Cloud Run service."
+  value       = try(module.gclb[0].external_ip_address, null)
+}
+
 output "run_service_url" {
   description = "The Cloud Run service url."
   value       = module.cloud_run.url
@@ -33,7 +43,7 @@ output "run_service_account_email" {
 }
 
 output "run_service_account_member" {
-  description = "Cloud Run service account email iam string."
+  description = "Cloud Run service account email IAM member string."
   value       = google_service_account.run_service_account.member
 }
 
