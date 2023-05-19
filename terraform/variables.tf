@@ -30,7 +30,7 @@ variable "name" {
 # This current approach allows the end-user to disable the GCLB in favor of calling the Cloud Run service directly.
 # This was done to use tagged revision URLs for integration testing on multiple pull requests. 
 variable "enable_gclb" {
-  description = "Enable the use of a Google Cloud load balancer for the webhook Cloud Run service. By default this is true, this should only be used for integration environments where services will use tagged revision URLs for testing."
+  description = "Enable the use of a Google Cloud load balancer for the Cloud Run service. By default this is true, this should only be used for integration environments where services will use tagged revision URLs for testing."
   type        = bool
   default     = true
 }
