@@ -20,6 +20,8 @@ desc: 'Generate the infrastructure necessary to run GitHub Token Minter'
 inputs:
   - name: 'project_id'
     desc: 'The Google Cloud project ID to deploy GitHub Token Minter'
+  - name: 'automation_service_account_member'
+    desc: 'The CI service account member for deploying GitHub Token Minter'
   - name: 'domains'
     desc: 'A comma separated list of custom domains for the GitHub Token Minter Cloud Run service'
   - name: 'terraform_state_bucket'
@@ -34,19 +36,25 @@ steps:
       paths:
         - 'main.tf'
         - 'backend.tf'
+        - 'outputs.tf'
         - 'terraform.tf'
 
   - desc: 'Replace variables'
     action: 'string_replace'
     params:
       paths:
-        - '.github/workflows'
+        - 'main.tf'
+        - 'backend.tf'
+        - 'outputs.tf'
+        - 'terraform.tf'
       replacements:
         - to_replace: 'REPLACE_PROJECT_ID'
-          WITH: '{{.project_id}}'
+          with: '{{.project_id}}'
         - to_replace: 'REPLACE_DOMAINS'
           with: '{{.domains}}'
         - to_replace: 'REPLACE_BUCKET_NAME'
-          with: '{{.bucket_name}}'
+          with: '{{.terraform_state_bucket}}'
         - to_replace: 'REPLACE_BUCKET_PREFIX'
-          with: '{{.bucket_prefix}}'
+          with: '{{.terraform_state_prefix}}'
+        - to_replace: 'REPLACE_AUTOMATION_SERVICE_ACCOUNT_MEMBER'
+          with: '{{.automation_service_account_member}}'
