@@ -37,12 +37,12 @@ module "github_token_minter" {
 
   project_id = local.project_id
 
-  domains    = ["REPLACE_DOMAINS"]
-  dataset_id = "github_token_minter_audit_prod"
+  domains                        = ["REPLACE_DOMAINS"]
+  dataset_id                     = "github_token_minter_audit_prod"
   invoker_service_account_member = module.github_token_minter_github_wif.service_account_member
   service_iam = {
     admins     = []
-    developers = [local.automation_service_account_member] # ci service account
+    developers = [local.automation_service_account_member]                      # ci service account
     invokers   = [module.github_token_minter_github_wif.service_account_member] # GitHub OIDC access only
   }
 }
