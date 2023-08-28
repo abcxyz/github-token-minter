@@ -18,7 +18,7 @@ resource "google_project_service" "services" {
 }
 
 module "github_token_minter_github_wif" {
-  source = "git::https://github.com/abcxyz/github-token-minter.git//terraform/modules?ref=1070deb5614f6c8edac14ec3b8496f2e28e2eea3"
+  source = "git::https://github.com/abcxyz/github-token-minter.git//terraform/modules/github-wif?ref=c6c2a47034268b472dbf1e51c28118c5cedb61e4"
 
   project_id = local.project_id
 
