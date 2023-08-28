@@ -23,7 +23,7 @@ inputs:
   - name: 'automation_service_account_member'
     desc: 'The CI service account member for deploying GitHub Token Minter'
   - name: 'domains'
-    desc: 'A comma separated list of custom domains for the GitHub Token Minter Cloud Run service'
+    desc: 'A comma separated list of custom domains for the Google Cloud Load Balancer'
   - name: 'terraform_state_bucket'
     desc: 'The Google Cloud storage bucket for Terraform backend state'
   - name: 'terraform_state_prefix'
