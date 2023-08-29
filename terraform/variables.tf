@@ -75,11 +75,6 @@ variable "dataset_id" {
   description = "The BigQuery dataset id to create."
 }
 
-variable "invoker_service_account_member" {
-  type        = string
-  description = "The service account that will be used to invoke the Cloud Run service."
-}
-
 variable "log_sink_name" {
   type        = string
   default     = "github-token-minter-logs"

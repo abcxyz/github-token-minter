@@ -71,9 +71,9 @@ output "wif_provider" {
 }
 
 output "wif_service_account_email" {
-  value = google_service_account.default.email
+  value = google_service_account.wif_service_account.email
 }
 
 output "wif_service_account_member" {
-  value = google_service_account.default.member
+  value = google_service_account.wif_service_account.member
 }

@@ -77,7 +77,7 @@ resource "google_iam_workload_identity_pool_provider" "default" {
   }
 }
 
-resource "google_service_account" "default" {
+resource "google_service_account" "wif_service_account" {
   project = var.project_id
 
   account_id   = "gh-${var.id}-sa" # 30 characters
