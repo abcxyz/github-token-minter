@@ -85,7 +85,7 @@ variable "wif_id" {
   description = "An ID for these resources."
   type        = string
   validation {
-    condition     = length(var.id) <= 22
+    condition     = length(var.wif_id) <= 22
     error_message = "ERROR: id must be 22 characters or less."
   }
 }
