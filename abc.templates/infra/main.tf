@@ -3,20 +3,6 @@ locals {
   automation_service_account_member = "REPLACE_AUTOMATION_SERVICE_ACCOUNT_MEMBER"
 }
 
-resource "google_project_service" "services" {
-  for_each = toset([
-    "iam.googleapis.com",
-    "iamcredentials.googleapis.com",
-    "sts.googleapis.com",
-  ])
-
-  project = local.project_id
-
-  service                    = each.value
-  disable_on_destroy         = false
-  disable_dependent_services = false
-}
-
 module "github_token_minter" {
   source = "git::https://github.com/abcxyz/github-token-minter.git//terraform?ref=1070deb5614f6c8edac14ec3b8496f2e28e2eea3"
 
