@@ -24,7 +24,6 @@ module "github_token_minter" {
 
   domains                        = ["REPLACE_DOMAINS"]
   dataset_id                     = "github_token_minter_audit_prod"
-  invoker_service_account_member = module.github_token_minter_github_wif.service_account_member
 
   wif_id = "token-minter"
   wif_github = {
