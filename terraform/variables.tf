@@ -82,7 +82,7 @@ variable "log_sink_name" {
 }
 
 variable "ci_service_account_member" {
-  type = string
+  type        = string
   description = "The service account member for deploying revisions to Cloud Run"
 }
 

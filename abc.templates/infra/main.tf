@@ -18,6 +18,6 @@ module "github_token_minter" {
     repo_id    = "REPLACE_GITHUB_REPO_ID"
     repo_name  = "REPLACE_GITHUB_REPO_NAME"
   }
-  wif_attribute_condition = "attribute.repository_owner_id == \"REPLACE_GITHUB_OWNER_ID\""
+  wif_attribute_condition   = "attribute.repository_owner_id == \"REPLACE_GITHUB_OWNER_ID\""
   ci_service_account_member = local.automation_service_account_member
 }
