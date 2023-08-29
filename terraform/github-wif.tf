@@ -53,7 +53,7 @@ resource "google_iam_workload_identity_pool" "default" {
   project = var.project_id
 
   workload_identity_pool_id = "gh-${var.wif_id}-${random_id.default.hex}" # 32 characters
-  display_name              = "GitHub WIF pool"                       # 32 characters
+  display_name              = "GitHub WIF pool"                           # 32 characters
   description               = "GitHub OIDC identity pool (${local.repo_full_name}) - ${var.wif_id}"
 
   depends_on = [
@@ -66,7 +66,7 @@ resource "google_iam_workload_identity_pool_provider" "default" {
 
   workload_identity_pool_id          = google_iam_workload_identity_pool.default.workload_identity_pool_id
   workload_identity_pool_provider_id = "gh-${var.wif_id}-${random_id.default.hex}" # 32 characters
-  display_name                       = "GitHub WIF Provider"                   # 32 characters
+  display_name                       = "GitHub WIF Provider"                       # 32 characters
   description                        = "GitHub OIDC identity provider (${local.repo_full_name}) - ${var.wif_id}"
 
   attribute_mapping   = local.wif_attribute_mapping

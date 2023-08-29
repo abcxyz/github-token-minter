@@ -59,7 +59,12 @@ module "cloud_run" {
   ingress               = var.enable_gclb ? "internal-and-cloud-load-balancing" : "all"
   secrets               = ["github-application-id", "github-installation-id", "github-privatekey"]
   service_account_email = google_service_account.run_service_account.email
-  service_iam           = var.service_iam
+  service_iam = {
+    admins     = var.service_iam.admins
+    developers = var.service_iam.developers
+    invokers   = toset(flatten([google_service_account.wif_service_account.member, var.service_iam.invokers]))
+  }
+
   secret_envvars = {
     "GITHUB_APP_ID" : {
       name : "github-application-id",
