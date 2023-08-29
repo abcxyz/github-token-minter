@@ -81,6 +81,11 @@ variable "log_sink_name" {
   description = "The log sink name that filters for audit logs."
 }
 
+variable "ci_service_account_member" {
+  type = string
+  description = "The service account member for deploying revisions to Cloud Run"
+}
+
 variable "wif_id" {
   description = "An ID for these resources."
   type        = string

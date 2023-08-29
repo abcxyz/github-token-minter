@@ -19,10 +19,5 @@ module "github_token_minter" {
     repo_name  = "REPLACE_GITHUB_REPO_NAME"
   }
   wif_attribute_condition = "attribute.repository_owner_id == \"REPLACE_GITHUB_OWNER_ID\""
-
-  service_iam = {
-    admins     = []
-    developers = [local.automation_service_account_member] # ci service account
-    invokers   = []                                        # GitHub OIDC access only
-  }
+  ci_service_account_member = local.automation_service_account_member
 }

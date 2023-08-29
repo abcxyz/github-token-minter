@@ -61,7 +61,7 @@ module "cloud_run" {
   service_account_email = google_service_account.run_service_account.email
   service_iam = {
     admins     = var.service_iam.admins
-    developers = var.service_iam.developers
+    developers = toset(flatten([var.ci_service_account_member, var.service_iam.developers]))
     invokers   = toset(flatten([google_service_account.wif_service_account.member, var.service_iam.invokers]))
   }
 
@@ -79,5 +79,14 @@ module "cloud_run" {
       version : "latest",
     }
   }
+}
+
+# allow the ci service account to act as the cloud run service account
+# this allows the ci service account to deploy new revisions for the
+# cloud run sevice
+resource "google_service_account_iam_member" "run_sa_ci_binding" {
+  service_account_id = google_service_account.run_service_account.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = var.ci_service_account_member
 }
 
