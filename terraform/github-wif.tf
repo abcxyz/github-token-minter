@@ -13,7 +13,7 @@
 # limitations under the License.
 
 locals {
-  repo_full_name = "${var.github.owner_name}/${var.github.repo_name}"
+  repo_full_name = "${var.wif_github.owner_name}/${var.wif_github.repo_name}"
 
   default_wif_attribute_mapping = {
     "google.subject" : "assertion.sub"
@@ -36,8 +36,8 @@ locals {
   #   https://securitylab.github.com/research/github-actions-preventing-pwn-requests/
   default_wif_attribute_condition = trimspace(chomp(<<-EOF
       attribute.event_name != "pull_request_target"
-       && attribute.repository_owner_id == "${var.github.owner_id}"
-       && attribute.repository_id == "${var.github.repo_id}"
+       && attribute.repository_owner_id == "${var.wif_github.owner_id}"
+       && attribute.repository_id == "${var.wif_github.repo_id}"
       EOF
   ))
 
@@ -52,9 +52,9 @@ resource "random_id" "default" {
 resource "google_iam_workload_identity_pool" "default" {
   project = var.project_id
 
-  workload_identity_pool_id = "gh-${var.id}-${random_id.default.hex}" # 32 characters
+  workload_identity_pool_id = "gh-${var.wif_id}-${random_id.default.hex}" # 32 characters
   display_name              = "GitHub WIF pool"                       # 32 characters
-  description               = "GitHub OIDC identity pool (${local.repo_full_name}) - ${var.id}"
+  description               = "GitHub OIDC identity pool (${local.repo_full_name}) - ${var.wif_id}"
 
   depends_on = [
     google_project_service.default["iam.googleapis.com"],
@@ -65,9 +65,9 @@ resource "google_iam_workload_identity_pool_provider" "default" {
   project = var.project_id
 
   workload_identity_pool_id          = google_iam_workload_identity_pool.default.workload_identity_pool_id
-  workload_identity_pool_provider_id = "gh-${var.id}-${random_id.default.hex}" # 32 characters
+  workload_identity_pool_provider_id = "gh-${var.wif_id}-${random_id.default.hex}" # 32 characters
   display_name                       = "GitHub WIF Provider"                   # 32 characters
-  description                        = "GitHub OIDC identity provider (${local.repo_full_name}) - ${var.id}"
+  description                        = "GitHub OIDC identity provider (${local.repo_full_name}) - ${var.wif_id}"
 
   attribute_mapping   = local.wif_attribute_mapping
   attribute_condition = local.wif_attribute_condition
@@ -80,8 +80,8 @@ resource "google_iam_workload_identity_pool_provider" "default" {
 resource "google_service_account" "wif_service_account" {
   project = var.project_id
 
-  account_id   = "gh-${var.id}-sa" # 30 characters
-  display_name = "GitHub WIF ${var.id} service account"
+  account_id   = "gh-${var.wif_id}-sa" # 30 characters
+  display_name = "GitHub WIF ${var.wif_id} service account"
 }
 
 resource "google_service_account_iam_member" "default" {
