@@ -20,12 +20,12 @@ env:
 
 before:
   hooks:
-    - go mod tidy
+    - 'go mod tidy'
 
 builds:
-  - id: server
-    main: ./cmd/github-token-minter
-    binary: server
+  - id: 'server'
+    main: './cmd/github-token-minter'
+    binary: 'server'
     mod_timestamp: '{{ .CommitTimestamp }}'
     flags:
       - '-a'
@@ -45,7 +45,7 @@ builds:
 
 dockers:
   - ids:
-      - server
+      - 'server'
     use: 'buildx'
     goos: 'linux'
     goarch: 'amd64'
@@ -63,11 +63,11 @@ dockers:
       - '--label=org.opencontainers.image.title=github-token-minter-server'
       - '--label=org.opencontainers.image.version={{ .Version }}'
     extra_files:
-      - lumberjack_config.yml
-      - configs
+      - 'lumberjack_config.yml'
+      - 'configs'
 
   - ids:
-      - server
+      - 'server'
     use: 'buildx'
     goos: 'linux'
     goarch: 'arm64'
@@ -85,8 +85,8 @@ dockers:
       - '--label=org.opencontainers.image.title=github-token-minter-server'
       - '--label=org.opencontainers.image.version={{ .Version }}'
     extra_files:
-      - lumberjack_config.yml
-      - configs
+      - 'lumberjack_config.yml'
+      - 'configs'
 
 docker_manifests:
   - image_templates:

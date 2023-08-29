@@ -1,7 +1,6 @@
 # abcxyz/github-token-minter.yaml
-- 
-  if: 'assertion.workflow_ref.startsWith("abcxyz/github-token-minter/.github/workflows/ci.yml")'
-  repositories: 
+- if: 'assertion.workflow_ref.startsWith("abcxyz/github-token-minter/.github/workflows/ci.yml")'
+  repositories:
     - 'github-token-minter'
   permissions:
     issues: 'read'
