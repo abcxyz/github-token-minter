@@ -85,7 +85,7 @@ resource "google_service_account" "wif_service_account" {
 }
 
 resource "google_service_account_iam_member" "default" {
-  service_account_id = google_service_account.default.id
+  service_account_id = google_service_account.wif_service_account.id
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.default.name}/*"
 }
