@@ -25,8 +25,8 @@ resource "google_project_service" "default" {
 
   project = var.project_id
 
-  service            = each.value
-  disable_on_destroy = false
+  service                    = each.value
+  disable_on_destroy         = false
   disable_dependent_services = false # To keep, or not to keep? From github-wif module
 }
 
