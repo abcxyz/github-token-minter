@@ -1,5 +1,6 @@
 name: 'github-token-minter action'
 description: 'Exchange a GitHub OIDC token for one with elevated privlidges.'
+
 inputs:
   wif_provider:
     description: 'Workload identity federation provider.'
@@ -16,6 +17,7 @@ inputs:
   requested_permissions:
     description: 'Permission request information in the form {"repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
     required: true
+
 outputs:
   token:
     description: 'Newly minted token'
@@ -36,13 +38,12 @@ runs:
         retries: 3
         backoff: 250
         backoff_limit: 1000
-        
     - id: 'mint-token'
+      uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
       env:
         TOKEN: '${{ steps.auth.outputs.id_token }}'
         SERVICE_URL: '${{ inputs.service_url }}'
         REQUESTED_PERMISSIONS: '${{ inputs.requested_permissions }}'
-      uses: 'actions/github-script@v6'
       with:
         script: |
           try {

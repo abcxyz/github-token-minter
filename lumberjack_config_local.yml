@@ -2,4 +2,4 @@ backend:
   cloudlogging:
     project: 'github-token-minter-dev'
 labels:
-  service: 'github-token-minter' 
+  service: 'github-token-minter'
