@@ -90,7 +90,7 @@ variable "wif_id" {
   }
 }
 
-variable "github" {
+variable "wif_github" {
   description = "The GitHub repository information."
   type = object({
     owner_name     = string
