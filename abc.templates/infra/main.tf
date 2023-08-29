@@ -17,21 +17,6 @@ resource "google_project_service" "services" {
   disable_dependent_services = false
 }
 
-module "github_token_minter_github_wif" {
-  source = "git::https://github.com/abcxyz/github-token-minter.git//terraform/modules/github-wif?ref=c6c2a47034268b472dbf1e51c28118c5cedb61e4"
-
-  project_id = local.project_id
-
-  id = "token-minter"
-  github = {
-    owner_id   = "REPLACE_GITHUB_OWNER_ID"
-    owner_name = "REPLACE_GITHUB_OWNER_NAME"
-    repo_id    = "REPLACE_GITHUB_REPO_ID"
-    repo_name  = "REPLACE_GITHUB_REPO_NAME"
-  }
-  wif_attribute_condition = "attribute.repository_owner_id == \"REPLACE_GITHUB_OWNER_ID\""
-}
-
 module "github_token_minter" {
   source = "git::https://github.com/abcxyz/github-token-minter.git//terraform?ref=1070deb5614f6c8edac14ec3b8496f2e28e2eea3"
 
@@ -40,6 +25,16 @@ module "github_token_minter" {
   domains                        = ["REPLACE_DOMAINS"]
   dataset_id                     = "github_token_minter_audit_prod"
   invoker_service_account_member = module.github_token_minter_github_wif.service_account_member
+
+  wif_id = "token-minter"
+  wif_github = {
+    owner_id   = "REPLACE_GITHUB_OWNER_ID"
+    owner_name = "REPLACE_GITHUB_OWNER_NAME"
+    repo_id    = "REPLACE_GITHUB_REPO_ID"
+    repo_name  = "REPLACE_GITHUB_REPO_NAME"
+  }
+  wif_attribute_condition = "attribute.repository_owner_id == \"REPLACE_GITHUB_OWNER_ID\""
+
   service_iam = {
     admins     = []
     developers = [local.automation_service_account_member]                      # ci service account
