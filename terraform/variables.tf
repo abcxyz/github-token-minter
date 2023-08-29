@@ -15,6 +15,10 @@
 variable "project_id" {
   description = "The GCP project ID."
   type        = string
+  validation {
+    condition     = length(var.project_id) <= 30
+    error_message = "ERROR: project_id must be <= 30 characters."
+  }
 }
 
 variable "name" {
@@ -28,7 +32,7 @@ variable "name" {
 }
 
 # This current approach allows the end-user to disable the GCLB in favor of calling the Cloud Run service directly.
-# This was done to use tagged revision URLs for integration testing on multiple pull requests. 
+# This was done to use tagged revision URLs for integration testing on multiple pull requests.
 variable "enable_gclb" {
   description = "Enable the use of a Google Cloud load balancer for the Cloud Run service. By default this is true, this should only be used for integration environments where services will use tagged revision URLs for testing."
   type        = bool
@@ -80,4 +84,36 @@ variable "log_sink_name" {
   type        = string
   default     = "github-token-minter-logs"
   description = "The log sink name that filters for audit logs."
+}
+
+variable "wif_id" {
+  description = "An ID for these resources."
+  type        = string
+  validation {
+    condition     = length(var.id) <= 22
+    error_message = "ERROR: id must be 22 characters or less."
+  }
+}
+
+variable "github" {
+  description = "The GitHub repository information."
+  type = object({
+    owner_name     = string
+    owner_id       = string
+    repo_name      = string
+    repo_id        = string
+    default_branch = optional(string, "main")
+  })
+}
+
+variable "wif_attribute_mapping" {
+  type        = map(string)
+  description = "(Optional) Workload Identity Federation provider attribute mappings. Defaults to base mapping for default attribute condition."
+  default     = null
+}
+
+variable "wif_attribute_condition" {
+  type        = string
+  description = "(Optional) Workload Identity Federation provider attribute condition. Appended to base condition, matching GitHub owner and repository id. Defaults to preventing `pull_request_target` event and matching GitHub owner and repository id."
+  default     = null
 }

@@ -17,12 +17,17 @@ resource "google_project_service" "default" {
     "cloudresourcemanager.googleapis.com",
     "bigquery.googleapis.com",
     "logging.googleapis.com",
+    "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "serviceusage.googleapis.com",
+    "sts.googleapis.com",
   ])
 
   project = var.project_id
 
   service            = each.value
   disable_on_destroy = false
+  disable_dependent_services = false # To keep, or not to keep? From github-wif module
 }
 
 resource "google_service_account" "run_service_account" {
