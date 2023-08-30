@@ -15,34 +15,13 @@
 locals {
   repo_full_name = "${var.wif_github.owner_name}/${var.wif_github.repo_name}"
 
-  default_wif_attribute_mapping = {
+  wif_attribute_mapping = {
     "google.subject" : "assertion.sub"
     "attribute.actor" : "assertion.actor"
     "attribute.aud" : "assertion.aud"
-    "attribute.event_name" : "assertion.event_name"
-    "attribute.environment" : "assertion.environment"
-    "attribute.repository" : "assertion.repository"
-    "attribute.repository_id" : "assertion.repository_id"
     "attribute.repository_owner_id" : "assertion.repository_owner_id"
-    "attribute.repository_visibility" : "assertion.repository_visibility"
-    "attribute.workflow" : "assertion.workflow"
-    "attribute.workflow_ref" : "assertion.workflow_ref"
   }
-
-  # We create conditions based on ID instead of name to prevent name hijacking
-  # or squatting attacks.
-  #
-  # We also prevent pull_request_target, since that runs arbitrary code:
-  #   https://securitylab.github.com/research/github-actions-preventing-pwn-requests/
-  default_wif_attribute_condition = trimspace(chomp(<<-EOF
-      attribute.event_name != "pull_request_target"
-       && attribute.repository_owner_id == "${var.wif_github.owner_id}"
-       && attribute.repository_id == "${var.wif_github.repo_id}"
-      EOF
-  ))
-
-  wif_attribute_mapping   = coalesce(var.wif_attribute_mapping, local.default_wif_attribute_mapping)
-  wif_attribute_condition = coalesce(var.wif_attribute_condition, local.default_wif_attribute_condition)
+  wif_attribute_condition = "attribute.repository_owner_id == \"${var.wif_github.owner_id}\""
 }
 
 resource "random_id" "default" {
