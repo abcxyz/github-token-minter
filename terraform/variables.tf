@@ -95,15 +95,9 @@ variable "wif_id" {
   }
 }
 
-variable "wif_github" {
-  description = "The GitHub repository information."
-  type = object({
-    owner_name     = string
-    owner_id       = string
-    repo_name      = string
-    repo_id        = string
-    default_branch = optional(string, "main")
-  })
+variable "github_owner_id" {
+  description = "The ID of the GitHub organization."
+  type = string
 }
 
 variable "wif_attribute_mapping" {

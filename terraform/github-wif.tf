@@ -13,8 +13,6 @@
 # limitations under the License.
 
 locals {
-  repo_full_name = "${var.wif_github.owner_name}/${var.wif_github.repo_name}"
-
   wif_attribute_mapping = {
     "google.subject" : "assertion.sub"
     "attribute.actor" : "assertion.actor"
@@ -33,7 +31,7 @@ resource "google_iam_workload_identity_pool" "default" {
 
   workload_identity_pool_id = "gh-${var.wif_id}-${random_id.default.hex}" # 32 characters
   display_name              = "GitHub WIF pool"                           # 32 characters
-  description               = "GitHub OIDC identity pool (${local.repo_full_name}) - ${var.wif_id}"
+  description               = "GitHub OIDC identity pool - ${var.wif_id}"
 
   depends_on = [
     google_project_service.default["iam.googleapis.com"],
@@ -46,7 +44,7 @@ resource "google_iam_workload_identity_pool_provider" "default" {
   workload_identity_pool_id          = google_iam_workload_identity_pool.default.workload_identity_pool_id
   workload_identity_pool_provider_id = "gh-${var.wif_id}-${random_id.default.hex}" # 32 characters
   display_name                       = "GitHub WIF Provider"                       # 32 characters
-  description                        = "GitHub OIDC identity provider (${local.repo_full_name}) - ${var.wif_id}"
+  description                        = "GitHub OIDC identity provider - ${var.wif_id}"
 
   attribute_mapping   = local.wif_attribute_mapping
   attribute_condition = local.wif_attribute_condition
