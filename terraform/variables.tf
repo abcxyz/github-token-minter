@@ -86,15 +86,6 @@ variable "ci_service_account_member" {
   description = "The service account member for deploying revisions to Cloud Run"
 }
 
-variable "wif_id" {
-  description = "An ID for the Workload Identity Federation resources."
-  type        = string
-  validation {
-    condition     = length(var.wif_id) <= 22
-    error_message = "ERROR: id must be 22 characters or less."
-  }
-}
-
 variable "github_owner_id" {
   description = "The ID of the GitHub organization."
   type = string
