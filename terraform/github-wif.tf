@@ -22,14 +22,10 @@ locals {
   wif_attribute_condition = "attribute.repository_owner_id == \"${var.github_owner_id}\""
 }
 
-resource "random_id" "default" {
-  byte_length = 3
-}
-
 resource "google_iam_workload_identity_pool" "default" {
   project = var.project_id
 
-  workload_identity_pool_id = "gh-token-minter-${random_id.default.hex}" # 32 characters
+  workload_identity_pool_id = "github-token-minter" # 32 characters
   display_name              = "Token-Minter WIF pool"                    # 32 characters
   description               = "Token-Minter OIDC identity pool"
 
@@ -42,7 +38,7 @@ resource "google_iam_workload_identity_pool_provider" "default" {
   project = var.project_id
 
   workload_identity_pool_id          = google_iam_workload_identity_pool.default.workload_identity_pool_id
-  workload_identity_pool_provider_id = "gh-token-minter-${random_id.default.hex}" # 32 characters
+  workload_identity_pool_provider_id = "github-token-minter" # 32 characters
   display_name                       = "Token-Minter WIF Provider"                # 32 characters
   description                        = "Token-Minter OIDC identity provider"
 
@@ -57,7 +53,7 @@ resource "google_iam_workload_identity_pool_provider" "default" {
 resource "google_service_account" "wif_service_account" {
   project = var.project_id
 
-  account_id   = "gh-token-minter-sa" # 30 characters
+  account_id   = "github-token-minter-sa" # 30 characters
   display_name = "Token Minter WIF service account"
 }
 
