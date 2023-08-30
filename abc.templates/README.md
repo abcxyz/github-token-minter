@@ -15,6 +15,6 @@ abc templates render \
 --input=github_owner_name=<GITHUB_ORG_NAME> \
 --input=github_repo_id=<GITHUB_REPO_ID> \
 --input=github_repo_name=<GITHUB_REPO_NAME> \
-abc.templates/infra
+github.com/abcxyz/github-token-minter.git//abc.templates/infra?ref=<SHA>
 ```
 
