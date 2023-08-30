@@ -61,8 +61,8 @@ module "cloud_run" {
   service_account_email = google_service_account.run_service_account.email
   service_iam = {
     admins     = var.service_iam.admins
-    developers = toset(flatten([var.ci_service_account_member, var.service_iam.developers]))
-    invokers   = toset(flatten([google_service_account.wif_service_account.member, var.service_iam.invokers]))
+    developers = toset(concat(var.service_iam.developers, [var.ci_service_account_member]))
+    invokers   = toset(concat(var.service_iam.invokers, [google_service_account.wif_service_account.member]))
   }
 
   secret_envvars = {
