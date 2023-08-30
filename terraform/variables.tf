@@ -87,7 +87,7 @@ variable "ci_service_account_member" {
 }
 
 variable "wif_id" {
-  description = "An ID for these resources."
+  description = "An ID for the Workload Identity Federation resources."
   type        = string
   validation {
     condition     = length(var.wif_id) <= 22
