@@ -19,7 +19,7 @@ locals {
     "attribute.aud" : "assertion.aud"
     "attribute.repository_owner_id" : "assertion.repository_owner_id"
   }
-  wif_attribute_condition = "attribute.repository_owner_id == \"${var.wif_github.owner_id}\""
+  wif_attribute_condition = "attribute.repository_owner_id == \"${var.github_owner_id}\""
 }
 
 resource "random_id" "default" {
