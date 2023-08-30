@@ -88,5 +88,5 @@ variable "ci_service_account_member" {
 
 variable "github_owner_id" {
   description = "The ID of the GitHub organization."
-  type = string
+  type        = string
 }
