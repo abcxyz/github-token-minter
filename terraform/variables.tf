@@ -99,15 +99,3 @@ variable "github_owner_id" {
   description = "The ID of the GitHub organization."
   type = string
 }
-
-variable "wif_attribute_mapping" {
-  type        = map(string)
-  description = "(Optional) Workload Identity Federation provider attribute mappings. Defaults to base mapping for default attribute condition."
-  default     = null
-}
-
-variable "wif_attribute_condition" {
-  type        = string
-  description = "(Optional) Workload Identity Federation provider attribute condition. Appended to base condition, matching GitHub owner and repository id. Defaults to preventing `pull_request_target` event and matching GitHub owner and repository id."
-  default     = null
-}
