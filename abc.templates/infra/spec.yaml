@@ -30,13 +30,6 @@ inputs:
     desc: 'The prefix for storing state related to GitHub Token Minter'
   - name: 'github_owner_id'
     desc: 'The ID of the GitHub owner or organization'
-  - name: 'github_owner_name'
-    desc: 'The name of the GitHub owner or organization'
-  - name: 'github_repo_id'
-    desc: 'The ID of the GitHub repository'
-  - name: 'github_repo_name'
-    desc: 'The Name of the GitHub repository'
-    default: 'abcxyz-services'
 
 steps:
   - desc: 'Include required files and directories'
@@ -44,7 +37,6 @@ steps:
     params:
       paths:
         - 'main.tf'
-        - 'backend.tf'
         - 'outputs.tf'
         - 'terraform.tf'
 
@@ -53,7 +45,6 @@ steps:
     params:
       paths:
         - 'main.tf'
-        - 'backend.tf'
         - 'outputs.tf'
         - 'terraform.tf'
       replacements:
@@ -69,9 +60,3 @@ steps:
           with: '{{.automation_service_account_member}}'
         - to_replace: 'REPLACE_GITHUB_OWNER_ID'
           with: '{{.github_owner_id}}'
-        - to_replace: 'REPLACE_GITHUB_OWNER_NAME'
-          with: '{{.github_owner_name}}'
-        - to_replace: 'REPLACE_GITHUB_REPO_ID'
-          with: '{{.github_repo_id}}'
-        - to_replace: 'REPLACE_GITHUB_REPO_NAME'
-          with: '{{.github_repo_name}}'
