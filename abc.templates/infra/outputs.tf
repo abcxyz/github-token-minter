@@ -17,3 +17,19 @@ output "run_service_url" {
   description = "The Cloud Run service url."
   value       = module.github_token_minter.run_service_url
 }
+
+output "wif_pool" {
+  value = module.github_token_minter.wif_pool
+}
+
+output "wif_provider" {
+  value = module.github_token_minter.wif_provider
+}
+
+output "wif_service_account_email" {
+  value = module.github_token_minter.wif_service_account_email
+}
+
+output "wif_service_account_member" {
+  value = module.github_token_minter.wif_service_account_member
+}
