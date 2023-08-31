@@ -8,11 +8,11 @@ abc templates render \
 --dest infra/github-token-minter \
 --input=automation_service_account_member=<SERVICE_ACCOUNT> \
 --input=project_id=<PROJECT_ID> \
---input=domains=<COMMA_SEPARATED_DOMAINS> \
+--input=domain=<DOMAIN> \
 --input=terraform_state_bucket=<TERRAFORM_STATE_BUCKET> \
 --input=terraform_state_prefix=<TERRAFORM_STATE_PREFIX> \
 --input=github_owner_id=<GITHUB_ORG_ID> \
 github.com/abcxyz/github-token-minter.git//abc.templates/infra?ref=<SHA>
 ```
 
-At least 1 domain is required for GitHub Token Minter.
+A domain is required for GitHub Token Minter.

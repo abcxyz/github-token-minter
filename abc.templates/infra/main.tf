@@ -8,7 +8,7 @@ module "github_token_minter" {
 
   project_id = local.project_id
 
-  domains    = ["REPLACE_DOMAINS"]
+  domains    = ["REPLACE_DOMAIN"]
   dataset_id = "github_token_minter_audit_prod"
 
   github_owner_id           = "REPLACE_GITHUB_OWNER_ID"
