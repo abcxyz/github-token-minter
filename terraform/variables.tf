@@ -15,10 +15,6 @@
 variable "project_id" {
   description = "The GCP project ID."
   type        = string
-  validation {
-    condition     = length(var.project_id) <= 30
-    error_message = "ERROR: project_id must be <= 30 characters."
-  }
 }
 
 variable "name" {

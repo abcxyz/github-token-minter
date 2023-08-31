@@ -20,6 +20,8 @@ desc: 'Generate the infrastructure necessary to run GitHub Token Minter'
 inputs:
   - name: 'project_id'
     desc: 'The Google Cloud project ID to deploy GitHub Token Minter'
+    rules:
+      - rule: 'gcp_matches_project_id(project_id)'
   - name: 'automation_service_account_member'
     desc: 'The CI service account member for deploying GitHub Token Minter'
   - name: 'domain'
