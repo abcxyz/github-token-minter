@@ -12,7 +12,7 @@ abc templates render \
 --input=terraform_state_bucket=<TERRAFORM_STATE_BUCKET> \
 --input=terraform_state_prefix=<TERRAFORM_STATE_PREFIX> \
 --input=github_owner_id=<GITHUB_ORG_ID> \
-github.com/abcxyz/github-token-minter.git//abc.templates/infra?ref=<SHA>
+github.com/abcxyz/github-token-minter.git//abc.templates/infra?ref=<TAG_OR_SHA>
 ```
 
 A domain is required for GitHub Token Minter.
