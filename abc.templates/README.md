@@ -3,7 +3,7 @@
 ## Installation with abc CLI
 
 1. Render infrastructure template and actuate terraform.
-```
+```shell
 abc templates render \
 --dest infra/github-token-minter \
 --input=automation_service_account_member=<SERVICE_ACCOUNT> \
