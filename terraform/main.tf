@@ -52,6 +52,7 @@ module "cloud_run" {
   name                  = var.name
   image                 = var.image
   ingress               = var.enable_gclb ? "internal-and-cloud-load-balancing" : "all"
+  min_instances         = 1
   secrets               = ["github-application-id", "github-installation-id", "github-privatekey"]
   service_account_email = google_service_account.run_service_account.email
   service_iam           = var.service_iam
