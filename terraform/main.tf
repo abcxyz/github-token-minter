@@ -17,12 +17,17 @@ resource "google_project_service" "default" {
     "cloudresourcemanager.googleapis.com",
     "bigquery.googleapis.com",
     "logging.googleapis.com",
+    "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "serviceusage.googleapis.com",
+    "sts.googleapis.com",
   ])
 
   project = var.project_id
 
-  service            = each.value
-  disable_on_destroy = false
+  service                    = each.value
+  disable_on_destroy         = false
+  disable_dependent_services = false # To keep, or not to keep? From github-wif module
 }
 
 resource "google_service_account" "run_service_account" {
@@ -55,7 +60,12 @@ module "cloud_run" {
   min_instances         = 1
   secrets               = ["github-application-id", "github-installation-id", "github-privatekey"]
   service_account_email = google_service_account.run_service_account.email
-  service_iam           = var.service_iam
+  service_iam = {
+    admins     = var.service_iam.admins
+    developers = toset(concat(var.service_iam.developers, [var.ci_service_account_member]))
+    invokers   = toset(concat(var.service_iam.invokers, [google_service_account.wif_service_account.member]))
+  }
+
   secret_envvars = {
     "GITHUB_APP_ID" : {
       name : "github-application-id",
@@ -70,5 +80,14 @@ module "cloud_run" {
       version : "latest",
     }
   }
+}
+
+# allow the ci service account to act as the cloud run service account
+# this allows the ci service account to deploy new revisions for the
+# cloud run sevice
+resource "google_service_account_iam_member" "run_sa_ci_binding" {
+  service_account_id = google_service_account.run_service_account.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = var.ci_service_account_member
 }
 
