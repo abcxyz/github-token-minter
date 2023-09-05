@@ -25,8 +25,12 @@ inputs:
     desc: 'The Google Cloud workload identity federation provider for GitHub Token Minter'
   - name: 'wif_service_account'
     desc: 'The Google Cloud service account for GitHub Token Minter'
+    rules:
+      - rule: 'gcp_matches_service_account(wif_service_account)'
   - name: 'project_id'
     desc: 'The Google Cloud project ID containing GitHub Token Minter'
+    rules:
+      - rule: 'gcp_matches_project_id(project_id)'
   - name: 'docker_image_name'
     desc: 'The full image name, excluding the version tag'
   - name: 'version'
