@@ -25,38 +25,7 @@ The repository configuration file looks like below and is made up of three prima
 
 The `if` clause uses the [Google Common Expression Language](https://github.com/google/cel-spec) to match an inbound OIDC token against a series of rules. Any attributes from the assertion object are available to match against and you can make this expression as simple or complicated as required.
 
-The object mirrors what is available in an OIDC token for a GitHub Workflow, below is an example token.
-
-```json
-{
-  "jti": "example-id",
-  "sub": "repo:octo-org/octo-repo:environment:prod",
-  "environment": "prod",
-  "aud": "https://github.com/octo-org",
-  "ref": "refs/heads/main",
-  "sha": "example-sha",
-  "repository": "octo-org/octo-repo",
-  "repository_owner": "octo-org",
-  "actor_id": "12",
-  "repository_visibility": "private",
-  "repository_id": "74",
-  "repository_owner_id": "65",
-  "run_id": "example-run-id",
-  "run_number": "10",
-  "run_attempt": "2",
-  "actor": "octocat",
-  "workflow": "example-workflow",
-  "head_ref": "",
-  "base_ref": "",
-  "event_name": "workflow_dispatch",
-  "ref_type": "branch",
-  "job_workflow_ref": "octo-org/octo-automation/.github/workflows/oidc.yml@refs/heads/main",
-  "iss": "https://token.actions.githubusercontent.com",
-  "nbf": 1632492967,
-  "exp": 1632493867,
-  "iat": 1632493567
-}
-```
+The object mirrors what is available in an [OIDC token for a GitHub Workflow](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect#configuring-the-oidc-trust-with-the-cloud).
 
 The `repositories` and `permissions` attributes mirror the schema defined for [requesting a GitHub app installation access token](https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#create-an-installation-access-token-for-an-app).
 
