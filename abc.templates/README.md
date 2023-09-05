@@ -21,12 +21,6 @@ A domain is required for GitHub Token Minter.
 2. Render deployment image and workflows
 ```shell
 abc templates render \
--input=wif_provider=<WIF_PROVIDER> \
--input=wif_service_account=<WIF_SERVICE_ACCOUNT> \
--input=docker_image_name=<DOCKER_IMAGE_NAME> \
 -input=version=<VERSION_TAG> \
--input=service_name=<SERVICE_NAME> \
--input=project_id=<PROJECT_ID> \
--input=region=<REGION> \
 github.com/abcxyz/github-token-minter.git//abc.templates/deployments?ref=<TAG_OR_SHA>
 ```
