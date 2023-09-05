@@ -56,7 +56,7 @@ steps:
   - desc: 'Replace variables'
     action: 'string_replace'
     params:
-      paths: ['.github/workflows', '{{.subdirectory}}']
+      paths: ['{{.subdirectory}}', '.github/workflows']
       replacements:
         - to_replace: 'REPLACE_SUBDIRECTORY'
           with: '{{.subdirectory}}'
