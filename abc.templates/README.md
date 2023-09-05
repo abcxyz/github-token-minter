@@ -16,3 +16,11 @@ github.com/abcxyz/github-token-minter.git//abc.templates/infra?ref=<TAG_OR_SHA>
 ```
 
 A domain is required for GitHub Token Minter.
+
+
+2. Render deployment image and workflows
+```shell
+abc templates render \
+-input=version=<VERSION_TAG> \
+github.com/abcxyz/github-token-minter.git//abc.templates/deployments?ref=<TAG_OR_SHA>
+```
