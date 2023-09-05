@@ -46,16 +46,11 @@ steps:
     params:
       paths:
         - 'contents'
+        - 'contents/workflows'
       skip:
         - 'workflows'
       as:
         - '{{.subdirectory}}'
-  - desc: 'Include require workflows'
-    action: 'include'
-    params:
-      paths:
-        - 'contents/workflows'
-      as:
         - '.github/workflows'
   - desc: 'Replace variables'
     action: 'string_replace'
