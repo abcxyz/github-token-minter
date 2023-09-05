@@ -18,15 +18,59 @@ kind: 'Template'
 desc: 'Generate the components necessary to deploy GitHub Token Minter'
 
 inputs:
-  - name: 'subfolder'
-    desc: 'The subfolder to render the template'
+  - name: 'subdirectory'
+    desc: 'The subdirectory to render the template'
     default: 'deployments/github-token-minter'
+  - name: 'wif_provider'
+    desc: 'The Google Cloud workload identity federation provider for GitHub Token Minter'
+  - name: 'wif_service_account'
+    desc: 'The Google Cloud service account for GitHub Token Minter'
+  - name: 'project_id'
+    desc: 'The Google Cloud project ID containing GitHub Token Minter'
+  - name: 'docker_image_name'
+    desc: 'The full image name, excluding the version tag'
+  - name: 'version'
+    desc: 'The GitHub Token Minter version tag'
+  - name: 'region'
+    desc: 'The region of the GitHub Token Minter Cloud Run service'
+  - name: 'service_name'
+    desc: 'The name of the GitHub Token Minter Cloud Run service'
 
 steps:
-  - desc: 'Include required files and directories'
+  - desc: 'Include required Dockerfiles and configs'
     action: 'include'
     params:
-      paths: ['contents']
-      as: ['{{.subfolder}}']
-
-
+      paths:
+        - 'contents'
+      skip:
+        - 'workflows'
+      as:
+        - '{{.subdirectory}}'
+  - desc: 'Include require workflows'
+    action: 'include'
+    params:
+      paths:
+        - 'contents/workflows'
+      as:
+        - '.github/workflows'
+  - desc: 'Replace variables'
+      action: 'string_replace'
+      params:
+        paths: ['contents/workflows']
+        replacements:
+          - to_replace: 'REPLACE_SUBDIRECTORY'
+            with: '{{.subdirectory}}'
+          - to_replace: 'REPLACE_WIF_PROVIDER'
+            with: '{{.wif_provider}}'
+          - to_replace: 'REPLACE_WIF_SERVICE_ACCOUNT'
+            with: '{{.wif_service_account}}'
+          - to_replace: 'REPLACE_DOCKER_IMAGE_NAME'
+            with: '{{.docker_image_name}}'
+          - to_replace: 'REPLACE_VERSION'
+            with: '{{.version}}'
+          - to_replace: 'REPLACE_SERVICE_NAME'
+            with: '{{.service_name}}'
+          - to_replace: 'REPLACE_PROJECT_ID'
+            with: '{{.project_id}}'
+          - to_replace: 'REPLACE_REGION'
+            with: '{{.region}}'
