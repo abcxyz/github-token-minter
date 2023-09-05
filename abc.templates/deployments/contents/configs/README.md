@@ -1,6 +1,6 @@
 # Deployment Configurations
 
-### TLDR;
+### TLDR
 1. Create a `<repo-name>.yaml` file for each repository in `REPLACE_SUBDIRECTORY`.
 1. Customize the configuration.
 1. Build and deploy a new image with new configurations.
