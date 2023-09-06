@@ -46,8 +46,6 @@ steps:
     params:
       paths:
         - 'contents'
-        - 'contents/workflows'
-      skip:
         - 'workflows'
       as:
         - '{{.subdirectory}}'
