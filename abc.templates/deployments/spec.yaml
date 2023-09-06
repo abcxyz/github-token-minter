@@ -21,8 +21,24 @@ inputs:
   - name: 'subdirectory'
     desc: 'The subdirectory to render the template'
     default: 'deployments/github-token-minter'
+  - name: 'wif_provider'
+    desc: 'The Google Cloud workload identity federation provider for GitHub Token Minter'
+  - name: 'wif_service_account'
+    desc: 'The Google Cloud service account for GitHub Token Minter'
+    rules:
+      - rule: 'gcp_matches_service_account(wif_service_account)'
+  - name: 'project_id'
+    desc: 'The Google Cloud project ID containing GitHub Token Minter'
+    rules:
+      - rule: 'gcp_matches_project_id(project_id)'
+  - name: 'full_image_name'
+    desc: 'The full image name, excluding the version tag'
   - name: 'version'
     desc: 'The GitHub Token Minter version tag'
+  - name: 'region'
+    desc: 'The region of the GitHub Token Minter Cloud Run service'
+  - name: 'service_name'
+    desc: 'The name of the GitHub Token Minter Cloud Run service'
 
 steps:
   - desc: 'Include required Dockerfiles and configs'
@@ -30,14 +46,28 @@ steps:
     params:
       paths:
         - 'contents'
+        - 'workflows'
       as:
         - '{{.subdirectory}}'
+        - '.github/workflows'
   - desc: 'Replace variables'
     action: 'string_replace'
     params:
-      paths: ['{{.subdirectory}}']
+      paths: ['{{.subdirectory}}', '.github/workflows']
       replacements:
         - to_replace: 'REPLACE_SUBDIRECTORY'
           with: '{{.subdirectory}}'
+        - to_replace: 'REPLACE_WIF_PROVIDER'
+          with: '{{.wif_provider}}'
+        - to_replace: 'REPLACE_WIF_SERVICE_ACCOUNT'
+          with: '{{.wif_service_account}}'
+        - to_replace: 'REPLACE_FULL_IMAGE_NAME'
+          with: '{{.full_image_name}}'
         - to_replace: 'REPLACE_VERSION'
           with: '{{.version}}'
+        - to_replace: 'REPLACE_SERVICE_NAME'
+          with: '{{.service_name}}'
+        - to_replace: 'REPLACE_PROJECT_ID'
+          with: '{{.project_id}}'
+        - to_replace: 'REPLACE_REGION'
+          with: '{{.region}}'
