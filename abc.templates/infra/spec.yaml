@@ -24,6 +24,7 @@ inputs:
       - rule: 'gcp_matches_project_id(project_id)'
   - name: 'version'
     desc: 'The GitHub Token Minter version tag'
+    default: 'v0.0.11'
   - name: 'automation_service_account_member'
     desc: 'The CI service account member for deploying GitHub Token Minter'
   - name: 'domain'

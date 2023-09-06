@@ -35,6 +35,7 @@ inputs:
     desc: 'The full image name, excluding the version tag'
   - name: 'version'
     desc: 'The GitHub Token Minter version tag'
+    default: 'v0.0.11'
   - name: 'region'
     desc: 'The region of the GitHub Token Minter Cloud Run service'
   - name: 'service_name'
