@@ -46,7 +46,7 @@ steps:
   - desc: 'Replace variables'
     action: 'string_replace'
     params:
-      paths: ['contents']
+      paths: ['{{.subdirectory}}']
       replacements:
         - to_replace: 'REPLACE_PROJECT_ID'
           with: '{{.project_id}}'
