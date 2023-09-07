@@ -5,7 +5,6 @@
 1. Render infrastructure template and actuate terraform.
 ```shell
 abc templates render \
--dest infra/github-token-minter \
 -input=automation_service_account_member=<SERVICE_ACCOUNT> \
 -input=project_id=<PROJECT_ID> \
 -input=domain=<DOMAIN> \

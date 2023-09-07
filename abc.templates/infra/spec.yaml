@@ -18,6 +18,9 @@ kind: 'Template'
 desc: 'Generate the infrastructure necessary to run GitHub Token Minter'
 
 inputs:
+  - name: 'subdirectory'
+    desc: 'The subdirectory to render the template'
+    default: 'infra/github-token-minter'
   - name: 'project_id'
     desc: 'The Google Cloud project ID to deploy GitHub Token Minter'
     rules:
@@ -37,18 +40,13 @@ steps:
   - desc: 'Include required files and directories'
     action: 'include'
     params:
-      paths:
-        - 'main.tf'
-        - 'outputs.tf'
-        - 'terraform.tf'
+      paths: ['contents']
+      as: ['{{.subdirectory}}']
 
   - desc: 'Replace variables'
     action: 'string_replace'
     params:
-      paths:
-        - 'main.tf'
-        - 'outputs.tf'
-        - 'terraform.tf'
+      paths: ['contents']
       replacements:
         - to_replace: 'REPLACE_PROJECT_ID'
           with: '{{.project_id}}'
