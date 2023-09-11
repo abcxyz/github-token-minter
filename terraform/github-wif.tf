@@ -53,7 +53,7 @@ resource "google_iam_workload_identity_pool_provider" "default" {
 resource "google_service_account" "wif_service_account" {
   project = var.project_id
 
-  account_id   = "github-token-minter-sa" # 30 characters
+  account_id   = "github-token-minter-wif-sa" # 30 characters
   display_name = "GitHub Token Minter WIF service account"
 }
 
