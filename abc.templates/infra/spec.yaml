@@ -20,7 +20,7 @@ desc: 'Generate the infrastructure necessary to run GitHub Token Minter'
 inputs:
   - name: 'subdirectory'
     desc: 'The subdirectory to render the template'
-    default: 'infra/github-token-minter'
+    default: 'github-token-minter/infra'
   - name: 'project_id'
     desc: 'The Google Cloud project ID to deploy GitHub Token Minter'
     rules:
