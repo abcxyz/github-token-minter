@@ -37,6 +37,8 @@ inputs:
     desc: 'The region of the GitHub Token Minter Cloud Run service'
   - name: 'service_name'
     desc: 'The name of the GitHub Token Minter Cloud Run service'
+  - name: 'github_owner_name'
+    desc: 'The name of the GitHub owner or organization'
 
 steps:
   - desc: 'Include required Dockerfiles and configs'
@@ -45,9 +47,11 @@ steps:
       paths:
         - 'contents'
         - 'workflows'
+        - 'configs'
       as:
         - '{{.subdirectory}}'
         - '.github/workflows'
+        - '{{.subdirectory}}/configs/{{.github_owner_name}}'
   - desc: 'Replace variables'
     action: 'string_replace'
     params:
