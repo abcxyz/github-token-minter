@@ -20,7 +20,7 @@ desc: 'Generate the components necessary to deploy GitHub Token Minter'
 inputs:
   - name: 'subdirectory'
     desc: 'The subdirectory to render the template'
-    default: 'deployments/github-token-minter'
+    default: 'github-token-minter/deployments'
   - name: 'wif_provider'
     desc: 'The Google Cloud workload identity federation provider for GitHub Token Minter'
   - name: 'wif_service_account'
