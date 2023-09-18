@@ -1,9 +1,14 @@
 # GitHub Token Minter
 
 ## Installation with abc CLI
+### Prerequisite
+Before you begin, you should have:
+- [created and installed a GitHub App](https://github.com/abcxyz/github-token-minter#create-a-github-app-and-install-it)
+- a domain and access to update DNS information for the external facing Cloud Run service to be accessible by GitHub
+- a target artifact registry repository for pushing/pulling deployment images
 
+### Rendering the Templates
 1. Render infrastructure template and actuate terraform.
-> A domain is required for GitHub Token Minter.
 ```shell
 abc templates render \
 -input=automation_service_account_member=<SERVICE_ACCOUNT> \
@@ -31,4 +36,4 @@ abc templates render \
 github.com/abcxyz/github-token-minter.git//abc.templates/deployments?ref=<TAG_OR_SHA>
 ```
 6. Add configurations in `deployments/configs/<github_owner_name>` for each repository.
-7. Run the deployment workflow.
+7. Merge the changes to the main branch to trigger the deployment workflow.
