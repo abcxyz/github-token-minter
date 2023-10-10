@@ -24,6 +24,7 @@ permissions:
 jobs:
   release_and_deploy:
     runs-on: 'ubuntu-latest'
+    environment: 'github-token-minter'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744' # ratchet:actions/checkout@v3
