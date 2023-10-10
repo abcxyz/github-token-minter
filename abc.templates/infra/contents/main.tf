@@ -4,7 +4,7 @@ locals {
 }
 
 module "github_token_minter" {
-  source = "git::https://github.com/abcxyz/github-token-minter.git//terraform?ref=v0.0.13"
+  source = "git::https://github.com/abcxyz/github-token-minter.git//terraform?ref=v0.0.14"
 
   project_id = local.project_id
 
