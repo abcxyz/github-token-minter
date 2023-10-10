@@ -14,4 +14,6 @@ terraform {
   }
 }
 
-provider "google" {}
+provider "google" {
+  user_project_override = true
+}
