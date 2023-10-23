@@ -111,8 +111,8 @@ func realMain(ctx context.Context) (retErr error) {
 	}
 
 	// Create the lumberjack client
-	lumberjackOpts := auditopt.FromConfigFile(ctx, cfg.LumberjackConfigFile)
-	lumberjack, err := audit.NewClient(lumberjackOpts)
+	lumberjackOpts := auditopt.FromConfigFile(cfg.LumberjackConfigFile)
+	lumberjack, err := audit.NewClient(ctx, lumberjackOpts)
 	if err != nil {
 		return fmt.Errorf("failed to create Lumberjack client: %w", err)
 	}
