@@ -22,6 +22,7 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -49,7 +50,8 @@ func main() {
 
 	if err := realMain(ctx); err != nil {
 		done()
-		logger.Fatal(err)
+		logger.ErrorContext(ctx, err.Error())
+		os.Exit(1)
 	}
 }
 
