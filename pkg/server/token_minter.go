@@ -108,13 +108,13 @@ func (s *TokenMintServer) handleToken() http.Handler {
 		respCode, respMsg, err := s.processRequest(r, &auditEvent)
 		if err != nil {
 			auditEvent.HTTPErrorMessage = err.Error()
-			logger.Errorw("error processing request", "code", respCode, "body", respMsg, "error", err)
+			logger.ErrorContext(ctx, "error processing request", "code", respCode, "body", respMsg, "error", err)
 		}
 		auditEvent.HTTPStatusCode = respCode
 
 		// Write the audit information
 		if err := s.writeAuditLog(ctx, &auditEvent); err != nil {
-			logger.Errorw("failed to send audit event to lumberjack", "error", err)
+			logger.ErrorContext(ctx, "failed to send audit event to lumberjack", "error", err)
 			// Fail the request if it could not be audited
 			respCode = http.StatusInternalServerError
 			respMsg = "failed to persist audit information"

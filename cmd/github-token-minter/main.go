@@ -22,6 +22,7 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -49,7 +50,8 @@ func main() {
 
 	if err := realMain(ctx); err != nil {
 		done()
-		logger.Fatal(err)
+		logger.ErrorContext(ctx, err.Error())
+		os.Exit(1)
 	}
 }
 
@@ -111,8 +113,8 @@ func realMain(ctx context.Context) (retErr error) {
 	}
 
 	// Create the lumberjack client
-	lumberjackOpts := auditopt.FromConfigFile(ctx, cfg.LumberjackConfigFile)
-	lumberjack, err := audit.NewClient(lumberjackOpts)
+	lumberjackOpts := auditopt.FromConfigFile(cfg.LumberjackConfigFile)
+	lumberjack, err := audit.NewClient(ctx, lumberjackOpts)
 	if err != nil {
 		return fmt.Errorf("failed to create Lumberjack client: %w", err)
 	}
