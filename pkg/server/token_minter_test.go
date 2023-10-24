@@ -129,6 +129,22 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			expCode: 200,
 			expResp: "this-is-the-token-from-github",
 		},
+		{
+			name: "happy_path",
+			req: func() *http.Request {
+				body := strings.NewReader(`{}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				return r
+			}(),
+			expCode: 200,
+			expResp: "this-is-the-token-from-github",
+		},
 	}
 
 	for _, tc := range cases {
@@ -308,6 +324,14 @@ func TestValidateRepositories(t *testing.T) {
 			expErr:    true,
 			expErrMsg: `requested repository "prefix-*" is not in the allow list`,
 		},
+		{
+			name:      "allow all",
+			allow:     []string{"*"},
+			request:   []string{"test1", "test2"},
+			want:      []string{"test1", "test2"},
+			expErr:    false,
+			expErrMsg: "",
+		},
 	}
 
 	for _, tc := range cases {
@@ -325,6 +349,49 @@ func TestValidateRepositories(t *testing.T) {
 			}
 			if !tc.expErr && got == nil {
 				t.Errorf("program nil without error")
+			}
+		})
+	}
+}
+
+func TestAllowRequestAllRepos(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		allow   []string
+		request []string
+		want    bool
+	}{
+		{
+			name:    "allow all repos",
+			allow:   []string{"*"},
+			request: []string{"*"},
+			want:    true,
+		},
+		{
+			name:    "disallow all repos",
+			allow:   []string{"test1"},
+			request: []string{"*"},
+			want:    false,
+		},
+		{
+			name:    "allow all only with * request",
+			allow:   []string{"*"},
+			request: []string{"test1"},
+			want:    false,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := allowRequestAllRepos(tc.allow, tc.request)
+			if got != tc.want {
+				t.Errorf("expected %t to be %t", got, tc.want)
 			}
 		})
 	}
