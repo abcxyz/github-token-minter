@@ -391,7 +391,7 @@ func TestAllowRequestAllRepos(t *testing.T) {
 
 			got := allowRequestAllRepos(tc.allow, tc.request)
 			if got != tc.want {
-				t.Errorf("expected %t to be %t", got, tc.want)
+				t.Errorf("allowRequestAllRepos got=%t, want=%t", got, tc.want)
 			}
 		})
 	}

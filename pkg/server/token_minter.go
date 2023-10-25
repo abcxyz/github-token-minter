@@ -284,11 +284,8 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 // allowRequestAllRepos determines if a request is allowed to request
 // a token with permissions to all repositories.
 func allowRequestAllRepos(allowed, requested []string) bool {
-	if len(allowed) == 1 && allowed[0] == "*" &&
-		len(requested) == 1 && requested[0] == "*" {
-		return true
-	}
-	return false
+	return len(allowed) == 1 && allowed[0] == "*" &&
+		len(requested) == 1 && requested[0] == "*"
 }
 
 // validateRepositories checks the set of requested repositories against the allow list
