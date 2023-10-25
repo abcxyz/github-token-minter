@@ -25,9 +25,9 @@ locals {
 resource "google_iam_workload_identity_pool" "default" {
   project = var.project_id
 
-  workload_identity_pool_id = "github-token-minter"          # 32 characters
-  display_name              = "GitHub Token Minter WIF pool" # 32 characters
-  description               = "GitHub Token Minter OIDC identity pool"
+  workload_identity_pool_id = var.name               # 32 characters
+  display_name              = "${var.name} WIF pool" # 32 characters
+  description               = "${var.name} OIDC identity pool"
 
   depends_on = [
     google_project_service.default["iam.googleapis.com"],
@@ -38,9 +38,9 @@ resource "google_iam_workload_identity_pool_provider" "default" {
   project = var.project_id
 
   workload_identity_pool_id          = google_iam_workload_identity_pool.default.workload_identity_pool_id
-  workload_identity_pool_provider_id = "github-token-minter"              # 32 characters
-  display_name                       = "GitHub Token Minter WIF Provider" # 32 characters
-  description                        = "GitHub Token Minter OIDC identity provider"
+  workload_identity_pool_provider_id = var.name                   # 32 characters
+  display_name                       = "${var.name} WIF Provider" # 32 characters
+  description                        = "${var.name} OIDC identity provider"
 
   attribute_mapping   = local.wif_attribute_mapping
   attribute_condition = local.wif_attribute_condition
@@ -53,8 +53,8 @@ resource "google_iam_workload_identity_pool_provider" "default" {
 resource "google_service_account" "wif_service_account" {
   project = var.project_id
 
-  account_id   = "github-token-minter-wif-sa" # 30 characters
-  display_name = "GitHub Token Minter WIF service account"
+  account_id   = "${var.name}-wif-sa" # 30 characters
+  display_name = "${var.name} WIF service account"
 }
 
 resource "google_service_account_iam_member" "default" {

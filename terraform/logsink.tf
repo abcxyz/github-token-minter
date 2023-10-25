@@ -20,7 +20,7 @@ resource "google_logging_project_sink" "default" {
 
   filter = <<-EOT
     LOG_ID("audit.abcxyz/activity") AND
-    labels.service="github-token-minter"
+    labels.service="${var.name}"
   EOT
 
   unique_writer_identity = true
