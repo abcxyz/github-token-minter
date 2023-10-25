@@ -11,6 +11,7 @@ module "REPLACE_MODULE_NAME" {
   name       = "REPLACE_CUSTOM_NAME"
   domains    = ["REPLACE_DOMAIN"]
   dataset_id = "REPLACE_MODULE_NAME_audit_prod"
+  log_sink_name = "REPLACE_CUSTOM_NAME-logs"
 
   github_owner_id           = "REPLACE_GITHUB_OWNER_ID"
   ci_service_account_member = local.automation_service_account_member
