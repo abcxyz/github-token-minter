@@ -25,7 +25,7 @@ locals {
 resource "google_iam_workload_identity_pool" "default" {
   project = var.project_id
 
-  workload_identity_pool_id = "${var.name}"          # 32 characters
+  workload_identity_pool_id = var.name               # 32 characters
   display_name              = "${var.name} WIF pool" # 32 characters
   description               = "${var.name} OIDC identity pool"
 
@@ -38,7 +38,7 @@ resource "google_iam_workload_identity_pool_provider" "default" {
   project = var.project_id
 
   workload_identity_pool_id          = google_iam_workload_identity_pool.default.workload_identity_pool_id
-  workload_identity_pool_provider_id = var.name              # 32 characters
+  workload_identity_pool_provider_id = var.name                   # 32 characters
   display_name                       = "${var.name} WIF Provider" # 32 characters
   description                        = "${var.name} OIDC identity provider"
 
