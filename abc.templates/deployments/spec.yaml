@@ -18,6 +18,9 @@ kind: 'Template'
 desc: 'Generate the components necessary to deploy GitHub Token Minter'
 
 inputs:
+  - name: 'custom_name'
+    desc: 'A custom name for Github Token Minter'
+    default: 'github-token-minter'
   - name: 'subdirectory'
     desc: 'The subdirectory to render the template'
     default: 'github-token-minter/deployments'
@@ -46,17 +49,19 @@ steps:
     params:
       paths:
         - 'contents'
-        - 'workflows'
+        - 'workflows/deploy-github-token-minter.yaml'
         - 'configs'
       as:
         - '{{.subdirectory}}'
-        - '.github/workflows'
+        - '.github/workflows/deploy-{{toLowerHyphenCase .custom_name}}.yaml'
         - '{{.subdirectory}}/configs/{{.github_owner_name}}'
   - desc: 'Replace variables'
     action: 'string_replace'
     params:
       paths: ['{{.subdirectory}}', '.github/workflows']
       replacements:
+        - to_replace: 'REPLACE_CUSTOM_NAME'
+          with: '{{toLowerHyphenCase .custom_name}}'
         - to_replace: 'REPLACE_SUBDIRECTORY'
           with: '{{.subdirectory}}'
         - to_replace: 'REPLACE_WIF_PROVIDER'

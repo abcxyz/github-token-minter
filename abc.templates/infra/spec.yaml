@@ -18,6 +18,9 @@ kind: 'Template'
 desc: 'Generate the infrastructure necessary to run GitHub Token Minter'
 
 inputs:
+  - name: 'custom_name'
+    desc: 'A custom name for Github Token Minter'
+    default: 'github-token-minter'
   - name: 'subdirectory'
     desc: 'The subdirectory to render the template'
     default: 'github-token-minter/infra'
@@ -48,6 +51,8 @@ steps:
     params:
       paths: ['{{.subdirectory}}']
       replacements:
+        - to_replace: 'REPLACE_MODULE_NAME'
+          with: '{{toLowerSnakeCase .custom_name}}'
         - to_replace: 'REPLACE_PROJECT_ID'
           with: '{{.project_id}}'
         - to_replace: 'REPLACE_DOMAIN'
