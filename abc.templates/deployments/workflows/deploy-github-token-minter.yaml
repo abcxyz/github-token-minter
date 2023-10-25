@@ -1,4 +1,4 @@
-name: 'deploy to github-token-minter'
+name: 'deploy to REPLACE_CUSTOM_NAME'
 
 on:
   push:
@@ -24,7 +24,7 @@ permissions:
 jobs:
   release_and_deploy:
     runs-on: 'ubuntu-latest'
-    environment: 'github-token-minter'
+    environment: 'REPLACE_CUSTOM_NAME'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744' # ratchet:actions/checkout@v3
