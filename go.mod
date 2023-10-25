@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/abcxyz/lumberjack v0.0.6
-	github.com/abcxyz/pkg v0.7.1
+	github.com/abcxyz/pkg v0.7.2
 	github.com/google/cel-go v0.12.5
 	github.com/google/go-cmp v0.6.0
 	github.com/lestrrat-go/jwx/v2 v2.0.15

@@ -247,17 +247,32 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 		return http.StatusForbidden, "no permissions available for repository", err
 	}
 
-	// Validate that all of the requested repositories are allowed
+	// Validate the permissions that were requested are within what is allowed for the repository
+	if err = validatePermissions(ctx, perm.Permissions, request.Permissions); err != nil {
+		return http.StatusForbidden, "requested permissions are not authorized for this repository", err
+	}
+
+	// If all repositories are allowed and all were requested,
+	// request access token for all allowed repositories for the GitHub app
+	if allowRequestAllRepos(perm.Repositories, request.Repositories) {
+		allRepoRequest := &githubapp.TokenRequestAllRepos{Permissions: request.Permissions}
+
+		accessToken, err := s.gitHubApp.AccessTokenAllRepos(ctx, allRepoRequest)
+		if err != nil {
+			return http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)
+		}
+		return http.StatusOK, accessToken, nil
+	}
+
+	// Otherwise, validate that all of the requested repositories are allowed
+	// or if all repositories are allowed and specific repositories were requested,
+	// request restricted access token
 	repos, err := validateRepositories(perm.Repositories, request.Repositories)
 	if err != nil {
 		return http.StatusForbidden, "one or more of the requested repositories is not authorized", err
 	}
 	// Replace the requested repository list with actual values
 	request.Repositories = repos
-	// Validate the permissions that were requested are within what is allowed for the repository
-	if err = validatePermissions(ctx, perm.Permissions, request.Permissions); err != nil {
-		return http.StatusForbidden, "requested permissions are not authorized for this repository", err
-	}
 
 	accessToken, err := s.gitHubApp.AccessToken(ctx, &request)
 	if err != nil {
@@ -266,10 +281,22 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 	return http.StatusOK, accessToken, nil
 }
 
+// allowRequestAllRepos determines if a request is allowed to request
+// a token with permissions to all repositories.
+func allowRequestAllRepos(allowed, requested []string) bool {
+	return len(allowed) == 1 && allowed[0] == "*" &&
+		len(requested) == 1 && requested[0] == "*"
+}
+
 // validateRepositories checks the set of requested repositories against the allow list
 // to verity that it is authorizaed. Response contains the list of allowed repositories
 // after wild card match expansion.
 func validateRepositories(allowed, requested []string) ([]string, error) {
+	// If allow all, return requested
+	if len(allowed) == 1 && allowed[0] == "*" {
+		return requested, nil
+	}
+
 	repositories := []string{}
 	// Loop through all of the requested repositories to verifiy that are in the configured
 	// allow list
