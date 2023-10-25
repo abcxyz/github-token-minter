@@ -49,6 +49,8 @@ steps:
     params:
       paths: ['{{.subdirectory}}']
       replacements:
+        - to_replace: 'REPLACE_CUSTOM_NAME'
+          with: '{{.custom_name}}'
         - to_replace: 'REPLACE_MODULE_NAME'
           with: '{{toLowerSnakeCase .custom_name}}'
         - to_replace: 'REPLACE_PROJECT_ID'

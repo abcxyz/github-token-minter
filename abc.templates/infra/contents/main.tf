@@ -8,6 +8,7 @@ module "REPLACE_MODULE_NAME" {
 
   project_id = local.project_id
 
+  name       = "REPLACE_CUSTOM_NAME"
   domains    = ["REPLACE_DOMAIN"]
   dataset_id = "REPLACE_MODULE_NAME_audit_prod"
 
