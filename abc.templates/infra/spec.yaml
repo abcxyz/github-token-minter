@@ -21,6 +21,11 @@ inputs:
   - name: 'custom_name'
     desc: 'A custom name for Github Token Minter'
     default: 'github-token-minter'
+    rules:
+      - rule: 'size(custom_name) <= int(19)'
+        message: 'The custom_name must be at most 19 characters.'
+      - rule: 'matches(custom_name, "^[A-Za-z][0-9A-Za-z-]+[0-9A-Za-z]$")'
+        message: 'Name can only contain letters, numbers, hyphens(-) and must start with letter.'
   - name: 'subdirectory'
     desc: 'The subdirectory to render the template and the bucket prefix for storing terraform state of GitHub Token Minter'
     default: 'github-token-minter/infra'
@@ -49,6 +54,8 @@ steps:
     params:
       paths: ['{{.subdirectory}}']
       replacements:
+        - to_replace: 'REPLACE_CUSTOM_NAME'
+          with: '{{.custom_name}}'
         - to_replace: 'REPLACE_MODULE_NAME'
           with: '{{toLowerSnakeCase .custom_name}}'
         - to_replace: 'REPLACE_PROJECT_ID'
