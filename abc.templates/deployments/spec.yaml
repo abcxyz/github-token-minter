@@ -21,9 +21,6 @@ inputs:
   - name: 'custom_name'
     desc: 'A custom name for Github Token Minter'
     default: 'github-token-minter'
-  - name: 'subdirectory'
-    desc: 'The subdirectory to render the template'
-    default: 'github-token-minter/deployments'
   - name: 'wif_provider'
     desc: 'The Google Cloud workload identity federation provider for GitHub Token Minter'
   - name: 'wif_service_account'
@@ -52,18 +49,18 @@ steps:
         - 'workflows/deploy-github-token-minter.yaml'
         - 'configs'
       as:
-        - '{{.subdirectory}}'
+        - '{{.custom_name}}/deployments'
         - '.github/workflows/deploy-{{toLowerHyphenCase .custom_name}}.yaml'
-        - '{{.subdirectory}}/configs/{{.github_owner_name}}'
+        - '{{.custom_name}}/deployments/configs/{{.github_owner_name}}'
   - desc: 'Replace variables'
     action: 'string_replace'
     params:
-      paths: ['{{.subdirectory}}', '.github/workflows']
+      paths: ['{{.custom_name}}/deployments', '.github/workflows']
       replacements:
         - to_replace: 'REPLACE_CUSTOM_NAME'
           with: '{{toLowerHyphenCase .custom_name}}'
         - to_replace: 'REPLACE_SUBDIRECTORY'
-          with: '{{.subdirectory}}'
+          with: '{{.custom_name}}/deployments'
         - to_replace: 'REPLACE_WIF_PROVIDER'
           with: '{{.wif_provider}}'
         - to_replace: 'REPLACE_WIF_SERVICE_ACCOUNT'
