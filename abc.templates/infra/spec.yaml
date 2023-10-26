@@ -26,9 +26,6 @@ inputs:
         message: 'The custom_name must be at most 19 characters.'
       - rule: 'matches(custom_name, "^[A-Za-z][0-9A-Za-z-]+[0-9A-Za-z]$")'
         message: 'Name can only contain letters, numbers, hyphens(-) and must start with letter.'
-  - name: 'subdirectory'
-    desc: 'The subdirectory to render the template and the bucket prefix for storing terraform state of GitHub Token Minter'
-    default: 'github-token-minter/infra'
   - name: 'project_id'
     desc: 'The Google Cloud project ID to deploy GitHub Token Minter'
     rules:
@@ -47,12 +44,12 @@ steps:
     action: 'include'
     params:
       paths: ['contents']
-      as: ['{{.subdirectory}}']
+      as: ['{{.custom_name}}/infra']
 
   - desc: 'Replace variables'
     action: 'string_replace'
     params:
-      paths: ['{{.subdirectory}}']
+      paths: ['{{.custom_name}}/infra']
       replacements:
         - to_replace: 'REPLACE_CUSTOM_NAME'
           with: '{{.custom_name}}'
@@ -65,7 +62,7 @@ steps:
         - to_replace: 'REPLACE_BUCKET_NAME'
           with: '{{.terraform_state_bucket}}'
         - to_replace: 'REPLACE_BUCKET_PREFIX'
-          with: '{{.subdirectory}}'
+          with: '{{.custom_name}}/infra'
         - to_replace: 'REPLACE_AUTOMATION_SERVICE_ACCOUNT_MEMBER'
           with: '{{.automation_service_account_member}}'
         - to_replace: 'REPLACE_GITHUB_OWNER_ID'
