@@ -4,7 +4,7 @@ locals {
 }
 
 module "REPLACE_MODULE_NAME" {
-  source = "git::https://github.com/abcxyz/github-token-minter.git//terraform?ref=v0.0.15"
+  source = "git::https://github.com/abcxyz/github-token-minter.git//terraform?ref=v0.0.16"
 
   project_id = local.project_id
 
