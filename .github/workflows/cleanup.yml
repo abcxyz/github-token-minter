@@ -37,14 +37,14 @@ jobs:
   cleanup_cloudrun_revisions:
     runs-on: 'ubuntu-latest'
     steps:
-      - uses: 'actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744' # ratchet:actions/checkout@v3
+      - uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
 
-      - uses: 'google-github-actions/auth@35b0e87d162680511bf346c299f71c9c5c379033' # ratchet:google-github-actions/auth@v1
+      - uses: 'google-github-actions/auth@67e9c72af6e0492df856527b474995862b7b6591' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ vars.WIF_PROVIDER }}'
           service_account: '${{ vars.WIF_SERVICE_ACCOUNT }}'
 
-      - uses: 'google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b' # ratchet:google-github-actions/setup-gcloud@v1
+      - uses: 'google-github-actions/setup-gcloud@825196879a077b7efa50db2e88409f44de4635c2' # ratchet:google-github-actions/setup-gcloud@v2
 
       - name: 'Remove old Cloud Run revisions'
         shell: 'bash'
@@ -69,15 +69,15 @@ jobs:
   cleanup_container_images:
     runs-on: 'ubuntu-latest'
     steps:
-      - uses: 'actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744' # ratchet:actions/checkout@v3
+      - uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
 
-      - uses: 'google-github-actions/auth@35b0e87d162680511bf346c299f71c9c5c379033' # ratchet:google-github-actions/auth@v1
+      - uses: 'google-github-actions/auth@67e9c72af6e0492df856527b474995862b7b6591' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ vars.WIF_PROVIDER }}'
           service_account: '${{ vars.WIF_SERVICE_ACCOUNT }}'
 
       - name: 'Remove old container images'
-        uses: 'docker://us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli' # ratchet:exclude old image versions are removed
+        uses: 'docker://us-docker.pkg.dev/gcr-cleaner/gcr-cleaner/gcr-cleaner-cli' # ratchet:exclude
         with:
           args: >-
             -repo="${{ env.GAR_REPO }}" -recursive="true" -grace="336h" -tag-filter-any="(?i)[0-9a-f]{40}(-amd64|-arm64)?"

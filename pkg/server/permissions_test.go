@@ -17,10 +17,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/cel-go/cel"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/abcxyz/pkg/testutil"
 )
 
 var testJWT = map[string]any{
