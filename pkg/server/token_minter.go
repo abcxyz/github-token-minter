@@ -27,15 +27,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lestrrat-go/jwx/v2/jwt"
+	"google.golang.org/genproto/googleapis/cloud/audit"
+	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
+
 	"github.com/abcxyz/github-token-minter/pkg/version"
 	api "github.com/abcxyz/lumberjack/clients/go/apis/v1alpha1"
 	lumberjack "github.com/abcxyz/lumberjack/clients/go/pkg/audit"
 	"github.com/abcxyz/pkg/githubapp"
 	"github.com/abcxyz/pkg/logging"
-	"github.com/lestrrat-go/jwx/v2/jwt"
-	"google.golang.org/genproto/googleapis/cloud/audit"
-	"google.golang.org/genproto/googleapis/rpc/status"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
@@ -108,7 +109,10 @@ func (s *TokenMintServer) handleToken() http.Handler {
 		respCode, respMsg, err := s.processRequest(r, &auditEvent)
 		if err != nil {
 			auditEvent.HTTPErrorMessage = err.Error()
-			logger.ErrorContext(ctx, "error processing request", "code", respCode, "body", respMsg, "error", err)
+			logger.ErrorContext(ctx, "error processing request",
+				"error", err,
+				"code", respCode,
+				"body", respMsg)
 		}
 		auditEvent.HTTPStatusCode = respCode
 

@@ -27,6 +27,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jws"
+	"github.com/lestrrat-go/jwx/v2/jwt"
+
 	"github.com/abcxyz/github-token-minter/pkg/server"
 	"github.com/abcxyz/lumberjack/clients/go/pkg/audit"
 	"github.com/abcxyz/lumberjack/clients/go/pkg/auditopt"
@@ -34,9 +38,6 @@ import (
 	"github.com/abcxyz/pkg/githubapp"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/serving"
-	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/lestrrat-go/jwx/v2/jws"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 // main is the application entry point. It primarily wraps the realMain function with

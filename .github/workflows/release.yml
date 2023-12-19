@@ -38,14 +38,14 @@ jobs:
 
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@c4799db9111fba4461e9f9da8732e5057b394f72' # ratchet:google-github-actions/auth@v0
+        uses: 'google-github-actions/auth@67e9c72af6e0492df856527b474995862b7b6591' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ vars.WIF_PROVIDER }}'
           service_account: '${{ vars.WIF_SERVICE_ACCOUNT }}'
           token_format: 'access_token'
 
       - name: 'Authenticate to Artifact Registry'
-        uses: 'docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc' # ratchet:docker/login-action@v2
+        uses: 'docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d' # ratchet:docker/login-action@v3
         with:
           username: 'oauth2accesstoken'
           password: '${{ steps.auth.outputs.access_token }}'
