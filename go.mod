@@ -7,7 +7,7 @@ require (
 	github.com/abcxyz/pkg v0.7.2
 	github.com/google/cel-go v0.18.2
 	github.com/google/go-cmp v0.6.0
-	github.com/lestrrat-go/jwx/v2 v2.0.18
+	github.com/lestrrat-go/jwx/v2 v2.0.19
 	google.golang.org/genproto v0.0.0-20231212172506-995d672761c0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231212172506-995d672761c0
 	google.golang.org/protobuf v1.31.0
