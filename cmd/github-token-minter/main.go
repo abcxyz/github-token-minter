@@ -19,7 +19,6 @@ package main
 
 import (
 	"context"
-	"crypto/rsa"
 	"errors"
 	"fmt"
 	"os"
@@ -35,7 +34,7 @@ import (
 	"github.com/abcxyz/lumberjack/clients/go/pkg/audit"
 	"github.com/abcxyz/lumberjack/clients/go/pkg/auditopt"
 	"github.com/abcxyz/pkg/cfgloader"
-	"github.com/abcxyz/pkg/githubapp"
+	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/serving"
 )
@@ -80,20 +79,18 @@ func realMain(ctx context.Context) (retErr error) {
 	if err := cfgloader.Load(ctx, &cfg); err != nil {
 		return fmt.Errorf("failed to read configuration information: %w", err)
 	}
-	// Read the private key.
-	privateKey, err := readPrivateKey(cfg.PrivateKey)
-	if err != nil {
-		return fmt.Errorf("failed to read private key: %w", err)
-	}
 
 	// Set the access token url pattern if it is provided.
-	var options []githubapp.ConfigOption
+	var options []githubauth.Option
 	if cfg.AccessTokenURLPattern != "" {
-		options = append(options, githubapp.WithAccessTokenURLPattern(cfg.AccessTokenURLPattern))
+		options = append(options, githubauth.WithAccessTokenURLPattern(cfg.AccessTokenURLPattern))
 	}
 
-	// Setup the GitHub App config.
-	appConfig := githubapp.NewConfig(cfg.AppID, cfg.InstallationID, privateKey, options...)
+	// Setup the GitHub App.
+	app, err := githubauth.NewApp(cfg.AppID, cfg.InstallationID, cfg.PrivateKey, options...)
+	if err != nil {
+		return fmt.Errorf("failed to create github app: %w", err)
+	}
 
 	// Create an in memory ConfigReader which preloads all of
 	// the configuration files into memory.
@@ -126,7 +123,7 @@ func realMain(ctx context.Context) (retErr error) {
 	}()
 
 	// Create the Router for the token minting server.
-	tokenServer, err := server.NewRouter(ctx, appConfig, store, jwtParseOptions, lumberjack)
+	tokenServer, err := server.NewRouter(ctx, app, store, jwtParseOptions, lumberjack)
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
@@ -137,17 +134,4 @@ func realMain(ctx context.Context) (retErr error) {
 		return fmt.Errorf("failed to create serving infrastructure: %w", err)
 	}
 	return server.StartHTTPHandler(ctx, tokenServer.Routes())
-}
-
-// readPrivateKey reads a PEM encouded private key from a string.
-func readPrivateKey(privateKeyContent string) (*rsa.PrivateKey, error) {
-	parsedKey, _, err := jwk.DecodePEM([]byte(privateKeyContent))
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode PEM formated key:  %w", err)
-	}
-	privateKey, ok := parsedKey.(*rsa.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("failed to convert to *rsa.PrivateKey (got %T)", parsedKey)
-	}
-	return privateKey, nil
 }

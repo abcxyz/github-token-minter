@@ -35,7 +35,7 @@ import (
 	"github.com/abcxyz/github-token-minter/pkg/version"
 	api "github.com/abcxyz/lumberjack/clients/go/apis/v1alpha1"
 	lumberjack "github.com/abcxyz/lumberjack/clients/go/pkg/audit"
-	"github.com/abcxyz/pkg/githubapp"
+	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
 )
 
@@ -47,7 +47,7 @@ const (
 // TokenMintServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMintServer struct {
-	gitHubApp        *githubapp.GitHubApp
+	githubApp        *githubauth.App
 	configStore      ConfigReader
 	jwtParseOptions  []jwt.ParseOption
 	lumberjackClient *lumberjack.Client
@@ -77,19 +77,19 @@ type oidcClaims struct {
 }
 
 type auditEvent struct {
-	Received         time.Time               `json:"received"`
-	HTTPStatusCode   int                     `json:"http_status_code"`
-	HTTPErrorMessage string                  `json:"http_error_msg"`
-	Token            *oidcClaims             `json:"oidc_token_claims"`
-	Request          *githubapp.TokenRequest `json:"request"`
-	Config           *RepositoryConfig       `json:"repository_config"`
+	Received         time.Time                `json:"received"`
+	HTTPStatusCode   int                      `json:"http_status_code"`
+	HTTPErrorMessage string                   `json:"http_error_msg"`
+	Token            *oidcClaims              `json:"oidc_token_claims"`
+	Request          *githubauth.TokenRequest `json:"request"`
+	Config           *RepositoryConfig        `json:"repository_config"`
 }
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, ghAppConfig *githubapp.Config, configStore ConfigReader, jwtParseOptions []jwt.ParseOption, lumberjackClient *lumberjack.Client) (*TokenMintServer, error) {
+func NewRouter(ctx context.Context, githubApp *githubauth.App, configStore ConfigReader, jwtParseOptions []jwt.ParseOption, lumberjackClient *lumberjack.Client) (*TokenMintServer, error) {
 	return &TokenMintServer{
-		gitHubApp:        githubapp.New(ghAppConfig),
+		githubApp:        githubApp,
 		configStore:      configStore,
 		jwtParseOptions:  jwtParseOptions,
 		lumberjackClient: lumberjackClient,
@@ -212,7 +212,7 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 	// Parse the request information
 	defer r.Body.Close()
 
-	var request githubapp.TokenRequest
+	var request githubauth.TokenRequest
 	dec := json.NewDecoder(io.LimitReader(r.Body, 64_000))
 	if err := dec.Decode(&request); err != nil {
 		return http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err)
@@ -259,9 +259,9 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 	// If all repositories are allowed and all were requested,
 	// request access token for all allowed repositories for the GitHub app
 	if allowRequestAllRepos(perm.Repositories, request.Repositories) {
-		allRepoRequest := &githubapp.TokenRequestAllRepos{Permissions: request.Permissions}
+		allRepoRequest := &githubauth.TokenRequestAllRepos{Permissions: request.Permissions}
 
-		accessToken, err := s.gitHubApp.AccessTokenAllRepos(ctx, allRepoRequest)
+		accessToken, err := s.githubApp.AccessTokenAllRepos(ctx, allRepoRequest)
 		if err != nil {
 			return http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)
 		}
@@ -278,7 +278,7 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 	// Replace the requested repository list with actual values
 	request.Repositories = repos
 
-	accessToken, err := s.gitHubApp.AccessToken(ctx, &request)
+	accessToken, err := s.githubApp.AccessToken(ctx, &request)
 	if err != nil {
 		return http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)
 	}
