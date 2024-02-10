@@ -34,7 +34,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
-	"github.com/abcxyz/pkg/githubapp"
+	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 )
@@ -164,9 +164,13 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			githubAppConfig := githubapp.NewConfig("app-id", "install-id", rsaPrivateKey, githubapp.WithAccessTokenURLPattern(fakeGitHub.URL+"/%s/access_tokens"))
+			githubApp, err := githubauth.NewApp("app-id", "install-id", rsaPrivateKey,
+				githubauth.WithAccessTokenURLPattern(fakeGitHub.URL+"/%s/access_tokens"))
+			if err != nil {
+				t.Fatal(err)
+			}
 
-			server, err := NewRouter(ctx, githubAppConfig, configStore, jwtParseOptions, nil)
+			server, err := NewRouter(ctx, githubApp, configStore, jwtParseOptions, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
