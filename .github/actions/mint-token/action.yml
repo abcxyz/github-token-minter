@@ -28,18 +28,15 @@ runs:
   steps:
     - id: 'auth'
       name: 'Authenticate to Google Cloud'
-      uses: 'google-github-actions/auth@c4799db9111fba4461e9f9da8732e5057b394f72' # ratchet:google-github-actions/auth@v0
+      uses: 'google-github-actions/auth@a6e2e39c0a0331da29f7fd2c2a20a427e8d3ad1f' # ratchet:google-github-actions/auth@v2
       with:
         workload_identity_provider: '${{ inputs.wif_provider }}'
         service_account: '${{ inputs.wif_service_account }}'
         token_format: 'id_token'
         id_token_audience: '${{ inputs.service_audience }}'
         id_token_include_email: true
-        retries: 3
-        backoff: 250
-        backoff_limit: 1000
     - id: 'mint-token'
-      uses: 'actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410' # ratchet:actions/github-script@v6
+      uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
       env:
         TOKEN: '${{ steps.auth.outputs.id_token }}'
         SERVICE_URL: '${{ inputs.service_url }}'
