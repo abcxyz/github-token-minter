@@ -30,11 +30,14 @@ runs:
       name: 'Authenticate to Google Cloud'
       uses: 'google-github-actions/auth@a6e2e39c0a0331da29f7fd2c2a20a427e8d3ad1f' # ratchet:google-github-actions/auth@v2
       with:
+        create_credentials_file: false
+        export_environment_variables: false
         workload_identity_provider: '${{ inputs.wif_provider }}'
         service_account: '${{ inputs.wif_service_account }}'
         token_format: 'id_token'
         id_token_audience: '${{ inputs.service_audience }}'
         id_token_include_email: true
+
     - id: 'mint-token'
       uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
       env:
@@ -44,32 +47,32 @@ runs:
       with:
         script: |
           try {
-              const { TOKEN, SERVICE_URL, REQUESTED_PERMISSIONS } = process.env;
-              const idToken = await core.getIDToken('github-token-minter');
-              const response = await fetch(`${SERVICE_URL}/token`, {
-                  method: 'post',
-                  body: REQUESTED_PERMISSIONS,
-                  headers: {
-                      'Content-Type': 'application/json',
-                      'X-GitHub-OIDC-Token': idToken,
-                      'Authorization': `Bearer ${TOKEN}`,
-                  }
-              });
-              if (response.ok) {
-                try {
-                  const resp = await response.json();
-                  core.setOutput('token', resp.token);
-                } catch (err) {
-                  // Handle an invalid JSON response and log the response body
-                  const respBody = await response.text();
-                  throw new Error(`Invalid JSON Response: ${respBody}`);
-                }
-              } else {
-                const errorBody = await response.text();
-                core.error(`Error response from server ${errorBody}`)
-                throw new Error(`HTTP Error Response: ${response.status} ${response.statusText}`);
+            const { TOKEN, SERVICE_URL, REQUESTED_PERMISSIONS } = process.env;
+            const idToken = await core.getIDToken('github-token-minter');
+            const response = await fetch(`${SERVICE_URL}/token`, {
+              method: 'post',
+              body: REQUESTED_PERMISSIONS,
+              headers: {
+                'Content-Type': 'application/json',
+                'X-GitHub-OIDC-Token': idToken,
+                'Authorization': `Bearer ${TOKEN}`,
               }
+            });
+            if (response.ok) {
+              try {
+                const resp = await response.json();
+                core.setOutput('token', resp.token);
+              } catch (err) {
+                // Handle an invalid JSON response and log the response body
+                const respBody = await response.text();
+                throw new Error(`Invalid JSON Response: ${respBody}`);
+              }
+            } else {
+              const errorBody = await response.text();
+              core.error(`Error response from server ${errorBody}`)
+              throw new Error(`HTTP Error Response: ${response.status} ${response.statusText}`);
+            }
           }
           catch (err) {
-              core.setFailed(err);
+            core.setFailed(err);
           }
