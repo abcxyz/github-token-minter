@@ -147,7 +147,7 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 	defer r.Body.Close()
 
 	var request githubauth.TokenRequest
-	dec := json.NewDecoder(io.LimitReader(r.Body, 64_000))
+	dec := json.NewDecoder(io.LimitReader(r.Body, 4_194_304)) // 4 MiB
 	if err := dec.Decode(&request); err != nil {
 		return http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err)
 	}
