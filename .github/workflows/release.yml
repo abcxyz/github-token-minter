@@ -20,6 +20,19 @@ on:
       - 'main'
       - 'release/**/*'
 
+  # Wait for CI to run because we promote the CI images as part of prod.
+  workflow_run:
+    workflows:
+      - 'ci'
+    types:
+      - 'completed'
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
+
+env:
+  SOURCE_DOCKER_IMAGE: 'us-docker.pkg.dev/github-token-minter-i-e4ee94/ci-images/github-token-minter-server:${{ github.sha }}'
+
 jobs:
   create-release:
     runs-on: 'ubuntu-latest'
@@ -54,39 +67,36 @@ jobs:
           github_token: '${{ steps.mint-token.outputs.token }}'
           expected_email: '${{ vars.TOKEN_MINTER_GITHUB_EMAIL }}'
 
-
-  container-release:
-    runs-on: 'ubuntu-latest'
+  image-release:
     needs:
       - 'create-release'
+    runs-on: 'ubuntu-latest'
     permissions:
-      contents: 'write'
+      contents: 'read'
       id-token: 'write'
     steps:
-      - uses: 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11' # ratchet:actions/checkout@v4
-
-      - uses: 'actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491' # ratchet:actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
+      - name: 'Setup QEMU'
+        uses: 'docker/setup-qemu-action@68827325e0b33c7199eb31dd4e31fbe9023e06e3' # ratchet:docker/setup-qemu-action@v3
 
       - id: 'auth'
+        name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@a6e2e39c0a0331da29f7fd2c2a20a427e8d3ad1f' # ratchet:google-github-actions/auth@v2
         with:
           workload_identity_provider: '${{ vars.WIF_PROVIDER }}'
           service_account: '${{ vars.WIF_SERVICE_ACCOUNT }}'
           token_format: 'access_token'
 
-      - uses: 'docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d' # ratchet:docker/login-action@v3
+      - name: 'Authenticate to Artifact Registry'
+        uses: 'docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d' # ratchet:docker/login-action@v3
         with:
           username: 'oauth2accesstoken'
           password: '${{ steps.auth.outputs.access_token }}'
           registry: 'us-docker.pkg.dev'
 
-      - uses: 'goreleaser/goreleaser-action@7ec5c2b0c6cdda6e8bbb49444bc797dd33d74dd8' # ratchet:goreleaser/goreleaser-action@v5
-        with:
-          version: 'v1.12.3' # Manually pinned
-          args: 'release -f .goreleaser.docker.yaml --rm-dist --skip-validate'
+      - name: 'Copy images to Release registry'
         env:
-          DOCKER_REPO: 'us-docker.pkg.dev/abcxyz-artifacts/docker-images'
-          GORELEASER_CURRENT_TAG: 'v${{ needs.create-release.outputs.release_version }}'
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          SOURCE_DOCKER_IMAGE: '${{ env.SOURCE_DOCKER_IMAGE }}'
+          TARGET_DOCKER_IMAGE: 'us-docker.pkg.dev/abcxyz-artifacts/docker-images/github-token-minter-server:${{ needs.create-release.outputs.release_version }}'
+        run: |-
+          gcloud container images add-tag --quiet ${SOURCE_DOCKER_IMAGE}-amd64 ${TARGET_DOCKER_IMAGE}-amd64
+          gcloud container images add-tag --quiet ${SOURCE_DOCKER_IMAGE}-arm64 ${TARGET_DOCKER_IMAGE}-arm64
