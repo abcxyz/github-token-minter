@@ -27,6 +27,7 @@ on:
     types:
       - 'completed'
 
+
 concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
 
@@ -70,6 +71,7 @@ jobs:
   image-release:
     needs:
       - 'create-release'
+    environment: 'production'
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
