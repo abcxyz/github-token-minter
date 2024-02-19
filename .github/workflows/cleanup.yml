@@ -27,7 +27,6 @@ env:
   INTEGRATION_PROJECT_ID: 'github-token-minter-i-e4ee94'
   INTEGRATION_REGION: 'us-central1'
   GAR_REPO: 'us-docker.pkg.dev/github-token-minter-i-e4ee94/ci-images'
-
 permissions:
   contents: 'read'
   id-token: 'write'

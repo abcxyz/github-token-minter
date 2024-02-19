@@ -16,53 +16,17 @@ name: 'release'
 
 on:
   push:
-    branches:
-      - 'main'
-      - 'release/**/*'
-
-concurrency:
-  group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
-
+    tags:
+      - 'v*'
 env:
   SOURCE_DOCKER_IMAGE: 'us-docker.pkg.dev/github-token-minter-i-e4ee94/ci-images/github-token-minter-server:${{ github.sha }}'
+  TARGET_DOCKER_IMAGE: 'us-docker.pkg.dev/abcxyz-artifacts/docker-images/github-token-minter-server:${{ github.ref_name }}'
+
+# Don't cancel in progress since we don't want to have half-baked releases.
+concurrency: '${{ github.workflow }}-${{ github.head_ref || github.ref }}-release'
 
 jobs:
-  create-release:
-    runs-on: 'ubuntu-latest'
-    if: |-
-      startsWith(github.event.head_commit.message, 'Release: v')
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-    outputs:
-      release_version: '${{ steps.create-release.outputs.release_version }}'
-    steps:
-      - name: 'Mint token'
-        id: 'mint-token'
-        uses: 'abcxyz/github-token-minter/.github/actions/mint-token@main' # ratchet:exclude
-        with:
-          wif_provider: '${{ vars.TOKEN_MINTER_WIF_PROVIDER }}'
-          wif_service_account: '${{ vars.TOKEN_MINTER_WIF_SERVICE_ACCOUNT }}'
-          service_audience: '${{ vars.TOKEN_MINTER_SERVICE_AUDIENCE }}'
-          service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
-          requested_permissions: |-
-            {
-              "repositories": ["${{ github.event.repository.name }}"],
-              "permissions": {
-                "contents": "write"
-              }
-            }
-
-      - name: 'Create release'
-        id: 'create-release'
-        uses: 'abcxyz/pkg/.github/actions/create-release@main' # ratchet:exclude
-        with:
-          github_token: '${{ steps.mint-token.outputs.token }}'
-          expected_email: '${{ vars.TOKEN_MINTER_GITHUB_EMAIL }}'
-
   image-release:
-    needs:
-      - 'create-release'
     environment: 'production'
     runs-on: 'ubuntu-latest'
     permissions:
@@ -70,7 +34,7 @@ jobs:
       id-token: 'write'
     steps:
       - name: 'Setup QEMU'
-        uses: 'docker/setup-qemu-action@68827325e0b33c7199eb31dd4e31fbe9023e06e3' # ratchet:docker/setup-qemu-action@v3
+        uses: 'docker/setup-qemu-action@2b82ce82d56a2a04d2637cd93a637ae1b359c0a7' # ratchet:docker/setup-qemu-action@v2
 
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
@@ -88,9 +52,6 @@ jobs:
           registry: 'us-docker.pkg.dev'
 
       - name: 'Copy images to Release registry'
-        env:
-          SOURCE_DOCKER_IMAGE: '${{ env.SOURCE_DOCKER_IMAGE }}'
-          TARGET_DOCKER_IMAGE: 'us-docker.pkg.dev/abcxyz-artifacts/docker-images/github-token-minter-server:${{ needs.create-release.outputs.release_version }}'
         run: |-
-          gcloud container images add-tag --quiet ${SOURCE_DOCKER_IMAGE}-amd64 ${TARGET_DOCKER_IMAGE}-amd64
-          gcloud container images add-tag --quiet ${SOURCE_DOCKER_IMAGE}-arm64 ${TARGET_DOCKER_IMAGE}-arm64
+          gcloud container images add-tag --quiet ${{ env.SOURCE_DOCKER_IMAGE }}-amd64 ${{ env.TARGET_DOCKER_IMAGE }}-amd64
+          gcloud container images add-tag --quiet ${{ env.SOURCE_DOCKER_IMAGE }}-arm64 ${{ env.TARGET_DOCKER_IMAGE }}-arm64
