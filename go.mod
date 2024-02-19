@@ -3,7 +3,7 @@ module github.com/abcxyz/github-token-minter
 go 1.22.0
 
 require (
-	github.com/abcxyz/pkg v1.0.2
+	github.com/abcxyz/pkg v1.0.3
 	github.com/google/cel-go v0.20.0
 	github.com/google/go-cmp v0.6.0
 	github.com/lestrrat-go/jwx/v2 v2.0.19
