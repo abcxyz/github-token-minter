@@ -20,6 +20,14 @@ on:
       - 'main'
       - 'release/**/*'
 
+  # Wait for CI to run because we promote the CI images as part of prod.
+  workflow_run:
+    workflows:
+      - 'ci'
+    types:
+      - 'completed'
+
+
 concurrency:
   group: '${{ github.workflow }}-${{ github.head_ref || github.ref }}'
 
