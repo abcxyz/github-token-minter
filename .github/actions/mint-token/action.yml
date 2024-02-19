@@ -58,14 +58,23 @@ runs:
                 'Authorization': `Bearer ${TOKEN}`,
               }
             });
+
+            // clone the response so we can process again as text if needed
+            const responseText = response.clone();
+
             if (response.ok) {
               try {
+                // try to parse response as JSON for older versions of github-token-minter
+                // expecting `{ "token": "TOKEN" }` format
+
                 const resp = await response.json();
                 core.setOutput('token', resp.token);
               } catch (err) {
-                // Handle an invalid JSON response and log the response body
-                const respBody = await response.text();
-                throw new Error(`Invalid JSON Response: ${respBody}`);
+                // we didnt get a JSON response, response body contains the token
+                // so parse the response body as text
+
+                const token = await responseText.text();
+                core.setOutput('token', token);
               }
             } else {
               const errorBody = await response.text();
