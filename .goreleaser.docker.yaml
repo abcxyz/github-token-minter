@@ -63,7 +63,6 @@ dockers:
       - '--label=org.opencontainers.image.title=github-token-minter-server'
       - '--label=org.opencontainers.image.version={{ .Version }}'
     extra_files:
-      - 'lumberjack_config.yml'
       - 'configs'
 
   - ids:
@@ -85,7 +84,6 @@ dockers:
       - '--label=org.opencontainers.image.title=github-token-minter-server'
       - '--label=org.opencontainers.image.version={{ .Version }}'
     extra_files:
-      - 'lumberjack_config.yml'
       - 'configs'
 
 docker_manifests:
