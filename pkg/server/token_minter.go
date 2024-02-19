@@ -28,13 +28,8 @@ import (
 	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwt"
-	"google.golang.org/genproto/googleapis/cloud/audit"
-	"google.golang.org/genproto/googleapis/rpc/status"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/abcxyz/github-token-minter/pkg/version"
-	api "github.com/abcxyz/lumberjack/clients/go/apis/v1alpha1"
-	lumberjack "github.com/abcxyz/lumberjack/clients/go/pkg/audit"
 	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
 )
@@ -47,10 +42,9 @@ const (
 // TokenMintServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMintServer struct {
-	githubApp        *githubauth.App
-	configStore      ConfigReader
-	jwtParseOptions  []jwt.ParseOption
-	lumberjackClient *lumberjack.Client
+	githubApp       *githubauth.App
+	configStore     ConfigReader
+	jwtParseOptions []jwt.ParseOption
 }
 
 type oidcClaims struct {
@@ -87,12 +81,11 @@ type auditEvent struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, githubApp *githubauth.App, configStore ConfigReader, jwtParseOptions []jwt.ParseOption, lumberjackClient *lumberjack.Client) (*TokenMintServer, error) {
+func NewRouter(ctx context.Context, githubApp *githubauth.App, configStore ConfigReader, jwtParseOptions []jwt.ParseOption) (*TokenMintServer, error) {
 	return &TokenMintServer{
-		githubApp:        githubApp,
-		configStore:      configStore,
-		jwtParseOptions:  jwtParseOptions,
-		lumberjackClient: lumberjackClient,
+		githubApp:       githubApp,
+		configStore:     configStore,
+		jwtParseOptions: jwtParseOptions,
 	}, nil
 }
 
@@ -116,70 +109,11 @@ func (s *TokenMintServer) handleToken() http.Handler {
 		}
 		auditEvent.HTTPStatusCode = respCode
 
-		// Write the audit information
-		if err := s.writeAuditLog(ctx, &auditEvent); err != nil {
-			logger.ErrorContext(ctx, "failed to send audit event to lumberjack", "error", err)
-			// Fail the request if it could not be audited
-			respCode = http.StatusInternalServerError
-			respMsg = "failed to persist audit information"
-		}
+		// TODO: Write the audit information to Cloud Loggin
 
 		w.WriteHeader(respCode)
 		fmt.Fprint(w, respMsg)
 	})
-}
-
-// writeAuditLog takes all of the data about the request and its success or failure and
-// writes it to cloud logging via Lumberjack.
-func (s *TokenMintServer) writeAuditLog(ctx context.Context, auditEvent *auditEvent) error {
-	token, err := json.Marshal(auditEvent.Token)
-	if err != nil {
-		return fmt.Errorf("error marshaling token: %w", err)
-	}
-	req, err := json.Marshal(auditEvent.Request)
-	if err != nil {
-		return fmt.Errorf("error marshaling request: %w", err)
-	}
-	config, err := json.Marshal(auditEvent.Config)
-	if err != nil {
-		return fmt.Errorf("error marshaling config: %w", err)
-	}
-
-	resourceName := "not specified"
-	if auditEvent.Request != nil {
-		resourceName = strings.Join(auditEvent.Request.Repositories, ",")
-	}
-	principal := "unknown"
-	if auditEvent.Token != nil {
-		principal = auditEvent.Token.WorkflowRef
-	}
-
-	logRequest := &api.AuditLogRequest{
-		Type: api.AuditLogRequest_ADMIN_ACTIVITY,
-		Payload: &audit.AuditLog{
-			ServiceName:  "abcxyz.dev/github-token-minter",
-			MethodName:   "abcxyz.dev/github-token-minter/HandleTokenRequest",
-			ResourceName: resourceName,
-			Status: &status.Status{
-				Code:    int32(auditEvent.HTTPStatusCode),
-				Message: auditEvent.HTTPErrorMessage,
-			},
-			Request: &structpb.Struct{Fields: map[string]*structpb.Value{
-				"token":   structpb.NewStringValue(string(token)),
-				"request": structpb.NewStringValue(string(req)),
-				"config":  structpb.NewStringValue(string(config)),
-			}},
-			AuthenticationInfo: &audit.AuthenticationInfo{
-				// WorkflowRef: abcxyz/github-token-minter/.github/workflows/integration.yml@refs/pull/8/merge
-				PrincipalEmail: principal,
-			},
-		},
-	}
-
-	if err := s.lumberjackClient.Log(ctx, logRequest); err != nil {
-		return fmt.Errorf("error writing log with lumberjack: %w", err)
-	}
-	return nil
 }
 
 // handleVersion is a simple http.HandlerFunc that responds

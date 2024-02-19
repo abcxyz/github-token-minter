@@ -170,7 +170,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			server, err := NewRouter(ctx, githubApp, configStore, jwtParseOptions, nil)
+			server, err := NewRouter(ctx, githubApp, configStore, jwtParseOptions)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -8,7 +8,6 @@ COPY --from=distroless /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 COPY server /server
 COPY configs /configs
-COPY lumberjack_config.yml /etc/lumberjack/config.yaml
 
 # Normally we would set this to run as "nobody".
 # But goreleaser builds the binary locally and sometimes it will mess up the permission

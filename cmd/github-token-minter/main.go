@@ -19,7 +19,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -31,8 +30,6 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/abcxyz/github-token-minter/pkg/server"
-	"github.com/abcxyz/lumberjack/clients/go/pkg/audit"
-	"github.com/abcxyz/lumberjack/clients/go/pkg/auditopt"
 	"github.com/abcxyz/pkg/cfgloader"
 	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
@@ -67,7 +64,6 @@ type serviceConfig struct {
 	// to insert the installation id.
 	AccessTokenURLPattern string `env:"GITHUB_ACCESS_TOKEN_URL_PATTERN"`
 	ConfigDir             string `env:"CONFIGS_DIR,default=configs"`
-	LumberjackConfigFile  string `env:"LUMBERJACK_CONFIG_FILE,default=/etc/lumberjack/config.yaml"`
 }
 
 // realMain creates an HTTP server for use with minting GitHub app tokens
@@ -110,20 +106,8 @@ func realMain(ctx context.Context) (retErr error) {
 		jwt.WithAcceptableSkew(5 * time.Second),
 	}
 
-	// Create the lumberjack client
-	lumberjackOpts := auditopt.FromConfigFile(cfg.LumberjackConfigFile)
-	lumberjack, err := audit.NewClient(ctx, lumberjackOpts)
-	if err != nil {
-		return fmt.Errorf("failed to create Lumberjack client: %w", err)
-	}
-	defer func() {
-		if err := lumberjack.Stop(); err != nil {
-			retErr = errors.Join(retErr, fmt.Errorf("failed to cleanup lumberjack logging: %w", err))
-		}
-	}()
-
 	// Create the Router for the token minting server.
-	tokenServer, err := server.NewRouter(ctx, app, store, jwtParseOptions, lumberjack)
+	tokenServer, err := server.NewRouter(ctx, app, store, jwtParseOptions)
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
