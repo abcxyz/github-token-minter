@@ -59,26 +59,25 @@ runs:
               }
             });
 
-            // clone the response so we can process again as text if needed
-            const responseText = response.clone();
+            // get the response as text so we can try to parse JSON
+            const responseText = await response.text();
 
             if (response.ok) {
               try {
                 // try to parse response as JSON for older versions of github-token-minter
                 // expecting `{ "token": "TOKEN" }` format
 
-                const resp = await response.json();
+                const resp = JSON.parse(responseText);
                 core.setOutput('token', resp.token);
               } catch (err) {
                 // we didnt get a JSON response, response body contains the token
-                // so parse the response body as text
+                // so just use the response text
 
-                const token = await responseText.text();
+                const token = responseText;
                 core.setOutput('token', token);
               }
             } else {
-              const errorBody = await response.text();
-              core.error(`Error response from server ${errorBody}`)
+              core.error(`Error response from server ${responseText}`)
               throw new Error(`HTTP Error Response: ${response.status} ${response.statusText}`);
             }
           }
