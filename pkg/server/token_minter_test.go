@@ -175,8 +175,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			var event auditEvent
-			status, resp, err := server.processRequest(tc.req, &event)
+			status, resp, err := server.processRequest(tc.req)
 			if got, want := status, tc.expCode; got != want {
 				t.Errorf("expected status code %d to be %d", got, want)
 			}
