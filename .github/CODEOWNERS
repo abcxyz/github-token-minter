@@ -1,5 +1,12 @@
 # Default fallback
 *    @abcxyz/breakglass
 
-# infrastructure owns all files
+# abcxyz/infrastructure owns all files
 *    @abcxyz/infrastructure-team
+
+# Go readability
+*.go    @abcxyz/go-readability
+
+# terraform-readability owns all terraform files
+
+*.tf    @abcxyz/terraform-readability
