@@ -30,6 +30,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/abcxyz/github-token-minter/pkg/version"
+	"github.com/abcxyz/pkg/gcputil"
 	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
 )
@@ -126,10 +127,15 @@ func (s *TokenMintServer) handleVersion() http.Handler {
 
 // Routes creates a ServeMux of all of the routes that
 // this Router supports.
-func (s *TokenMintServer) Routes() http.Handler {
+func (s *TokenMintServer) Routes(ctx context.Context) http.Handler {
+	logger := logging.FromContext(ctx)
+	projectID := gcputil.ProjectID(ctx)
+
+	middleware := logging.HTTPInterceptor(logger, projectID)
+
 	mux := http.NewServeMux()
-	mux.Handle("/token", s.handleToken())
-	mux.Handle("/version", s.handleVersion())
+	mux.Handle("/token", middleware(s.handleToken()))
+	mux.Handle("/version", middleware(s.handleVersion()))
 	return mux
 }
 
