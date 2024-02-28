@@ -23,6 +23,7 @@ require (
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/sethvargo/go-envconfig v1.0.0 // indirect
+	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	golang.org/x/crypto v0.19.0 // indirect
 	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a // indirect

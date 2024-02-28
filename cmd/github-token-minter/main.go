@@ -30,6 +30,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/abcxyz/github-token-minter/pkg/server"
+	"github.com/abcxyz/github-token-minter/pkg/version"
 	"github.com/abcxyz/pkg/cfgloader"
 	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
@@ -42,7 +43,8 @@ func main() {
 	ctx, done := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer done()
 
-	logger := logging.NewFromEnv("")
+	logger := logging.NewFromEnv("").
+		With("service", version.Name)
 	ctx = logging.WithLogger(ctx, logger)
 
 	if err := realMain(ctx); err != nil {
@@ -71,6 +73,13 @@ type serviceConfig struct {
 //   - using a cancellable context
 //   - listening to incoming requests in a goroutine
 func realMain(ctx context.Context) (retErr error) {
+	logger := logging.FromContext(ctx)
+
+	logger.InfoContext(ctx, "starting service",
+		"version", version.Version,
+		"commit", version.Commit)
+	defer logger.InfoContext(ctx, "stopping service")
+
 	var cfg serviceConfig
 	if err := cfgloader.Load(ctx, &cfg); err != nil {
 		return fmt.Errorf("failed to read configuration information: %w", err)
@@ -117,5 +126,5 @@ func realMain(ctx context.Context) (retErr error) {
 	if err != nil {
 		return fmt.Errorf("failed to create serving infrastructure: %w", err)
 	}
-	return server.StartHTTPHandler(ctx, tokenServer.Routes())
+	return server.StartHTTPHandler(ctx, tokenServer.Routes(ctx))
 }
