@@ -25,7 +25,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
@@ -71,15 +70,6 @@ type oidcClaims struct {
 	JobWorkflowSha    string   `json:"job_workflow_sha"`
 }
 
-type auditEvent struct {
-	Received         time.Time                `json:"received"`
-	HTTPStatusCode   int                      `json:"http_status_code"`
-	HTTPErrorMessage string                   `json:"http_error_msg"`
-	Token            *oidcClaims              `json:"oidc_token_claims"`
-	Request          *githubauth.TokenRequest `json:"request"`
-	Config           *RepositoryConfig        `json:"repository_config"`
-}
-
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 func NewRouter(ctx context.Context, githubApp *githubauth.App, configStore ConfigReader, jwtParseOptions []jwt.ParseOption) (*TokenMintServer, error) {
@@ -96,21 +86,13 @@ func (s *TokenMintServer) handleToken() http.Handler {
 		ctx := r.Context()
 		logger := logging.FromContext(ctx)
 
-		auditEvent := auditEvent{
-			Received: time.Now().UTC(),
-		}
-
-		respCode, respMsg, err := s.processRequest(r, &auditEvent)
+		respCode, respMsg, err := s.processRequest(r)
 		if err != nil {
-			auditEvent.HTTPErrorMessage = err.Error()
 			logger.ErrorContext(ctx, "error processing request",
 				"error", err,
 				"code", respCode,
 				"body", respMsg)
 		}
-		auditEvent.HTTPStatusCode = respCode
-
-		// TODO: Write the audit information to Cloud Loggin
 
 		w.WriteHeader(respCode)
 		fmt.Fprint(w, respMsg)
@@ -139,8 +121,9 @@ func (s *TokenMintServer) Routes(ctx context.Context) http.Handler {
 	return mux
 }
 
-func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent) (int, string, error) {
+func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	ctx := r.Context()
+	logger := logging.FromContext(ctx)
 
 	// Retrieve the OIDC token from a header.
 	oidcHeader := r.Header.Get(AuthHeader)
@@ -157,7 +140,6 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 	if err := dec.Decode(&request); err != nil {
 		return http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err)
 	}
-	auditEvent.Request = &request
 
 	// Parse the token data into a JWT
 	parseOpts := append([]jwt.ParseOption{jwt.WithContext(ctx)}, s.jwtParseOptions...)
@@ -170,7 +152,7 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 	if err != nil {
 		return http.StatusBadRequest, "request does not contain required information", err
 	}
-	auditEvent.Token = claims
+
 	// Get the repository's configuration data
 	config, err := s.configStore.Read(claims.Repository)
 	if err != nil {
@@ -178,7 +160,6 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 			fmt.Sprintf("requested repository is not properly configured '%s'", claims.Repository),
 			fmt.Errorf("error reading configuration for repository %s from cache: %w", claims.Repository, err)
 	}
-	auditEvent.Config = config
 
 	// Extract all of the JWT attributes into a map
 	tokenMap, err := oidcToken.AsMap(ctx)
@@ -217,6 +198,12 @@ func (s *TokenMintServer) processRequest(r *http.Request, auditEvent *auditEvent
 	}
 	// Replace the requested repository list with actual values
 	request.Repositories = repos
+
+	logger.InfoContext(ctx, "generating token",
+		"claims", claims,
+		"request", request,
+		"config", config,
+	)
 
 	accessToken, err := s.githubApp.AccessToken(ctx, &request)
 	if err != nil {
