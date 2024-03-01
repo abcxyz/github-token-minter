@@ -60,23 +60,6 @@ variable "service_iam" {
   }
 }
 
-variable "dataset_location" {
-  type        = string
-  description = "The BigQuery dataset location."
-  default     = "US"
-}
-
-variable "dataset_id" {
-  type        = string
-  description = "The BigQuery dataset id to create."
-}
-
-variable "log_sink_name" {
-  type        = string
-  default     = "github-token-minter-logs"
-  description = "The log sink name that filters for audit logs."
-}
-
 variable "ci_service_account_member" {
   type        = string
   description = "The service account member for deploying revisions to Cloud Run"
