@@ -15,7 +15,6 @@
 resource "google_project_service" "default" {
   for_each = toset([
     "cloudresourcemanager.googleapis.com",
-    "bigquery.googleapis.com",
     "logging.googleapis.com",
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",

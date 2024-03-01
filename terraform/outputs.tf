@@ -52,16 +52,6 @@ output "run_service_account_name" {
   value       = google_service_account.run_service_account.name
 }
 
-output "bigquery_dataset_id" {
-  description = "BigQuery dataset resource."
-  value       = google_bigquery_dataset.default.dataset_id
-}
-
-output "bigquery_logsink_id" {
-  description = "BigQuery log sink identifier."
-  value       = google_logging_project_sink.default.id
-}
-
 output "wif_pool" {
   value = google_iam_workload_identity_pool.default.name
 }
