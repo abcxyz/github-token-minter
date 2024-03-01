@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: 'cli.abcxyz.dev/v1alpha1'
+apiVersion: 'cli.abcxyz.dev/v1beta5'
 kind: 'Template'
 
 desc: 'Generate the components necessary to deploy GitHub Token Minter'
@@ -73,3 +73,18 @@ steps:
           with: '{{.project_id}}'
         - to_replace: 'REPLACE_REGION'
           with: '{{.region}}'
+        - to_replace: 'REPLACE_VERSION_TAG'
+          with: '{{._git_tag}}'
+
+  - desc: 'Print warning if rendered without git tag'
+    action: 'print'
+    if: '_git_tag == ""'
+    params:
+      message: |-
+        #
+        # WARNING ##############################
+        #
+        # The template was rendered without a valid git tag. For best compatibility, we recommended
+        # re-rendering this template using one of the latest tags at https://github.com/abcxyz/github-metrics-aggregator/tags.
+        #
+        ########################################
