@@ -39,7 +39,7 @@ resource "google_service_account" "run_service_account" {
 module "gclb" {
   count = var.enable_gclb ? 1 : 0
 
-  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/gclb_cloud_run_backend?ref=46d3ffd82d7c3080bc5ec2cc788fe3e21176a8be"
+  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/gclb_cloud_run_backend?ref=b91cab1e8b1c08990180285e1986c871781d1383"
 
   project_id = var.project_id
 
@@ -49,7 +49,7 @@ module "gclb" {
 }
 
 module "cloud_run" {
-  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/cloud_run?ref=e7f268b6a29e130eb81e2b7250f6b67a9ae03bd3"
+  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/cloud_run?ref=b91cab1e8b1c08990180285e1986c871781d1383"
 
   project_id = var.project_id
 
@@ -89,4 +89,3 @@ resource "google_service_account_iam_member" "run_sa_ci_binding" {
   role               = "roles/iam.serviceAccountUser"
   member             = var.ci_service_account_member
 }
-

@@ -31,7 +31,7 @@ jobs:
     uses: 'abcxyz/pkg/.github/workflows/terraform-lint.yml@main' # ratchet:exclude
     with:
       directory: 'terraform'
-      terraform_version: '1.6.6'
+      terraform_version: '1.7.4'
 
   go_lint:
     uses: 'abcxyz/pkg/.github/workflows/go-lint.yml@main' # ratchet:exclude
