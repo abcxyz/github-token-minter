@@ -42,9 +42,9 @@ const (
 // TokenMintServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMintServer struct {
-	githubApp       *githubauth.App
-	configStore     ConfigReader
-	jwtParseOptions []jwt.ParseOption
+	githubAppInstallation *githubauth.AppInstallation
+	configStore           ConfigReader
+	jwtParseOptions       []jwt.ParseOption
 }
 
 type oidcClaims struct {
@@ -72,11 +72,11 @@ type oidcClaims struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, githubApp *githubauth.App, configStore ConfigReader, jwtParseOptions []jwt.ParseOption) (*TokenMintServer, error) {
+func NewRouter(ctx context.Context, githubAppInstallation *githubauth.AppInstallation, configStore ConfigReader, jwtParseOptions []jwt.ParseOption) (*TokenMintServer, error) {
 	return &TokenMintServer{
-		githubApp:       githubApp,
-		configStore:     configStore,
-		jwtParseOptions: jwtParseOptions,
+		githubAppInstallation: githubAppInstallation,
+		configStore:           configStore,
+		jwtParseOptions:       jwtParseOptions,
 	}, nil
 }
 
@@ -182,7 +182,7 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	if allowRequestAllRepos(perm.Repositories, request.Repositories) {
 		allRepoRequest := &githubauth.TokenRequestAllRepos{Permissions: request.Permissions}
 
-		accessToken, err := s.githubApp.AccessTokenAllRepos(ctx, allRepoRequest)
+		accessToken, err := s.githubAppInstallation.AccessTokenAllRepos(ctx, allRepoRequest)
 		if err != nil {
 			return http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)
 		}
@@ -205,7 +205,7 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 		"config", config,
 	)
 
-	accessToken, err := s.githubApp.AccessToken(ctx, &request)
+	accessToken, err := s.githubAppInstallation.AccessToken(ctx, &request)
 	if err != nil {
 		return http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)
 	}

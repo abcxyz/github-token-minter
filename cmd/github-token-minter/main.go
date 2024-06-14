@@ -57,15 +57,21 @@ func main() {
 // serviceConfig defines the set over environment variables required
 // for running this application.
 type serviceConfig struct {
-	Port           string `env:"PORT,default=8080"`
-	AppID          string `env:"GITHUB_APP_ID,required"`
+	Port       string `env:"PORT,default=8080"`
+	AppID      string `env:"GITHUB_APP_ID,required"`
+	PrivateKey string `env:"GITHUB_PRIVATE_KEY,required"`
+	JWKSUrl    string `env:"GITHUB_JKWS_URL,default=https://token.actions.githubusercontent.com/.well-known/jwks"`
+
+	// GitHubAPIBaseURL is the base URL for the GitHub installation. It should
+	// include the protocol (https://) and no trailing slashes.
+	GitHubAPIBaseURL string `env:"GITHUB_API_BASE_URL"`
+
+	// InstallationID is the GitHub App intallation ID. In the future, this will
+	// be parameterized based on the incoming request, but for now it is
+	// a runtime configurable.
 	InstallationID string `env:"GITHUB_INSTALL_ID,required"`
-	PrivateKey     string `env:"GITHUB_PRIVATE_KEY,required"`
-	JWKSUrl        string `env:"GITHUB_JKWS_URL,default=https://token.actions.githubusercontent.com/.well-known/jwks"`
-	// URL used to retrieve access tokens. The pattern must contain a single '%s' which represents where in the url
-	// to insert the installation id.
-	AccessTokenURLPattern string `env:"GITHUB_ACCESS_TOKEN_URL_PATTERN"`
-	ConfigDir             string `env:"CONFIGS_DIR,default=configs"`
+
+	ConfigDir string `env:"CONFIGS_DIR,default=configs"`
 }
 
 // realMain creates an HTTP server for use with minting GitHub app tokens
@@ -87,14 +93,19 @@ func realMain(ctx context.Context) (retErr error) {
 
 	// Set the access token url pattern if it is provided.
 	var options []githubauth.Option
-	if cfg.AccessTokenURLPattern != "" {
-		options = append(options, githubauth.WithAccessTokenURLPattern(cfg.AccessTokenURLPattern))
+	if cfg.GitHubAPIBaseURL != "" {
+		options = append(options, githubauth.WithBaseURL(cfg.GitHubAPIBaseURL))
 	}
 
 	// Setup the GitHub App.
-	app, err := githubauth.NewApp(cfg.AppID, cfg.InstallationID, cfg.PrivateKey, options...)
+	app, err := githubauth.NewApp(cfg.AppID, cfg.PrivateKey, options...)
 	if err != nil {
 		return fmt.Errorf("failed to create github app: %w", err)
+	}
+
+	installation, err := app.InstallationForID(ctx, cfg.InstallationID)
+	if err != nil {
+		return fmt.Errorf("failed to get github installation: %w", err)
 	}
 
 	// Create an in memory ConfigReader which preloads all of
@@ -116,7 +127,7 @@ func realMain(ctx context.Context) (retErr error) {
 	}
 
 	// Create the Router for the token minting server.
-	tokenServer, err := server.NewRouter(ctx, app, store, jwtParseOptions)
+	tokenServer, err := server.NewRouter(ctx, installation, store, jwtParseOptions)
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
