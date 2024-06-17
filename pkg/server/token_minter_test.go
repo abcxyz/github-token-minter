@@ -56,10 +56,21 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 		jwt.WithAcceptableSkew(5 * time.Second),
 	}
 
-	fakeGitHub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(201)
-		fmt.Fprintf(w, `{"token":"this-is-the-token-from-github"}`)
-	}))
+	fakeGitHub := func() *httptest.Server {
+		mux := http.NewServeMux()
+		mux.Handle("GET /app/installations/123", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, `{"access_tokens_url": "http://%s/app/installations/123/access_tokens"}`, r.Host)
+		}))
+		mux.Handle("POST /app/installations/123/access_tokens", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(201)
+			fmt.Fprintf(w, `{"token": "this-is-the-token-from-github"}`)
+		}))
+
+		return httptest.NewServer(mux)
+	}()
+	t.Cleanup(func() {
+		fakeGitHub.Close()
+	})
 
 	cases := []struct {
 		name    string
@@ -164,13 +175,17 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			githubApp, err := githubauth.NewApp("app-id", "install-id", rsaPrivateKey,
-				githubauth.WithAccessTokenURLPattern(fakeGitHub.URL+"/%s/access_tokens"))
+			githubApp, err := githubauth.NewApp("app-id", rsaPrivateKey, githubauth.WithBaseURL(fakeGitHub.URL))
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			server, err := NewRouter(ctx, githubApp, configStore, jwtParseOptions)
+			installation, err := githubApp.InstallationForID(ctx, "123")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			server, err := NewRouter(ctx, installation, configStore, jwtParseOptions)
 			if err != nil {
 				t.Fatal(err)
 			}
