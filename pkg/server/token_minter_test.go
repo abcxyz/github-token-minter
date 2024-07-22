@@ -180,12 +180,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			installation, err := githubApp.InstallationForID(ctx, "123")
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			server, err := NewRouter(ctx, installation, configStore, jwtParseOptions)
+			server, err := NewRouter(ctx, githubApp, configStore, jwtParseOptions)
 			if err != nil {
 				t.Fatal(err)
 			}

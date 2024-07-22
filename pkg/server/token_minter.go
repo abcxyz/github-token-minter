@@ -25,10 +25,12 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/abcxyz/github-token-minter/pkg/version"
+	"github.com/abcxyz/pkg/cache"
 	"github.com/abcxyz/pkg/gcputil"
 	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
@@ -42,9 +44,10 @@ const (
 // TokenMintServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMintServer struct {
-	githubAppInstallation *githubauth.AppInstallation
-	configStore           ConfigReader
-	jwtParseOptions       []jwt.ParseOption
+	githubApp         *githubauth.App
+	configStore       ConfigReader
+	jwtParseOptions   []jwt.ParseOption
+	githubAppInstalls *cache.Cache[*githubauth.AppInstallation]
 }
 
 type oidcClaims struct {
@@ -72,11 +75,12 @@ type oidcClaims struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, githubAppInstallation *githubauth.AppInstallation, configStore ConfigReader, jwtParseOptions []jwt.ParseOption) (*TokenMintServer, error) {
+func NewRouter(ctx context.Context, githubApp *githubauth.App, configStore ConfigReader, jwtParseOptions []jwt.ParseOption) (*TokenMintServer, error) {
 	return &TokenMintServer{
-		githubAppInstallation: githubAppInstallation,
-		configStore:           configStore,
-		jwtParseOptions:       jwtParseOptions,
+		githubApp:         githubApp,
+		configStore:       configStore,
+		jwtParseOptions:   jwtParseOptions,
+		githubAppInstalls: cache.New[*githubauth.AppInstallation](1 * time.Hour),
 	}, nil
 }
 
@@ -105,6 +109,22 @@ func (s *TokenMintServer) handleVersion() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `{"version":%q}\n`, version.HumanVersion)
 	})
+}
+
+// installationForRequest handles creating githubauth.AppInstallation objects based
+// on the repository that is provided. This method caches the installation to avoid
+// excessive calls to the GitHub API.
+func (s *TokenMintServer) installationForRequest(ctx context.Context, org, repo string) (*githubauth.AppInstallation, error) {
+	cacheKey := fmt.Sprintf("%s/%s", org, repo)
+	installation, exists := s.githubAppInstalls.Lookup(cacheKey)
+	if installation == nil && !exists {
+		installation, err := s.githubApp.InstallationForRepo(ctx, org, repo)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get github installation: %w", err)
+		}
+		s.githubAppInstalls.Set(cacheKey, installation)
+	}
+	return installation, nil
 }
 
 // Routes creates a ServeMux of all of the routes that
@@ -177,12 +197,25 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 		return http.StatusForbidden, "requested permissions are not authorized for this repository", err
 	}
 
+	// The repository claim is of the form <org_name>/<repo_name>.
+	// Use this string split instead of attempting to use this and the repository_owner claim since
+	// the repository_owner claim is optional.
+	repoParts := strings.Split(claims.Repository, "/")
+	if len(repoParts) != 2 {
+		return http.StatusBadRequest, fmt.Sprintf("'repository' claim formatted incorrectly, requires <org_name>/<repo_name> format - received [%s]", claims.Repository), nil
+	}
+	// Lookup the App installation for the GitHub owner/repo
+	installation, err := s.installationForRequest(ctx, repoParts[0], repoParts[1])
+	if err != nil {
+		return http.StatusInternalServerError, "Failed to find GitHub app installation for repository. Please ensure the app is properly installed.", err
+	}
+
 	// If all repositories are allowed and all were requested,
 	// request access token for all allowed repositories for the GitHub app
 	if allowRequestAllRepos(perm.Repositories, request.Repositories) {
 		allRepoRequest := &githubauth.TokenRequestAllRepos{Permissions: request.Permissions}
 
-		accessToken, err := s.githubAppInstallation.AccessTokenAllRepos(ctx, allRepoRequest)
+		accessToken, err := installation.AccessTokenAllRepos(ctx, allRepoRequest)
 		if err != nil {
 			return http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)
 		}
@@ -205,7 +238,7 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 		"config", config,
 	)
 
-	accessToken, err := s.githubAppInstallation.AccessToken(ctx, &request)
+	accessToken, err := installation.AccessToken(ctx, &request)
 	if err != nil {
 		return http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)
 	}
