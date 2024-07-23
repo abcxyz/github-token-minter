@@ -66,11 +66,6 @@ type serviceConfig struct {
 	// include the protocol (https://) and no trailing slashes.
 	GitHubAPIBaseURL string `env:"GITHUB_API_BASE_URL"`
 
-	// InstallationID is the GitHub App intallation ID. In the future, this will
-	// be parameterized based on the incoming request, but for now it is
-	// a runtime configurable.
-	InstallationID string `env:"GITHUB_INSTALL_ID,required"`
-
 	ConfigDir string `env:"CONFIGS_DIR,default=configs"`
 }
 
@@ -103,11 +98,6 @@ func realMain(ctx context.Context) (retErr error) {
 		return fmt.Errorf("failed to create github app: %w", err)
 	}
 
-	installation, err := app.InstallationForID(ctx, cfg.InstallationID)
-	if err != nil {
-		return fmt.Errorf("failed to get github installation: %w", err)
-	}
-
 	// Create an in memory ConfigReader which preloads all of
 	// the configuration files into memory.
 	store, err := server.NewInMemoryStore(cfg.ConfigDir)
@@ -127,7 +117,7 @@ func realMain(ctx context.Context) (retErr error) {
 	}
 
 	// Create the Router for the token minting server.
-	tokenServer, err := server.NewRouter(ctx, installation, store, jwtParseOptions)
+	tokenServer, err := server.NewRouter(ctx, app, store, jwtParseOptions)
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
