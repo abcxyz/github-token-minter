@@ -58,7 +58,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 
 	fakeGitHub := func() *httptest.Server {
 		mux := http.NewServeMux()
-		mux.Handle("GET /app/installations/123", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mux.Handle("GET /repos/abcxyz/pkg/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, `{"access_tokens_url": "http://%s/app/installations/123/access_tokens"}`, r.Host)
 		}))
 		mux.Handle("POST /app/installations/123/access_tokens", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
