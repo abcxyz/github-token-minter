@@ -133,8 +133,9 @@ Given a repository setup like
 ```bash
 <my repo root>
 -- configs
-   -- repo1_config.yml
-   -- repo2_config.yml
+   <org_dir_1>
+     -- repo1_config.yml
+     -- repo2_config.yml
 Dockerfile
 ```
 
