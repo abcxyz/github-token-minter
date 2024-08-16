@@ -131,11 +131,13 @@ We recommend that a GitHub workflow builds a new container from the released ima
 Given a repository setup like
 
 ```bash
-<my repo root>
--- configs
-   -- repo1_config.yml
-   -- repo2_config.yml
-Dockerfile
+<my-repo-root>
+├── configs
+│   └── <repo-owner-1>
+│       ├── repo1.yaml
+│       ├── ...
+│       └── repoN.yaml
+└── Dockerfile
 ```
 
 A Dockerfile paired with a short GitHub workflow is sufficient.
