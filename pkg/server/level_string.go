@@ -20,9 +20,7 @@ const (
 	_Level_name_2 = "Admin"
 )
 
-var (
-	_Level_index_0 = [...]uint8{0, 7, 11}
-)
+var _Level_index_0 = [...]uint8{0, 7, 11}
 
 func (i Level) String() string {
 	switch {
