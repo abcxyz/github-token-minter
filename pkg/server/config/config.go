@@ -22,6 +22,8 @@ import (
 	"github.com/google/cel-go/cel"
 )
 
+const latestConfigVersion = "minty.abcxyz.dev/v2"
+
 // Rule is a struct that contains the string representation
 // of a CEL expresssion along with the compiled CEL Program.
 type Rule struct {
@@ -40,8 +42,9 @@ type Scope struct {
 // to all requests and a map of Scopes that can be requested. The
 // map is keyed by a string name.
 type Config struct {
-	Rule   Rule              `yaml:"rule" json:"rule"`
-	Scopes map[string]*Scope `yaml:"scope" json:"scope"`
+	Version string            `yaml:"version" json:"version"`
+	Rule    Rule              `yaml:"rule" json:"rule"`
+	Scopes  map[string]*Scope `yaml:"scope" json:"scope"`
 }
 
 func (r *Rule) compile(env *cel.Env) error {

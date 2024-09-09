@@ -38,6 +38,7 @@ func TestConfigFileRead(t *testing.T) {
 # Only allow if the OIDC token is from GitHub and the source is this organization and repository
 # Deny any request that isn't from the main branch.
 # This policy is applied first before the scope is evaluated.
+version: 'minty.abcxyz.dev/v2'
 rule:
   if: |-
       assertion.iss = 'https://token.actions.githubusercontent.com' &&
@@ -68,6 +69,7 @@ scope:
     permissions:
       contents: 'write'`,
 			want: &Config{
+				Version: "minty.abcxyz.dev/v2",
 				Rule: Rule{
 					If: `assertion.iss = 'https://token.actions.githubusercontent.com' &&
 assertion.organization_id = '93787867' &&
@@ -102,9 +104,16 @@ assertion.event_name == 'push'`},
 		{
 			name:      "empty config",
 			data:      `notareal: 'tag'`,
-			want:      &Config{},
+			want:      &Config{Version: latestConfigVersion},
 			expErr:    false,
 			expErrMsg: "",
+		},
+		{
+			name:      "unsupported version",
+			data:      `version: 'turbo'`,
+			want:      nil,
+			expErr:    true,
+			expErrMsg: "unsupported configuration document version",
 		},
 	}
 

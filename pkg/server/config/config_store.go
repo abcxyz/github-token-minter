@@ -117,8 +117,13 @@ func (s *ConfigStore) Get(ctx context.Context, org, repo string) (*Config, error
 
 func read(contents []byte) (*Config, error) {
 	var config Config
+	// default to the latest version, if its not set in the document we assume it is the latest
+	config.Version = latestConfigVersion
 	if err := yaml.Unmarshal(contents, &config); err != nil {
 		return nil, fmt.Errorf("error parsing yaml document: %w", err)
+	}
+	if config.Version != latestConfigVersion {
+		return nil, fmt.Errorf("unsupported configuration document version [%s]", config.Version)
 	}
 	return &config, nil
 }
