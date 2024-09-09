@@ -8,6 +8,7 @@ require (
 	github.com/abcxyz/pkg v1.1.0
 	github.com/google/cel-go v0.20.1
 	github.com/google/go-cmp v0.6.0
+	github.com/google/go-github/v64 v64.0.0
 	github.com/lestrrat-go/jwx/v2 v2.0.21
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -16,6 +17,7 @@ require (
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
 	github.com/goccy/go-json v0.10.3 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.2 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/httprc v1.0.5 // indirect
