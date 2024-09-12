@@ -83,7 +83,7 @@ func NewConfigStore(expireAfter time.Duration, localConfigDir string, app *githu
 }
 
 // Get retrieves a Config object for the org_name / repo_name combination.
-func (s *ConfigStore) Get(ctx context.Context, org, repo string) (*Config, error) {
+func (s *ConfigStore) Read(ctx context.Context, org, repo string) (*Config, error) {
 	key := fmt.Sprintf("%s/%s", org, repo)
 	// first look for the config object in cache
 	cached, exists := s.cache.Lookup(key)

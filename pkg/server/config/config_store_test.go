@@ -70,7 +70,7 @@ scope:
       contents: 'write'`,
 			want: &Config{
 				Version: "minty.abcxyz.dev/v2",
-				Rule: Rule{
+				Rule: &Rule{
 					If: `assertion.iss = 'https://token.actions.githubusercontent.com' &&
 assertion.organization_id = '93787867' &&
 assertion.repository_id = '576289489' &&
@@ -78,13 +78,13 @@ assertion.ref != 'refs/heads/main'`,
 				},
 				Scopes: map[string]*Scope{
 					"draft-release": {
-						Rule: Rule{If: `assertion.workflow_ref == assertion.job_workflow_ref &&
+						Rule: &Rule{If: `assertion.workflow_ref == assertion.job_workflow_ref &&
 assertion.job_workflow_ref == 'abcxyz/github-token-minter/.github/workflows/draft-release.yml@refs/heads/main' &&
 assertion.event_name == 'workflow_dispatch'`},
 						Permissions: map[string]string{"contents": "write", "pull_requests": "write"},
 					},
 					"release": {
-						Rule: Rule{If: `assertion.workflow_ref == assertion.job_workflow_ref &&
+						Rule: &Rule{If: `assertion.workflow_ref == assertion.job_workflow_ref &&
 assertion.job_workflow_ref == 'abcxyz/github-token-minter/.github/workflows/release.yml@refs/heads/main' &&
 assertion.event_name == 'push'`},
 						Permissions: map[string]string{"contents": "write"},

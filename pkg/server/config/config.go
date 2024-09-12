@@ -17,6 +17,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/cel-go/cel"
@@ -34,8 +35,9 @@ type Rule struct {
 // Scope is a struct that contains a series of permissions that
 // are associated with a Rule.
 type Scope struct {
-	Permissions map[string]string `yaml:"permissions" json:"permissions"`
-	Rule        Rule              `yaml:"rule" json:"rule"`
+	Permissions  map[string]string `yaml:"permissions" json:"permissions"`
+	Repositories []string          `yaml:"repositories" json:"repositories"`
+	Rule         *Rule             `yaml:"rule" json:"rule"`
 }
 
 // Config is a struct that contains a top level rule that applies
@@ -43,8 +45,12 @@ type Scope struct {
 // map is keyed by a string name.
 type Config struct {
 	Version string            `yaml:"version" json:"version"`
-	Rule    Rule              `yaml:"rule" json:"rule"`
+	Rule    *Rule             `yaml:"rule" json:"rule"`
 	Scopes  map[string]*Scope `yaml:"scope" json:"scope"`
+}
+
+type ConfigReader interface {
+	Read(ctx context.Context, org, repo string) (*Config, error)
 }
 
 func (r *Rule) compile(env *cel.Env) error {
@@ -84,4 +90,44 @@ func compileExpression(env *cel.Env, expr string) (cel.Program, error) {
 	}
 
 	return prg, nil
+}
+
+func (r *Rule) eval(token interface{}) (bool, error) {
+	out, _, err := r.Program.Eval(map[string]any{
+		assertionKey: token,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to evaluate CEL expression: %w", err)
+	}
+
+	if v, ok := (out.Value()).(bool); v && ok {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (c *Config) Eval(scope string, token interface{}) (*Scope, error) {
+	if c.Rule != nil {
+		ok, err := c.Rule.eval(token)
+		if err != nil {
+			return nil, fmt.Errorf("global rule evaluation failed: %w", err)
+		}
+		if !ok {
+			return nil, nil
+		}
+	}
+	val, ok := c.Scopes[scope]
+	if !ok {
+		return nil, fmt.Errorf("requested scope [%s] not found", scope)
+	}
+	if val.Rule != nil {
+		ok, err := val.Rule.eval(token)
+		if err != nil {
+			return nil, fmt.Errorf("scope rule evaluation failed: %w", err)
+		}
+		if ok {
+			return val, nil
+		}
+	}
+	return nil, nil
 }
