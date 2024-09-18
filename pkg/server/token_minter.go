@@ -42,7 +42,7 @@ const (
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMinterServer struct {
 	githubApp   *githubauth.App
-	configStore config.ConfigReader
+	configStore config.ConfigEvaluator
 	parser      *JWTParser
 }
 
@@ -57,7 +57,7 @@ type tokenRequest struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, githubApp *githubauth.App, configStore config.ConfigReader, parser *JWTParser) (*TokenMinterServer, error) {
+func NewRouter(ctx context.Context, githubApp *githubauth.App, configStore config.ConfigEvaluator, parser *JWTParser) (*TokenMinterServer, error) {
 	return &TokenMinterServer{
 		githubApp:   githubApp,
 		configStore: configStore,
@@ -136,22 +136,17 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *APIResponse {
 		return apiError
 	}
 
-	// Get the repository's configuration data
-	config, err := s.configStore.Read(ctx, claims.ParsedOrgName, claims.ParsedRepoName)
+	// Get the repository's configuration data and evaluate the token against the
+	// configuration to find a matching scope.
+	scope, err := s.configStore.Eval(ctx, claims.ParsedOrgName, claims.ParsedRepoName, request.Scope, claims.asMap())
 	if err != nil {
 		return NewAPIResponse(http.StatusInternalServerError,
-			fmt.Sprintf("requested repository is not properly configured '%s'", claims.Repository),
+			fmt.Sprintf("requested scope %q is not found for repository %q", request.Scope, claims.Repository),
 			fmt.Errorf("error reading configuration for repository %s from configuration store: %w", claims.Repository, err),
 		)
 	}
-	// Evaluate the token against the configuration to find a matching
-	// scope.
-	scope, err := config.Eval(request.Scope, claims.asMap())
-	if err != nil {
-		return NewAPIResponse(http.StatusInternalServerError, "failed to evaluate permissions for combination of token, config and scope", err)
-	}
 	if scope == nil {
-		return NewAPIResponse(http.StatusForbidden, "no permissions available for scope in repository", err)
+		return NewAPIResponse(http.StatusForbidden, fmt.Sprintf("no permissions available for scope %q in repository %q", request.Scope, claims.Repository), err)
 	}
 
 	// Validate the permissions that were requested are within what is allowed for the repository
@@ -192,7 +187,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *APIResponse {
 	logger.InfoContext(ctx, "generating token",
 		"claims", claims,
 		"request", tokenRequest,
-		"config", config,
+		"scope", scope,
 	)
 
 	accessToken, err := installation.AccessToken(ctx, &tokenRequest)

@@ -99,7 +99,10 @@ func realMain(ctx context.Context) (retErr error) {
 		return fmt.Errorf("failed to create github app: %w", err)
 	}
 
-	store := config.NewConfigStore(1*time.Hour, cfg.ConfigDir, app)
+	store, err := config.NewConfigEvaluator(1*time.Hour, cfg.ConfigDir, ".github/minty.yaml", ".google-github/minty.yaml", "main", app)
+	if err != nil {
+		return fmt.Errorf("failed to create config evaluator: %w", err)
+	}
 
 	// Setup JWKS verification.
 	jwkCache := jwk.NewCache(ctx)
