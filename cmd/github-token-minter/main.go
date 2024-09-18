@@ -30,6 +30,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/abcxyz/github-token-minter/pkg/server"
+	"github.com/abcxyz/github-token-minter/pkg/server/config"
 	"github.com/abcxyz/github-token-minter/pkg/version"
 	"github.com/abcxyz/pkg/cfgloader"
 	"github.com/abcxyz/pkg/githubauth"
@@ -98,11 +99,9 @@ func realMain(ctx context.Context) (retErr error) {
 		return fmt.Errorf("failed to create github app: %w", err)
 	}
 
-	// Create an in memory ConfigReader which preloads all of
-	// the configuration files into memory.
-	store, err := server.NewInMemoryStore(cfg.ConfigDir)
+	store, err := config.NewConfigEvaluator(1*time.Hour, cfg.ConfigDir, ".github/minty.yaml", ".google-github/minty.yaml", "main", app)
 	if err != nil {
-		return fmt.Errorf("failed to build configuration cache: %w", err)
+		return fmt.Errorf("failed to create config evaluator: %w", err)
 	}
 
 	// Setup JWKS verification.
@@ -117,7 +116,7 @@ func realMain(ctx context.Context) (retErr error) {
 	}
 
 	// Create the Router for the token minting server.
-	tokenServer, err := server.NewRouter(ctx, app, store, jwtParseOptions)
+	tokenServer, err := server.NewRouter(ctx, app, store, &server.JWTParser{ParseOptions: jwtParseOptions})
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}

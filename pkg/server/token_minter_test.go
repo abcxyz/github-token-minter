@@ -34,6 +34,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
+	"github.com/abcxyz/github-token-minter/pkg/server/config"
 	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
@@ -102,7 +103,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 		{
 			name: "invalid_jwt",
 			req: func() *http.Request {
-				body := strings.NewReader(`{}`)
+				body := strings.NewReader(`{"scope":"test"}`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
 				r.Header.Set("X-GitHub-OIDC-Token", "abc123")
 				return r
@@ -114,7 +115,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 		{
 			name: "missing_required_claims",
 			req: func() *http.Request {
-				body := strings.NewReader(`{}`)
+				body := strings.NewReader(`{"scope":"test"}`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
 
 				signed := testTokenBuilder(t, signer, nil)
@@ -128,7 +129,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 		{
 			name: "happy_path",
 			req: func() *http.Request {
-				body := strings.NewReader(`{}`)
+				body := strings.NewReader(`{"scope":"test"}`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
 
 				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
@@ -142,20 +143,15 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			expResp: "this-is-the-token-from-github",
 		},
 		{
-			name: "happy_path",
+			name: "missing_scope",
 			req: func() *http.Request {
 				body := strings.NewReader(`{}`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
-
-				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
-					b.Claim("repository", "abcxyz/pkg")
-					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
-				})
-				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				r.Header.Set("X-GitHub-OIDC-Token", "abc123")
 				return r
 			}(),
-			expCode: 200,
-			expResp: "this-is-the-token-from-github",
+			expCode: 400,
+			expResp: "error parsing request information - missing 'scope' attribute",
 		},
 	}
 
@@ -164,11 +160,6 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-
-			configStore, err := NewInMemoryStore("../../testdata/configs")
-			if err != nil {
-				t.Fatal(err)
-			}
 
 			rsaPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 			if err != nil {
@@ -179,20 +170,24 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-
-			server, err := NewRouter(ctx, githubApp, configStore, jwtParseOptions)
+			configStore, err := config.NewConfigEvaluator(1*time.Hour, "../../testdata/configs", ".github/minty.yaml", ".google-github/minty.yaml", "main", githubApp)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			status, resp, err := server.processRequest(tc.req)
-			if got, want := status, tc.expCode; got != want {
+			server, err := NewRouter(ctx, githubApp, configStore, &JWTParser{ParseOptions: jwtParseOptions})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			resp := server.processRequest(tc.req)
+			if got, want := resp.HTTPCode, tc.expCode; got != want {
 				t.Errorf("expected status code %d to be %d", got, want)
 			}
-			if got, want := resp, tc.expResp; !strings.Contains(got, want) {
+			if got, want := resp.HTTPMessage, tc.expResp; !strings.Contains(got, want) {
 				t.Errorf("expected body\n\n%s\n\nto contain\n\n%s\n\n", got, want)
 			}
-			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
+			if diff := testutil.DiffErrString(resp.Error, tc.expErr); diff != "" {
 				t.Errorf(diff)
 			}
 		})

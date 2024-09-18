@@ -26,8 +26,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/lestrrat-go/jwx/v2/jwt"
-
+	"github.com/abcxyz/github-token-minter/pkg/server/config"
 	"github.com/abcxyz/github-token-minter/pkg/version"
 	"github.com/abcxyz/pkg/gcputil"
 	"github.com/abcxyz/pkg/githubauth"
@@ -39,69 +38,55 @@ const (
 	JWTCacheKey = "github-app-jwt"
 )
 
-// TokenMintServer is the implementation of an HTTP server that exchanges
+// TokenMinterServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-type TokenMintServer struct {
-	githubApp       *githubauth.App
-	configStore     ConfigReader
-	jwtParseOptions []jwt.ParseOption
+type TokenMinterServer struct {
+	githubApp   *githubauth.App
+	configStore config.ConfigEvaluator
+	parser      *JWTParser
 }
 
-type oidcClaims struct {
-	Audience          []string `json:"audience"`
-	Subject           string   `json:"subject"`
-	Issuer            string   `json:"issuer"`
-	Ref               string   `json:"ref"`
-	RefType           string   `json:"ref_type"`
-	Sha               string   `json:"sha"`
-	Repository        string   `json:"repository"`
-	RepositoryID      string   `json:"repository_id"`
-	RepositoryOwner   string   `json:"repository_owner"`
-	RepositoryOwnerID string   `json:"repository_owner_id"`
-	RunID             string   `json:"run_id"`
-	RunNumber         string   `json:"run_number"`
-	Actor             string   `json:"actor"`
-	ActorID           string   `json:"actor_id"`
-	EventName         string   `json:"event_name"`
-	Workflow          string   `json:"workflow"`
-	WorkflowRef       string   `json:"workflow_ref"`
-	WorkflowSha       string   `json:"workflow_sha"`
-	JobWorkflowRef    string   `json:"job_workflow_ref"`
-	JobWorkflowSha    string   `json:"job_workflow_sha"`
+// tokenRequest is a struct that contains the list of repositories and the
+// requested permissions / scopes that are requested when generating a new
+// installation access token.
+type tokenRequest struct {
+	Repositories []string          `json:"repositories"`
+	Permissions  map[string]string `json:"permissions"`
+	Scope        string            `json:"scope"`
 }
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, githubApp *githubauth.App, configStore ConfigReader, jwtParseOptions []jwt.ParseOption) (*TokenMintServer, error) {
-	return &TokenMintServer{
-		githubApp:       githubApp,
-		configStore:     configStore,
-		jwtParseOptions: jwtParseOptions,
+func NewRouter(ctx context.Context, githubApp *githubauth.App, configStore config.ConfigEvaluator, parser *JWTParser) (*TokenMinterServer, error) {
+	return &TokenMinterServer{
+		githubApp:   githubApp,
+		configStore: configStore,
+		parser:      parser,
 	}, nil
 }
 
 // handleToken creates a http.HandlerFunc implementation that processes token requests.
-func (s *TokenMintServer) handleToken() http.Handler {
+func (s *TokenMinterServer) handleToken() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		logger := logging.FromContext(ctx)
 
-		respCode, respMsg, err := s.processRequest(r)
-		if err != nil {
+		resp := s.processRequest(r)
+		if resp.Error != nil {
 			logger.ErrorContext(ctx, "error processing request",
-				"error", err,
-				"code", respCode,
-				"body", respMsg)
+				"error", resp.Error,
+				"code", resp.HTTPCode,
+				"body", resp.HTTPMessage)
 		}
 
-		w.WriteHeader(respCode)
-		fmt.Fprint(w, respMsg)
+		w.WriteHeader(resp.HTTPCode)
+		fmt.Fprint(w, resp.HTTPMessage)
 	})
 }
 
 // handleVersion is a simple http.HandlerFunc that responds
 // with version information for the server.
-func (s *TokenMintServer) handleVersion() http.Handler {
+func (s *TokenMinterServer) handleVersion() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `{"version":%q}\n`, version.HumanVersion)
 	})
@@ -109,7 +94,7 @@ func (s *TokenMintServer) handleVersion() http.Handler {
 
 // Routes creates a ServeMux of all of the routes that
 // this Router supports.
-func (s *TokenMintServer) Routes(ctx context.Context) http.Handler {
+func (s *TokenMinterServer) Routes(ctx context.Context) http.Handler {
 	logger := logging.FromContext(ctx)
 	projectID := gcputil.ProjectID(ctx)
 
@@ -121,7 +106,7 @@ func (s *TokenMintServer) Routes(ctx context.Context) http.Handler {
 	return mux
 }
 
-func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
+func (s *TokenMinterServer) processRequest(r *http.Request) *APIResponse {
 	ctx := r.Context()
 	logger := logging.FromContext(ctx)
 
@@ -129,100 +114,87 @@ func (s *TokenMintServer) processRequest(r *http.Request) (int, string, error) {
 	oidcHeader := r.Header.Get(AuthHeader)
 	// Ensure the token is in the header
 	if oidcHeader == "" {
-		return http.StatusBadRequest, fmt.Sprintf("request not authorized: '%s' header is missing", AuthHeader), nil
+		return NewAPIResponse(http.StatusBadRequest, fmt.Sprintf("request not authorized: '%s' header is missing", AuthHeader), nil)
 	}
-
 	// Parse the request information
 	defer r.Body.Close()
 
-	var request githubauth.TokenRequest
+	var request tokenRequest
 	dec := json.NewDecoder(io.LimitReader(r.Body, 4_194_304)) // 4 MiB
 	if err := dec.Decode(&request); err != nil {
-		return http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err)
+		return NewAPIResponse(http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err))
 	}
 
-	// Parse the token data into a JWT
-	parseOpts := append([]jwt.ParseOption{jwt.WithContext(ctx)}, s.jwtParseOptions...)
-	oidcToken, err := jwt.Parse([]byte(oidcHeader), parseOpts...)
-	if err != nil {
-		return http.StatusUnauthorized, fmt.Sprintf("request not authorized: '%s' header is invalid", AuthHeader), fmt.Errorf("failed to validate jwt: %w", err)
+	// Reject requests that do not contain a scope
+	if request.Scope == "" {
+		return NewAPIResponse(http.StatusBadRequest, "error parsing request information - missing 'scope' attribute", nil)
 	}
 
-	claims, err := parsePrivateClaims(ctx, oidcToken)
-	if err != nil {
-		return http.StatusBadRequest, "request does not contain required information", err
+	// Parse the auth token into a set of claims
+	claims, apiError := s.parser.parseAuthToken(ctx, oidcHeader)
+	if apiError != nil {
+		return apiError
 	}
 
-	// Get the repository's configuration data
-	config, err := s.configStore.Read(claims.Repository)
+	// Get the repository's configuration data and evaluate the token against the
+	// configuration to find a matching scope.
+	scope, err := s.configStore.Eval(ctx, claims.ParsedOrgName, claims.ParsedRepoName, request.Scope, claims.asMap())
 	if err != nil {
-		return http.StatusInternalServerError,
-			fmt.Sprintf("requested repository is not properly configured '%s'", claims.Repository),
-			fmt.Errorf("error reading configuration for repository %s from cache: %w", claims.Repository, err)
+		return NewAPIResponse(http.StatusInternalServerError,
+			fmt.Sprintf("requested scope %q is not found for repository %q", request.Scope, claims.Repository),
+			fmt.Errorf("error reading configuration for repository %s from configuration store: %w", claims.Repository, err),
+		)
 	}
-
-	// Extract all of the JWT attributes into a map
-	tokenMap, err := oidcToken.AsMap(ctx)
-	if err != nil {
-		return http.StatusInternalServerError, fmt.Sprintf("request not authorized: '%s' jwt is invalid", AuthHeader), err
-	}
-	// Get the permissions for the token
-	perm, err := permissionsForToken(ctx, config, tokenMap)
-	if err != nil {
-		return http.StatusForbidden, "no permissions available for repository", err
+	if scope == nil {
+		return NewAPIResponse(http.StatusForbidden, fmt.Sprintf("no permissions available for scope %q in repository %q", request.Scope, claims.Repository), err)
 	}
 
 	// Validate the permissions that were requested are within what is allowed for the repository
-	if err = validatePermissions(ctx, perm.Permissions, request.Permissions); err != nil {
-		return http.StatusForbidden, "requested permissions are not authorized for this repository", err
+	if err = validatePermissions(scope.Permissions, request.Permissions); err != nil {
+		return NewAPIResponse(http.StatusForbidden, "requested permissions are not authorized for this repository", err)
 	}
 
-	// The repository claim is of the form <org_name>/<repo_name>.
-	// Use this string split instead of attempting to use this and the repository_owner claim since
-	// the repository_owner claim is optional.
-	repoParts := strings.Split(claims.Repository, "/")
-	if len(repoParts) != 2 {
-		return http.StatusBadRequest, fmt.Sprintf("'repository' claim formatted incorrectly, requires <org_name>/<repo_name> format - received [%s]", claims.Repository), nil
-	}
 	// Lookup the App installation for the GitHub owner/repo
-	installation, err := s.githubApp.InstallationForRepo(ctx, repoParts[0], repoParts[1])
+	installation, err := s.githubApp.InstallationForRepo(ctx, claims.ParsedOrgName, claims.ParsedRepoName)
 	if err != nil {
-		return http.StatusInternalServerError, "Failed to find GitHub app installation for repository. Please ensure the app is properly installed.", fmt.Errorf("error retrieving GitHub installation: %w", err)
+		return NewAPIResponse(http.StatusInternalServerError, "Failed to find GitHub app installation for repository. Please ensure the app is properly installed.", fmt.Errorf("error retrieving GitHub installation: %w", err))
 	}
 
 	// If all repositories are allowed and all were requested,
 	// request access token for all allowed repositories for the GitHub app
-	if allowRequestAllRepos(perm.Repositories, request.Repositories) {
+	if allowRequestAllRepos(scope.Repositories, scope.Repositories) {
 		allRepoRequest := &githubauth.TokenRequestAllRepos{Permissions: request.Permissions}
 
 		accessToken, err := installation.AccessTokenAllRepos(ctx, allRepoRequest)
 		if err != nil {
-			return http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)
+			return NewAPIResponse(http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err))
 		}
-		return http.StatusOK, accessToken, nil
+		return NewAPIResponse(http.StatusOK, accessToken, nil)
 	}
 
 	// Otherwise, validate that all of the requested repositories are allowed
 	// or if all repositories are allowed and specific repositories were requested,
 	// request restricted access token
-	repos, err := validateRepositories(perm.Repositories, request.Repositories)
+	repos, err := validateRepositories(scope.Repositories, scope.Repositories)
 	if err != nil {
-		return http.StatusForbidden, "one or more of the requested repositories is not authorized", err
+		return NewAPIResponse(http.StatusForbidden, "one or more of the requested repositories is not authorized", err)
 	}
-	// Replace the requested repository list with actual values
-	request.Repositories = repos
 
+	tokenRequest := githubauth.TokenRequest{
+		Repositories: repos,
+		Permissions:  request.Permissions,
+	}
 	logger.InfoContext(ctx, "generating token",
 		"claims", claims,
-		"request", request,
-		"config", config,
+		"request", tokenRequest,
+		"scope", scope,
 	)
 
-	accessToken, err := installation.AccessToken(ctx, &request)
+	accessToken, err := installation.AccessToken(ctx, &tokenRequest)
 	if err != nil {
-		return http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)
+		return NewAPIResponse(http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err))
 	}
-	return http.StatusOK, accessToken, nil
+	return NewAPIResponse(http.StatusOK, accessToken, nil)
 }
 
 // allowRequestAllRepos determines if a request is allowed to request
@@ -242,8 +214,8 @@ func validateRepositories(allowed, requested []string) ([]string, error) {
 	}
 
 	repositories := []string{}
-	// Loop through all of the requested repositories to verifiy that are in the configured
-	// allow list
+	// Loop through all of the requested repositories to verifiy that they are in the
+	// configured allow list
 	for _, request := range requested {
 		matched := false
 		for _, allow := range allowed {
@@ -277,61 +249,4 @@ func matchesAllowed(allow, request string) bool {
 	default:
 		return false
 	}
-}
-
-// parsePrivateClaims extracts the private claims from the OIDC token into an internal
-// representation and validates that all required claims are present.
-func parsePrivateClaims(ctx context.Context, oidcToken jwt.Token) (*oidcClaims, error) {
-	var claims oidcClaims
-
-	claims.Audience = oidcToken.Audience()
-	claims.Subject = oidcToken.Subject()
-	claims.Issuer = oidcToken.Issuer()
-
-	r, err := requiredClaim(oidcToken, "repository")
-	if err != nil {
-		return nil, err
-	}
-	claims.Repository = r
-
-	claims.Ref = optionalClaim(oidcToken, "ref")
-	claims.RefType = optionalClaim(oidcToken, "ref_type")
-	claims.Sha = optionalClaim(oidcToken, "sha")
-	claims.RepositoryID = optionalClaim(oidcToken, "repository_id")
-	claims.RepositoryOwner = optionalClaim(oidcToken, "repository_owner")
-	claims.RepositoryOwnerID = optionalClaim(oidcToken, "repository_owner_id")
-	claims.RunID = optionalClaim(oidcToken, "run_id")
-	claims.RunNumber = optionalClaim(oidcToken, "run_number")
-	claims.Actor = optionalClaim(oidcToken, "actor")
-	claims.ActorID = optionalClaim(oidcToken, "actor_id")
-	claims.EventName = optionalClaim(oidcToken, "event_name")
-	claims.Workflow = optionalClaim(oidcToken, "workflow")
-	claims.WorkflowRef = optionalClaim(oidcToken, "workflow_ref")
-	claims.WorkflowSha = optionalClaim(oidcToken, "workflow_sha")
-	claims.JobWorkflowRef = optionalClaim(oidcToken, "job_workflow_ref")
-	claims.JobWorkflowSha = optionalClaim(oidcToken, "job_workflow_sha")
-
-	return &claims, nil
-}
-
-func requiredClaim(oidcToken jwt.Token, claim string) (string, error) {
-	return tokenClaimString(oidcToken, claim, true)
-}
-
-func optionalClaim(oidcToken jwt.Token, claim string) string {
-	// Intentionally dropping the error here since the existence of the claim does not matter
-	result, _ := tokenClaimString(oidcToken, claim, false)
-	return result
-}
-
-func tokenClaimString(oidcToken jwt.Token, claim string, required bool) (string, error) {
-	val, ok := oidcToken.Get(claim)
-	if required && !ok {
-		return "", fmt.Errorf("claim %q not found", claim)
-	}
-	result, ok := val.(string)
-	if required && !ok {
-		return "", fmt.Errorf("claim %q not the correct type want=string, got=%T", claim, val)
-	}
-	return result, nil
 }
