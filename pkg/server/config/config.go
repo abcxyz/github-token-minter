@@ -63,12 +63,17 @@ func (r *Rule) compile(env *cel.Env) error {
 }
 
 func (s *Scope) compile(env *cel.Env) error {
-	return s.Rule.compile(env)
+	if s.Rule != nil {
+		return s.Rule.compile(env)
+	}
+	return nil
 }
 
 func (c *Config) compile(env *cel.Env) error {
-	if err := c.Rule.compile(env); err != nil {
-		return fmt.Errorf("error compiling configuration ruleset: %w", err)
+	if c.Rule != nil {
+		if err := c.Rule.compile(env); err != nil {
+			return fmt.Errorf("error compiling configuration ruleset: %w", err)
+		}
 	}
 	for name, s := range c.Scopes {
 		if err := s.compile(env); err != nil {
