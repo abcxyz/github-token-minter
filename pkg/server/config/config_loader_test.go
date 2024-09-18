@@ -28,239 +28,6 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-type testConfigFileLoader struct {
-	result []byte
-	err    error
-}
-
-func (l *testConfigFileLoader) load(ctx context.Context, org, repo string) ([]byte, error) {
-	return l.result, l.err
-}
-
-type testParamReturningConfigFileLoader struct {
-	err error
-}
-
-func (l *testParamReturningConfigFileLoader) load(ctx context.Context, org, repo string) ([]byte, error) {
-	return []byte(fmt.Sprintf("%s/%s", org, repo)), l.err
-}
-
-func TestOrderedConfigFileLoader(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name      string
-		loader    configFileLoader
-		org       string
-		repo      string
-		want      []byte
-		expErr    bool
-		expErrMsg string
-	}{
-		{
-			name: "single child with result",
-			loader: &orderedConfigFileLoader{
-				loaders: []configFileLoader{
-					&testConfigFileLoader{
-						result: []byte("1234"),
-						err:    nil,
-					},
-				},
-			},
-			org:       "test_org",
-			repo:      "test_repo",
-			want:      []byte("1234"),
-			expErr:    false,
-			expErrMsg: "",
-		},
-		{
-			name: "single child with error",
-			loader: &orderedConfigFileLoader{
-				loaders: []configFileLoader{
-					&testConfigFileLoader{
-						result: nil,
-						err:    fmt.Errorf("test_error"),
-					},
-				},
-			},
-			org:       "test_org",
-			repo:      "test_repo",
-			want:      nil,
-			expErr:    true,
-			expErrMsg: "error reading configuration, child reader threw error: test_error",
-		},
-		{
-			name: "multiple children with result in first",
-			loader: &orderedConfigFileLoader{
-				loaders: []configFileLoader{
-					&testConfigFileLoader{
-						result: []byte("1234"),
-						err:    nil,
-					},
-					&testConfigFileLoader{
-						result: []byte("5678"),
-						err:    nil,
-					},
-				},
-			},
-			org:       "test_org",
-			repo:      "test_repo",
-			want:      []byte("1234"),
-			expErr:    false,
-			expErrMsg: "",
-		},
-		{
-			name: "multiple children with error in first",
-			loader: &orderedConfigFileLoader{
-				loaders: []configFileLoader{
-					&testConfigFileLoader{
-						result: nil,
-						err:    fmt.Errorf("test_error"),
-					},
-					&testConfigFileLoader{
-						result: nil,
-						err:    nil,
-					},
-				},
-			},
-			org:       "test_org",
-			repo:      "test_repo",
-			want:      nil,
-			expErr:    true,
-			expErrMsg: "error reading configuration, child reader threw error: test_error",
-		},
-		{
-			name: "multiple children with result in second",
-			loader: &orderedConfigFileLoader{
-				loaders: []configFileLoader{
-					&testConfigFileLoader{
-						result: nil,
-						err:    nil,
-					},
-					&testConfigFileLoader{
-						result: []byte("1234"),
-						err:    nil,
-					},
-				},
-			},
-			org:       "test_org",
-			repo:      "test_repo",
-			want:      []byte("1234"),
-			expErr:    false,
-			expErrMsg: "",
-		},
-		{
-			name: "multiple children with error in second",
-			loader: &orderedConfigFileLoader{
-				loaders: []configFileLoader{
-					&testConfigFileLoader{
-						result: nil,
-						err:    nil,
-					},
-					&testConfigFileLoader{
-						result: nil,
-						err:    fmt.Errorf("test_error"),
-					},
-				},
-			},
-			org:       "test_org",
-			repo:      "test_repo",
-			want:      nil,
-			expErr:    true,
-			expErrMsg: "error reading configuration, child reader threw error: test_error",
-		},
-		{
-			name: "multiple children with no results",
-			loader: &orderedConfigFileLoader{
-				loaders: []configFileLoader{
-					&testConfigFileLoader{
-						result: nil,
-						err:    nil,
-					},
-					&testConfigFileLoader{
-						result: nil,
-						err:    nil,
-					},
-				},
-			},
-			org:       "test_org",
-			repo:      "test_repo",
-			want:      nil,
-			expErr:    true,
-			expErrMsg: "error reading configuration, exhausted all possible source locations",
-		},
-	}
-
-	ctx := context.Background()
-	for _, tc := range cases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			got, err := tc.loader.load(ctx, tc.org, tc.repo)
-			if diff := cmp.Diff(tc.want, got); diff != "" {
-				t.Errorf("mismatch (-want, +got):\n%s", diff)
-			}
-			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
-			}
-			if !tc.expErr && got == nil {
-				t.Errorf("program nil without error")
-			}
-		})
-	}
-}
-
-func TestFixedRepoConfigFileLoader(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name      string
-		loader    configFileLoader
-		org       string
-		repo      string
-		want      []byte
-		expErr    bool
-		expErrMsg string
-	}{
-		{
-			name: "success",
-			loader: &fixedRepoConfigFileLoader{
-				repo: "test_fixed_repo",
-				loader: &testParamReturningConfigFileLoader{
-					err: nil,
-				},
-			},
-			org:       "test_org",
-			repo:      "test_repo",
-			want:      []byte("test_org/test_fixed_repo"),
-			expErr:    false,
-			expErrMsg: "",
-		},
-	}
-
-	ctx := context.Background()
-	for _, tc := range cases {
-		tc := tc
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			got, err := tc.loader.load(ctx, tc.org, tc.repo)
-			if diff := cmp.Diff(tc.want, got); diff != "" {
-				t.Errorf("mismatch (-want, +got):\n%s", diff)
-			}
-			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
-			}
-			if !tc.expErr && got == nil {
-				t.Errorf("program nil without error")
-			}
-		})
-	}
-}
-
 func TestGitHubInRepoConfigFileLoader(t *testing.T) {
 	t.Parallel()
 
@@ -271,7 +38,7 @@ func TestGitHubInRepoConfigFileLoader(t *testing.T) {
 		repo      string
 		path      string
 		ref       string
-		want      []byte
+		want      *Config
 		expErr    bool
 		expErrMsg string
 	}{
@@ -291,7 +58,9 @@ func TestGitHubInRepoConfigFileLoader(t *testing.T) {
 				w.WriteHeader(200)
 				fmt.Fprint(w, string(raw))
 			},
-			want:      []byte{},
+			want: &Config{
+				Version: "minty.abcxyz.dev/v2",
+			},
 			expErr:    false,
 			expErrMsg: "",
 		},
@@ -309,9 +78,9 @@ rule:
 scope:
   test:
     rule:
-	  if: 'a != b'
-	  permissions:
-	    contents: 'read'`
+      if: 'a != b'
+    permissions:
+      contents: 'read'`
 				content := github.RepositoryContent{Content: &yaml}
 				raw, err := json.Marshal(content)
 				if err != nil {
@@ -321,16 +90,22 @@ scope:
 				w.WriteHeader(200)
 				fmt.Fprint(w, string(raw))
 			},
-			want: []byte(`
-rule:
-  if: 'a == b'
-
-scope:
-  test:
-    rule:
-	  if: 'a != b'
-	  permissions:
-	    contents: 'read'`),
+			want: &Config{
+				Version: "minty.abcxyz.dev/v2",
+				Rule: &Rule{
+					If: "a == b",
+				},
+				Scopes: map[string]*Scope{
+					"test": {
+						Rule: &Rule{
+							If: "a != b",
+						},
+						Permissions: map[string]string{
+							"contents": "read",
+						},
+					},
+				},
+			},
 			expErr:    false,
 			expErrMsg: "",
 		},
@@ -343,8 +118,12 @@ scope:
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				query := r.URL.Query()
 				ref := query.Get("ref")
+				yaml := fmt.Sprintf(`
+rule:
+  if: 'ref == %s'
+`, ref)
 				content := github.RepositoryContent{
-					Content: &ref,
+					Content: &yaml,
 				}
 				raw, err := json.Marshal(content)
 				if err != nil {
@@ -354,7 +133,12 @@ scope:
 				w.WriteHeader(200)
 				fmt.Fprint(w, string(raw))
 			},
-			want:      []byte("main"),
+			want: &Config{
+				Version: "minty.abcxyz.dev/v2",
+				Rule: &Rule{
+					If: "ref == main",
+				},
+			},
 			expErr:    false,
 			expErrMsg: "",
 		},

@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/abcxyz/pkg/testutil"
 )
@@ -111,12 +112,12 @@ func TestScopeCompile(t *testing.T) {
 	}{
 		{
 			name:    "success",
-			ruleset: Scope{Rule: Rule{If: "assertion.workflow == 'Test' && assertion.actor == 'test'"}},
+			ruleset: Scope{Rule: &Rule{If: "assertion.workflow == 'Test' && assertion.actor == 'test'"}},
 			expErr:  false,
 		},
 		{
 			name:      "failure to parse, no assertion",
-			ruleset:   Scope{Rule: Rule{If: "actor == 'test'"}},
+			ruleset:   Scope{Rule: &Rule{If: "actor == 'test'"}},
 			expErr:    true,
 			expErrMsg: "failed to compile CEL expression: ERROR: <input>:1:1: undeclared reference to 'actor' (in container '')\n | actor == 'test'\n | ^",
 		},
@@ -151,10 +152,10 @@ func TestConfigCompile(t *testing.T) {
 		{
 			name: "success",
 			config: Config{
-				Rule: Rule{If: "assertion.workflow == 'Test' && assertion.actor == 'test'"},
+				Rule: &Rule{If: "assertion.workflow == 'Test' && assertion.actor == 'test'"},
 				Scopes: map[string]*Scope{
 					"test": {
-						Rule: Rule{If: "assertion.workflow == 'Test' && assertion.actor == 'test'"},
+						Rule: &Rule{If: "assertion.workflow == 'Test' && assertion.actor == 'test'"},
 					},
 				},
 			},
@@ -163,10 +164,10 @@ func TestConfigCompile(t *testing.T) {
 		{
 			name: "failure to parse, no assertion",
 			config: Config{
-				Rule: Rule{If: "actor == 'test'"},
+				Rule: &Rule{If: "actor == 'test'"},
 				Scopes: map[string]*Scope{
 					"test": {
-						Rule: Rule{If: "assertion.actor == 'test'"},
+						Rule: &Rule{If: "assertion.actor == 'test'"},
 					},
 				},
 			},
@@ -190,6 +191,106 @@ func TestConfigCompile(t *testing.T) {
 			}
 			if !tc.expErr && tc.config.Scopes["test"].Rule.Program == nil {
 				t.Errorf("scope program nil without error")
+			}
+		})
+	}
+}
+
+func TestRuleEval(t *testing.T) {
+	t.Parallel()
+
+	token := map[string]any{
+		"jti":                   "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+		"sub":                   "repo:abcxyz/test:ref:refs/heads/main",
+		"aud":                   "https://github.com/abcxyz",
+		"ref":                   "refs/heads/main",
+		"sha":                   "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		"repository":            "abcxyz/test",
+		"repository_owner":      "abcxyz",
+		"repository_owner_id":   "111111111",
+		"run_id":                "1111111111",
+		"run_number":            "11",
+		"run_attempt":           "1",
+		"repository_visibility": "private",
+		"repository_id":         "111111111",
+		"actor_id":              "1111111",
+		"actor":                 "test",
+		"workflow":              "Test",
+		"head_ref":              "",
+		"base_ref":              "",
+		"event_name":            "workflow_dispatch",
+		"ref_type":              "branch",
+		"workflow_ref":          "abcxyz/test/.github/workflows/test.yaml@refs/heads/main",
+		"workflow_sha":          "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		"job_workflow_ref":      "abcxyz/test/.github/workflows/test.yaml@refs/heads/main",
+		"job_workflow_sha":      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		"iss":                   "https://token.actions.githubusercontent.com",
+		"nbf":                   "1669925693",
+		"exp":                   "1669926893",
+	}
+
+	cases := []struct {
+		name      string
+		rule      *Rule
+		token     map[string]interface{}
+		want      bool
+		expErr    bool
+		expErrMsg string
+	}{
+		{
+			name: "success",
+			rule: &Rule{
+				If: "assertion.workflow == 'Test'",
+			},
+			token:     token,
+			want:      true,
+			expErr:    false,
+			expErrMsg: "",
+		},
+		{
+			name: "no match",
+			rule: &Rule{
+				If: "assertion.workflow == 'not valid'",
+			},
+			token:     token,
+			want:      false,
+			expErr:    false,
+			expErrMsg: "",
+		},
+		{
+			name: "bad assertion",
+			rule: &Rule{
+				If: "assertion.doesntexist == 'not valid'",
+			},
+			token:     token,
+			want:      false,
+			expErr:    true,
+			expErrMsg: "failed to evaluate CEL expression: no such key: doesntexist",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			env, err := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))
+			if err != nil {
+				t.Errorf("failed to create CEL environment: %v", err)
+			}
+
+			if err = tc.rule.compile(env); err != nil {
+				t.Errorf("failed to compile rule: %v", err)
+			}
+
+			got, err := tc.rule.eval(tc.token)
+			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
+				t.Error(msg)
+			}
+
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}
