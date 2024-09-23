@@ -89,25 +89,25 @@ func (c *oidcClaims) asMap() map[string]interface{} {
 }
 
 // parseAuthToken converts a JWT token into a collection of OIDC claims.
-func (p *JWTParser) parseAuthToken(ctx context.Context, oidcHeader string) (*oidcClaims, *APIResponse) {
+func (p *JWTParser) parseAuthToken(ctx context.Context, oidcHeader string) (*oidcClaims, *apiResponse) {
 	// Parse the token data into a JWT
 	parseOpts := append([]jwt.ParseOption{jwt.WithContext(ctx)}, p.ParseOptions...)
 	oidcToken, err := jwt.Parse([]byte(oidcHeader), parseOpts...)
 	if err != nil {
-		return nil, NewAPIResponse(
+		return nil, &apiResponse{
 			http.StatusUnauthorized,
-			fmt.Sprintf("request not authorized: '%s' header is invalid", AuthHeader),
+			fmt.Sprintf("request not authorized: %q header is invalid", AuthHeader),
 			fmt.Errorf("failed to validate jwt: %w", err),
-		)
+		}
 	}
 
 	claims, err := parsePrivateClaims(oidcToken)
 	if err != nil {
-		return nil, NewAPIResponse(
+		return nil, &apiResponse{
 			http.StatusBadRequest,
 			"request does not contain required information",
 			err,
-		)
+		}
 	}
 	return claims, nil
 }

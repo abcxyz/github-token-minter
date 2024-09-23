@@ -181,10 +181,10 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			}
 
 			resp := server.processRequest(tc.req)
-			if got, want := resp.HTTPCode, tc.expCode; got != want {
+			if got, want := resp.Code, tc.expCode; got != want {
 				t.Errorf("expected status code %d to be %d", got, want)
 			}
-			if got, want := resp.HTTPMessage, tc.expResp; !strings.Contains(got, want) {
+			if got, want := resp.Message, tc.expResp; !strings.Contains(got, want) {
 				t.Errorf("expected body\n\n%s\n\nto contain\n\n%s\n\n", got, want)
 			}
 			if diff := testutil.DiffErrString(resp.Error, tc.expErr); diff != "" {

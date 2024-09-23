@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"strings"
@@ -55,6 +56,15 @@ type tokenRequest struct {
 	Scope        string            `json:"scope"`
 }
 
+// apiResponse is a structure that contains a http status code,
+// a string response message and any error that might have occurred
+// in the processing of a request.
+type apiResponse struct {
+	Code    int
+	Message string
+	Error   error
+}
+
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 func NewRouter(ctx context.Context, githubApp *githubauth.App, configStore config.ConfigEvaluator, parser *JWTParser) (*TokenMinterServer, error) {
@@ -75,12 +85,12 @@ func (s *TokenMinterServer) handleToken() http.Handler {
 		if resp.Error != nil {
 			logger.ErrorContext(ctx, "error processing request",
 				"error", resp.Error,
-				"code", resp.HTTPCode,
-				"body", resp.HTTPMessage)
+				"code", resp.Code,
+				"body", resp.Message)
 		}
 
-		w.WriteHeader(resp.HTTPCode)
-		fmt.Fprint(w, resp.HTTPMessage)
+		w.WriteHeader(resp.Code)
+		fmt.Fprint(w, html.EscapeString(resp.Message))
 	})
 }
 
@@ -106,7 +116,7 @@ func (s *TokenMinterServer) Routes(ctx context.Context) http.Handler {
 	return mux
 }
 
-func (s *TokenMinterServer) processRequest(r *http.Request) *APIResponse {
+func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	ctx := r.Context()
 	logger := logging.FromContext(ctx)
 
@@ -114,7 +124,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *APIResponse {
 	oidcHeader := r.Header.Get(AuthHeader)
 	// Ensure the token is in the header
 	if oidcHeader == "" {
-		return NewAPIResponse(http.StatusBadRequest, fmt.Sprintf("request not authorized: '%s' header is missing", AuthHeader), nil)
+		return &apiResponse{http.StatusBadRequest, fmt.Sprintf("request not authorized: %q header is missing", AuthHeader), nil}
 	}
 	// Parse the request information
 	defer r.Body.Close()
@@ -122,12 +132,12 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *APIResponse {
 	var request tokenRequest
 	dec := json.NewDecoder(io.LimitReader(r.Body, 4_194_304)) // 4 MiB
 	if err := dec.Decode(&request); err != nil {
-		return NewAPIResponse(http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err))
+		return &apiResponse{http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err)}
 	}
 
 	// Reject requests that do not contain a scope
 	if request.Scope == "" {
-		return NewAPIResponse(http.StatusBadRequest, "error parsing request information - missing 'scope' attribute", nil)
+		return &apiResponse{http.StatusBadRequest, "error parsing request information - missing 'scope' attribute", nil}
 	}
 
 	// Parse the auth token into a set of claims
@@ -140,24 +150,25 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *APIResponse {
 	// configuration to find a matching scope.
 	scope, err := s.configStore.Eval(ctx, claims.ParsedOrgName, claims.ParsedRepoName, request.Scope, claims.asMap())
 	if err != nil {
-		return NewAPIResponse(http.StatusInternalServerError,
+		return &apiResponse{
+			http.StatusInternalServerError,
 			fmt.Sprintf("requested scope %q is not found for repository %q", request.Scope, claims.Repository),
 			fmt.Errorf("error reading configuration for repository %s from configuration store: %w", claims.Repository, err),
-		)
+		}
 	}
 	if scope == nil {
-		return NewAPIResponse(http.StatusForbidden, fmt.Sprintf("no permissions available for scope %q in repository %q", request.Scope, claims.Repository), err)
+		return &apiResponse{http.StatusForbidden, fmt.Sprintf("no permissions available for scope %q in repository %q", request.Scope, claims.Repository), err}
 	}
 
 	// Validate the permissions that were requested are within what is allowed for the repository
 	if err = validatePermissions(scope.Permissions, request.Permissions); err != nil {
-		return NewAPIResponse(http.StatusForbidden, "requested permissions are not authorized for this repository", err)
+		return &apiResponse{http.StatusForbidden, "requested permissions are not authorized for this repository", err}
 	}
 
 	// Lookup the App installation for the GitHub owner/repo
 	installation, err := s.githubApp.InstallationForRepo(ctx, claims.ParsedOrgName, claims.ParsedRepoName)
 	if err != nil {
-		return NewAPIResponse(http.StatusInternalServerError, "Failed to find GitHub app installation for repository. Please ensure the app is properly installed.", fmt.Errorf("error retrieving GitHub installation: %w", err))
+		return &apiResponse{http.StatusInternalServerError, "Failed to find GitHub app installation for repository. Please ensure the app is properly installed.", fmt.Errorf("error retrieving GitHub installation: %w", err)}
 	}
 
 	// If all repositories are allowed and all were requested,
@@ -167,9 +178,9 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *APIResponse {
 
 		accessToken, err := installation.AccessTokenAllRepos(ctx, allRepoRequest)
 		if err != nil {
-			return NewAPIResponse(http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err))
+			return &apiResponse{http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)}
 		}
-		return NewAPIResponse(http.StatusOK, accessToken, nil)
+		return &apiResponse{http.StatusOK, accessToken, nil}
 	}
 
 	// Otherwise, validate that all of the requested repositories are allowed
@@ -177,7 +188,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *APIResponse {
 	// request restricted access token
 	repos, err := validateRepositories(scope.Repositories, scope.Repositories)
 	if err != nil {
-		return NewAPIResponse(http.StatusForbidden, "one or more of the requested repositories is not authorized", err)
+		return &apiResponse{http.StatusForbidden, "one or more of the requested repositories is not authorized", err}
 	}
 
 	tokenRequest := githubauth.TokenRequest{
@@ -192,9 +203,9 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *APIResponse {
 
 	accessToken, err := installation.AccessToken(ctx, &tokenRequest)
 	if err != nil {
-		return NewAPIResponse(http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err))
+		return &apiResponse{http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)}
 	}
-	return NewAPIResponse(http.StatusOK, accessToken, nil)
+	return &apiResponse{http.StatusOK, accessToken, nil}
 }
 
 // allowRequestAllRepos determines if a request is allowed to request
