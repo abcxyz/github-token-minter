@@ -54,6 +54,9 @@ type ConfigReader interface {
 }
 
 func (r *Rule) compile(env *cel.Env) error {
+	if r == nil {
+		return nil
+	}
 	prg, err := compileExpression(env, r.If)
 	if err != nil {
 		return fmt.Errorf("failed to compile ruleset: %w", err)
@@ -63,17 +66,12 @@ func (r *Rule) compile(env *cel.Env) error {
 }
 
 func (s *Scope) compile(env *cel.Env) error {
-	if s.Rule != nil {
-		return s.Rule.compile(env)
-	}
-	return nil
+	return s.Rule.compile(env)
 }
 
 func (c *Config) compile(env *cel.Env) error {
-	if c.Rule != nil {
-		if err := c.Rule.compile(env); err != nil {
-			return fmt.Errorf("error compiling configuration ruleset: %w", err)
-		}
+	if err := c.Rule.compile(env); err != nil {
+		return fmt.Errorf("error compiling configuration ruleset: %w", err)
 	}
 	for name, s := range c.Scopes {
 		if err := s.compile(env); err != nil {
@@ -98,6 +96,9 @@ func compileExpression(env *cel.Env, expr string) (cel.Program, error) {
 }
 
 func (r *Rule) eval(token interface{}) (bool, error) {
+	if r == nil {
+		return true, nil
+	}
 	out, _, err := r.Program.Eval(map[string]any{
 		assertionKey: token,
 	})
@@ -112,27 +113,23 @@ func (r *Rule) eval(token interface{}) (bool, error) {
 }
 
 func (c *Config) Eval(scope string, token interface{}) (*Scope, error) {
-	if c.Rule != nil {
-		ok, err := c.Rule.eval(token)
-		if err != nil {
-			return nil, fmt.Errorf("global rule evaluation failed: %w", err)
-		}
-		if !ok {
-			return nil, nil
-		}
+	ok, err := c.Rule.eval(token)
+	if err != nil {
+		return nil, fmt.Errorf("global rule evaluation failed: %w", err)
+	}
+	if !ok {
+		return nil, nil
 	}
 	val, ok := c.Scopes[scope]
 	if !ok {
 		return nil, fmt.Errorf("requested scope [%s] not found", scope)
 	}
-	if val.Rule != nil {
-		ok, err := val.Rule.eval(token)
-		if err != nil {
-			return nil, fmt.Errorf("scope rule evaluation failed: %w", err)
-		}
-		if ok {
-			return val, nil
-		}
+	ok, err = val.Rule.eval(token)
+	if err != nil {
+		return nil, fmt.Errorf("scope rule evaluation failed: %w", err)
+	}
+	if ok {
+		return val, nil
 	}
 	return nil, nil
 }
