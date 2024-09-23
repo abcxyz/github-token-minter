@@ -16,7 +16,9 @@ package config
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"time"
 
@@ -97,6 +99,10 @@ func (l *localConfigFileLoader) load(ctx context.Context, org, repo string) (*Co
 	name := fmt.Sprintf("%s/%s/%s.yaml", l.configDir, org, repo)
 	data, err := os.ReadFile(name)
 	if err != nil {
+		// file not found is not an error
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("error reading content from file: %w", err)
 	}
 	config, err := read(data)
@@ -160,13 +166,14 @@ func (l *fixedRepoConfigFileLoader) load(ctx context.Context, org, repo string) 
 
 func read(contents []byte) (*Config, error) {
 	var config Config
-	// default to the latest version, if its not set in the document we assume it is the latest
-	config.Version = latestConfigVersion
+	// default to the latest version of the config format
 	if err := yaml.Unmarshal(contents, &config); err != nil {
-		return nil, fmt.Errorf("error parsing yaml document: %w", err)
-	}
-	if config.Version != latestConfigVersion {
-		return nil, fmt.Errorf("unsupported configuration document version [%s]", config.Version)
+		// attempt to unmarshal in the old format
+		var cv1 v1Document
+		if err := yaml.Unmarshal(contents, &cv1); err != nil {
+			return nil, fmt.Errorf("error parsing yaml document: %w", err)
+		}
+		config = NewConfigFromV1(cv1)
 	}
 	return &config, nil
 }

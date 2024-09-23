@@ -135,9 +135,12 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 		return &apiResponse{http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err)}
 	}
 
-	// Reject requests that do not contain a scope
+	// In the future we'll reject requests that do not contain a scope but until all
+	// v1 config files are updated this is unfeasible. For now just set it to "v1default"
+	// and the config evaluator will know what to do with that
 	if request.Scope == "" {
-		return &apiResponse{http.StatusBadRequest, "error parsing request information - missing 'scope' attribute", nil}
+		request.Scope = "v1default"
+		// return &apiResponse{http.StatusBadRequest, "error parsing request information - missing 'scope' attribute", nil}
 	}
 
 	// Parse the auth token into a set of claims
@@ -173,7 +176,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 
 	// If all repositories are allowed and all were requested,
 	// request access token for all allowed repositories for the GitHub app
-	if allowRequestAllRepos(scope.Repositories, scope.Repositories) {
+	if allowRequestAllRepos(scope.Repositories, request.Repositories) {
 		allRepoRequest := &githubauth.TokenRequestAllRepos{Permissions: request.Permissions}
 
 		accessToken, err := installation.AccessTokenAllRepos(ctx, allRepoRequest)
@@ -186,7 +189,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	// Otherwise, validate that all of the requested repositories are allowed
 	// or if all repositories are allowed and specific repositories were requested,
 	// request restricted access token
-	repos, err := validateRepositories(scope.Repositories, scope.Repositories)
+	repos, err := validateRepositories(scope.Repositories, request.Repositories)
 	if err != nil {
 		return &apiResponse{http.StatusForbidden, "one or more of the requested repositories is not authorized", err}
 	}

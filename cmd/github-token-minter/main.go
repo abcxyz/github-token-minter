@@ -68,6 +68,9 @@ type serviceConfig struct {
 	GitHubAPIBaseURL string `env:"GITHUB_API_BASE_URL"`
 
 	ConfigDir string `env:"CONFIGS_DIR,default=configs"`
+	RepoPath  string `env:"REPO_PATH,default=.github/minty.yaml"`
+	OrgPath   string `env:"ORG_PATH,default=.google-github/minty.yaml"`
+	Ref       string `env:"REF,default=main"`
 }
 
 // realMain creates an HTTP server for use with minting GitHub app tokens
@@ -99,7 +102,7 @@ func realMain(ctx context.Context) (retErr error) {
 		return fmt.Errorf("failed to create github app: %w", err)
 	}
 
-	store, err := config.NewConfigEvaluator(1*time.Hour, cfg.ConfigDir, ".github/minty.yaml", ".google-github/minty.yaml", "main", app)
+	store, err := config.NewConfigEvaluator(1*time.Hour, cfg.ConfigDir, cfg.RepoPath, cfg.OrgPath, cfg.Ref, app)
 	if err != nil {
 		return fmt.Errorf("failed to create config evaluator: %w", err)
 	}

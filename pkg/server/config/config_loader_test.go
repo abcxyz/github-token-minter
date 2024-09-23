@@ -58,9 +58,7 @@ func TestGitHubInRepoConfigFileLoader(t *testing.T) {
 				w.WriteHeader(200)
 				fmt.Fprint(w, string(raw))
 			},
-			want: &Config{
-				Version: "minty.abcxyz.dev/v2",
-			},
+			want:      &Config{},
 			expErr:    false,
 			expErrMsg: "",
 		},
@@ -72,6 +70,7 @@ func TestGitHubInRepoConfigFileLoader(t *testing.T) {
 			ref:  "main",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				yaml := `
+version: 'minty.abcxyz.dev/v2'
 rule:
   if: 'a == b'
 
@@ -119,6 +118,7 @@ scope:
 				query := r.URL.Query()
 				ref := query.Get("ref")
 				yaml := fmt.Sprintf(`
+version: 'minty.abcxyz.dev/v2'
 rule:
   if: 'ref == %s'
 `, ref)
@@ -189,6 +189,102 @@ rule:
 			}
 			if !tc.expErr && got == nil {
 				t.Errorf("program nil without error")
+			}
+		})
+	}
+}
+
+func TestRead(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		contents  string
+		want      *Config
+		expErr    bool
+		expErrMsg string
+	}{
+		{
+			name: "success_v2",
+			contents: `
+version: 'minty.abcxyz.dev/v2'
+rule:
+  if: 'a == b'
+
+scope:
+  test:
+    rule:
+      if: 'a != b'
+    permissions:
+      contents: 'read'`,
+			want: &Config{
+				Version: configVersionV2,
+				Rule:    &Rule{If: "a == b"},
+				Scopes: map[string]*Scope{
+					"test": {
+						Rule: &Rule{If: "a != b"},
+						Permissions: map[string]string{
+							"contents": "read",
+						},
+					},
+				},
+			},
+			expErr:    false,
+			expErrMsg: "",
+		},
+		{
+			name: "success_v1",
+			contents: `
+- if: 'a == b'
+  repositories:
+    - 'github-token-minter'
+  permissions:
+    contents: 'read'
+- if: 'c == b'
+  repositories:
+    - 'abc'
+  permissions:
+    contents: 'write'`,
+			want: &Config{
+				Version: "minty.abcxyz.dev/v1",
+				Rule:    &Rule{If: "true"},
+				Scopes: map[string]*Scope{
+					"default_00000000": {
+						Rule: &Rule{
+							If: "a == b",
+						},
+						Permissions: map[string]string{
+							"contents": "read",
+						},
+						Repositories: []string{"github-token-minter"},
+					},
+					"default_00000001": {
+						Rule: &Rule{
+							If: "c == b",
+						},
+						Permissions: map[string]string{
+							"contents": "write",
+						},
+						Repositories: []string{"abc"},
+					},
+				},
+			},
+			expErr:    false,
+			expErrMsg: "",
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := read([]byte(tc.contents))
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("mismatch (-want, +got):\n%s", diff)
+			}
+			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
+				t.Fatalf(msg)
 			}
 		})
 	}

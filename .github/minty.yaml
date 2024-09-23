@@ -1,0 +1,12 @@
+version: 'minty.abcxyz.dev/v2'
+rule:
+  if: true
+
+scope:
+  integ:
+    rule:
+      if: 'assertion.workflow_ref.startsWith("abcxyz/github-token-minter/.github/workflows/ci.yml")'
+    repositories:
+      - 'github-token-minter'
+    permissions:
+      issues: 'read'

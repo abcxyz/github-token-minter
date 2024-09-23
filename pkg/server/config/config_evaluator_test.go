@@ -242,6 +242,92 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 			expErr:    true,
 			expErrMsg: "error reading configuration, exhausted all possible source locations",
 		},
+		{
+			name: "v1 config match first",
+			reader: &configEvaluator{
+				loaders: []configFileLoader{
+					&compilingConfigLoader{
+						env: env, loader: &testConfigFileLoader{
+							result: &Config{
+								Version: configVersionV1,
+								Scopes: map[string]*Scope{
+									"default_00000000": {Rule: &Rule{If: "assertion.target == '1234'"}},
+									"default_00000001": {Rule: &Rule{If: "assertion.target == '5678'"}},
+								},
+							},
+							err: nil,
+						},
+					},
+				},
+			},
+			org:   "test_org",
+			repo:  "test_repo",
+			scope: "test_scope",
+			token: map[string]string{"target": "1234"},
+			want: &Scope{
+				Rule: &Rule{
+					If: "assertion.target == '1234'",
+				},
+			},
+			expErr:    false,
+			expErrMsg: "",
+		},
+		{
+			name: "v1 config match second",
+			reader: &configEvaluator{
+				loaders: []configFileLoader{
+					&compilingConfigLoader{
+						env: env, loader: &testConfigFileLoader{
+							result: &Config{
+								Version: configVersionV1,
+								Scopes: map[string]*Scope{
+									"default_00000000": {Rule: &Rule{If: "assertion.target == '1234'"}},
+									"default_00000001": {Rule: &Rule{If: "assertion.target == '5678'"}},
+								},
+							},
+							err: nil,
+						},
+					},
+				},
+			},
+			org:   "test_org",
+			repo:  "test_repo",
+			scope: "test_scope",
+			token: map[string]string{"target": "5678"},
+			want: &Scope{
+				Rule: &Rule{
+					If: "assertion.target == '5678'",
+				},
+			},
+			expErr:    false,
+			expErrMsg: "",
+		},
+		{
+			name: "v1 config match none",
+			reader: &configEvaluator{
+				loaders: []configFileLoader{
+					&compilingConfigLoader{
+						env: env, loader: &testConfigFileLoader{
+							result: &Config{
+								Version: configVersionV1,
+								Scopes: map[string]*Scope{
+									"default_00000000": {Rule: &Rule{If: "assertion.target == '1234'"}},
+									"default_00000001": {Rule: &Rule{If: "assertion.target == '5678'"}},
+								},
+							},
+							err: nil,
+						},
+					},
+				},
+			},
+			org:       "test_org",
+			repo:      "test_repo",
+			scope:     "test_scope",
+			token:     map[string]string{"target": "9999"},
+			want:      nil,
+			expErr:    true,
+			expErrMsg: "error reading configuration, exhausted all possible source locations",
+		},
 	}
 
 	ctx := context.Background()

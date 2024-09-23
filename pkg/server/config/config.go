@@ -19,11 +19,15 @@ package config
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/google/cel-go/cel"
 )
 
-const latestConfigVersion = "minty.abcxyz.dev/v2"
+const (
+	configVersionV1 = "minty.abcxyz.dev/v1"
+	configVersionV2 = "minty.abcxyz.dev/v2"
+)
 
 // Rule is a struct that contains the string representation
 // of a CEL expresssion along with the compiled CEL Program.
@@ -120,6 +124,32 @@ func (c *Config) Eval(scope string, token interface{}) (*Scope, error) {
 	if !ok {
 		return nil, nil
 	}
+
+	if c.Version == configVersionV1 {
+		// Version 1 didn't have the concept of a "scope" and mapping based on
+		// name. In situations where we are processing this old style configuration
+		// we just walk through the map and look for a match. Matches were ordered
+		// top to bottom and are inserted into the scopes map keyed as "default_xxxxxxxx"
+		// to help maintain that ordering.
+		keys := make([]string, 0, len(c.Scopes))
+		for k := range c.Scopes {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, k := range keys {
+			val := c.Scopes[k]
+			ok, err = val.Rule.eval(token)
+			if err != nil {
+				return nil, fmt.Errorf("scope rule evaluation failed: %w", err)
+			}
+			if ok {
+				return val, nil
+			}
+		}
+		return nil, nil
+	}
+
 	val, ok := c.Scopes[scope]
 	if !ok {
 		return nil, fmt.Errorf("requested scope [%s] not found", scope)

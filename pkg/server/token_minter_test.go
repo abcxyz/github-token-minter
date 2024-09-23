@@ -142,17 +142,6 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			expCode: 200,
 			expResp: "this-is-the-token-from-github",
 		},
-		{
-			name: "missing_scope",
-			req: func() *http.Request {
-				body := strings.NewReader(`{}`)
-				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
-				r.Header.Set("X-GitHub-OIDC-Token", "abc123")
-				return r
-			}(),
-			expCode: 400,
-			expResp: "error parsing request information - missing 'scope' attribute",
-		},
 	}
 
 	for _, tc := range cases {
