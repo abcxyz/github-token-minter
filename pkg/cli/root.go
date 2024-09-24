@@ -24,7 +24,7 @@ import (
 
 var rootCmd = func() cli.Command {
 	return &cli.RootCommand{
-		Name:    "github-token-minter",
+		Name:    "minty",
 		Version: version.HumanVersion,
 		Commands: map[string]cli.CommandFactory{
 			"server": func() cli.Command {

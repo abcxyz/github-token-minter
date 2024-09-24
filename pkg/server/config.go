@@ -48,6 +48,9 @@ func (cfg *Config) Validate() error {
 	if cfg.PrivateKey == "" {
 		return fmt.Errorf("GITHUB_PRIVATE_KEY is required")
 	}
+	if cfg.JWKSUrl == "" {
+		cfg.JWKSUrl = "https://token.actions.githubusercontent.com/.well-known/jwks"
+	}
 	return nil
 }
 
