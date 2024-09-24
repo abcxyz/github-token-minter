@@ -1,4 +1,3 @@
-# abcxyz/github-token-minter.yaml
 version: 'minty.abcxyz.dev/v2'
 rule:
   if: true

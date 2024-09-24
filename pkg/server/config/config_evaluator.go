@@ -51,9 +51,7 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 		newCompilingConfigLoader(env, &localConfigFileLoader{configDir: localConfigDir}))
 	inRepoLoader := newCachingConfigLoader(expireAt,
 		newCompilingConfigLoader(env, &ghInRepoConfigFileLoader{
-			provider: func(ctx context.Context, org, repo string) (*github.Client, error) {
-				return makeGitHubClient(ctx, app, org, repo)
-			},
+			provider:   makeGitHubClientProvider(app),
 			configPath: ".github/minty.yaml",
 			ref:        "main",
 		}))
@@ -61,9 +59,7 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 		newCompilingConfigLoader(env, &fixedRepoConfigFileLoader{
 			repo: ".google-github",
 			loader: &ghInRepoConfigFileLoader{
-				provider: func(ctx context.Context, org, repo string) (*github.Client, error) {
-					return makeGitHubClient(ctx, app, org, repo)
-				},
+				provider:   makeGitHubClientProvider(app),
 				configPath: "minty.yaml",
 				ref:        "main",
 			},
@@ -96,22 +92,24 @@ func (l *configEvaluator) Eval(ctx context.Context, org, repo, scope string, tok
 	return nil, fmt.Errorf("error reading configuration, exhausted all possible source locations")
 }
 
-func makeGitHubClient(ctx context.Context, app *githubauth.App, org, repo string) (*github.Client, error) {
-	installation, err := app.InstallationForRepo(ctx, org, repo)
-	if err != nil {
-		return nil, fmt.Errorf("error getting installation for [%s/%s]: %w", org, repo, err)
+func makeGitHubClientProvider(app *githubauth.App) GitHubClientProvider {
+	return func(ctx context.Context, org, repo string) (*github.Client, error) {
+		installation, err := app.InstallationForRepo(ctx, org, repo)
+		if err != nil {
+			return nil, fmt.Errorf("error getting installation for [%s/%s]: %w", org, repo, err)
+		}
+		token, err := installation.AccessToken(ctx, &githubauth.TokenRequest{
+			Repositories: []string{
+				repo,
+			},
+			Permissions: map[string]string{
+				"contents": "read",
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error getting access token for [%s/%s]: %w", org, repo, err)
+		}
+		client := github.NewClient(nil).WithAuthToken(token)
+		return client, nil
 	}
-	token, err := installation.AccessToken(ctx, &githubauth.TokenRequest{
-		Repositories: []string{
-			repo,
-		},
-		Permissions: map[string]string{
-			"contents": "read",
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error getting access token for [%s/%s]: %w", org, repo, err)
-	}
-	client := github.NewClient(nil).WithAuthToken(token)
-	return client, nil
 }
