@@ -24,8 +24,8 @@ before:
 
 builds:
   - id: 'server'
-    main: './cmd/github-token-minter'
-    binary: 'server'
+    main: './cmd/minty'
+    binary: 'minty'
     mod_timestamp: '{{ .CommitTimestamp }}'
     flags:
       - '-a'

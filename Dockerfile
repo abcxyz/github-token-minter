@@ -6,7 +6,7 @@ FROM scratch
 COPY --from=distroless /etc/passwd /etc/passwd
 COPY --from=distroless /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-COPY server /server
+COPY minty /minty
 COPY configs /configs
 
 # Normally we would set this to run as "nobody".
@@ -18,4 +18,6 @@ COPY configs /configs
 # Run the server on container startup.
 ENV CONFIGS_DIR=/configs
 ENV PORT 8080
-ENTRYPOINT ["/server"]
+
+ENTRYPOINT ["/minty"]
+CMD ["server", "run"]
