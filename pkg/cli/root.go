@@ -38,6 +38,17 @@ var rootCmd = func() cli.Command {
 					},
 				}
 			},
+			"config": func() cli.Command {
+				return &cli.RootCommand{
+					Name:        "config",
+					Description: "Configuration operations",
+					Commands: map[string]cli.CommandFactory{
+						"validate": func() cli.Command {
+							return &MintyCfgCommand{}
+						},
+					},
+				}
+			},
 		},
 	}
 }

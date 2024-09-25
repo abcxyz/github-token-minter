@@ -37,7 +37,7 @@ type ConfigEvaluator interface {
 }
 
 type configEvaluator struct {
-	loaders []configFileLoader
+	loaders []ConfigFileLoader
 }
 
 func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, orgConfigPath, ref string, app *githubauth.App) (*configEvaluator, error) {
@@ -48,15 +48,15 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 	}
 	// create and configure all of the file loaders
 	localLoader := newCachingConfigLoader(expireAt,
-		newCompilingConfigLoader(env, &localConfigFileLoader{configDir: localConfigDir}))
+		NewCompilingConfigLoader(env, &localConfigFileLoader{configDir: localConfigDir}))
 	inRepoLoader := newCachingConfigLoader(expireAt,
-		newCompilingConfigLoader(env, &ghInRepoConfigFileLoader{
+		NewCompilingConfigLoader(env, &ghInRepoConfigFileLoader{
 			provider:   makeGitHubClientProvider(app),
 			configPath: ".github/minty.yaml",
 			ref:        "main",
 		}))
 	orgLoader := newCachingConfigLoader(expireAt,
-		newCompilingConfigLoader(env, &fixedRepoConfigFileLoader{
+		NewCompilingConfigLoader(env, &fixedRepoConfigFileLoader{
 			repo: ".google-github",
 			loader: &ghInRepoConfigFileLoader{
 				provider:   makeGitHubClientProvider(app),
@@ -65,7 +65,7 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 			},
 		}))
 	return &configEvaluator{
-		loaders: []configFileLoader{
+		loaders: []ConfigFileLoader{
 			localLoader,
 			inRepoLoader,
 			orgLoader,
@@ -75,7 +75,7 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 
 func (l *configEvaluator) Eval(ctx context.Context, org, repo, scope string, token interface{}) (*Scope, error) {
 	for _, loader := range l.loaders {
-		contents, err := loader.load(ctx, org, repo)
+		contents, err := loader.Load(ctx, org, repo)
 		if err != nil {
 			return nil, fmt.Errorf("error reading configuration, child reader threw error: %w", err)
 		}

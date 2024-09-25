@@ -180,7 +180,7 @@ rule:
 				},
 			}
 
-			got, err := loader.load(ctx, tc.org, tc.repo)
+			got, err := loader.Load(ctx, tc.org, tc.repo)
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
@@ -279,7 +279,7 @@ scope:
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := read([]byte(tc.contents))
+			got, err := Read([]byte(tc.contents))
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
