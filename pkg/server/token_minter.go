@@ -27,7 +27,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/abcxyz/github-token-minter/pkg/server/config"
+	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/abcxyz/github-token-minter/pkg/version"
 	"github.com/abcxyz/pkg/gcputil"
 	"github.com/abcxyz/pkg/githubauth"
