@@ -29,18 +29,18 @@ import (
 	"github.com/abcxyz/pkg/cache"
 )
 
-// configFileLoader represents an object that is capable of
+// ConfigFileLoader represents an object that is capable of
 // retrieving a configuration files contents in its raw form.
-type configFileLoader interface {
-	load(ctx context.Context, org, repo string) (*Config, error)
+type ConfigFileLoader interface {
+	Load(ctx context.Context, org, repo string) (*Config, error)
 }
 
 type cachingConfigFileLoader struct {
-	loader configFileLoader
+	loader ConfigFileLoader
 	cache  *cache.Cache[*Config]
 }
 
-func newCachingConfigLoader(expireAfter time.Duration, child configFileLoader) configFileLoader {
+func newCachingConfigLoader(expireAfter time.Duration, child ConfigFileLoader) ConfigFileLoader {
 	return &cachingConfigFileLoader{
 		loader: child,
 		cache:  cache.New[*Config](expireAfter),
@@ -48,19 +48,19 @@ func newCachingConfigLoader(expireAfter time.Duration, child configFileLoader) c
 }
 
 type compilingConfigLoader struct {
-	loader configFileLoader
+	loader ConfigFileLoader
 	env    *cel.Env
 }
 
-func newCompilingConfigLoader(env *cel.Env, child configFileLoader) configFileLoader {
+func NewCompilingConfigLoader(env *cel.Env, child ConfigFileLoader) ConfigFileLoader {
 	return &compilingConfigLoader{
 		loader: child,
 		env:    env,
 	}
 }
 
-func (l *compilingConfigLoader) load(ctx context.Context, org, repo string) (*Config, error) {
-	cfg, err := l.loader.load(ctx, org, repo)
+func (l *compilingConfigLoader) Load(ctx context.Context, org, repo string) (*Config, error) {
+	cfg, err := l.loader.Load(ctx, org, repo)
 	if err != nil {
 		return nil, fmt.Errorf("compiling config loader, sub loader failed to load configuration: %w", err)
 	}
@@ -72,14 +72,14 @@ func (l *compilingConfigLoader) load(ctx context.Context, org, repo string) (*Co
 	return cfg, nil
 }
 
-func (l *cachingConfigFileLoader) load(ctx context.Context, org, repo string) (*Config, error) {
+func (l *cachingConfigFileLoader) Load(ctx context.Context, org, repo string) (*Config, error) {
 	key := fmt.Sprintf("%s/%s", org, repo)
 	// first look for the config object in cache
 	cached, exists := l.cache.Lookup(key)
 	if exists {
 		return cached, nil
 	}
-	cfg, err := l.loader.load(ctx, org, repo)
+	cfg, err := l.loader.Load(ctx, org, repo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load configuration file for [%s / %s]. Error: %w", org, repo, err)
 	}
@@ -94,8 +94,8 @@ type localConfigFileLoader struct {
 	configDir string
 }
 
-// load reads the contents of configuration files from the local file system.
-func (l *localConfigFileLoader) load(ctx context.Context, org, repo string) (*Config, error) {
+// Load reads the contents of configuration files from the local file system.
+func (l *localConfigFileLoader) Load(ctx context.Context, org, repo string) (*Config, error) {
 	name := fmt.Sprintf("%s/%s/%s.yaml", l.configDir, org, repo)
 	data, err := os.ReadFile(name)
 	if err != nil {
@@ -105,7 +105,7 @@ func (l *localConfigFileLoader) load(ctx context.Context, org, repo string) (*Co
 		}
 		return nil, fmt.Errorf("error reading content from file: %w", err)
 	}
-	config, err := read(data)
+	config, err := Read(data)
 	if err != nil {
 		return nil, fmt.Errorf("error converting raw config bytes into struct: %w", err)
 	}
@@ -120,9 +120,9 @@ type ghInRepoConfigFileLoader struct {
 	ref        string
 }
 
-// load is a configFileLoader implementation that reads the configuration file
+// Load is a configFileLoader implementation that reads the configuration file
 // contents from within a GitHub repository.
-func (l *ghInRepoConfigFileLoader) load(ctx context.Context, org, repo string) (*Config, error) {
+func (l *ghInRepoConfigFileLoader) Load(ctx context.Context, org, repo string) (*Config, error) {
 	client, err := l.provider(ctx, org, repo)
 	if err != nil {
 		return nil, fmt.Errorf("error creating GitHub client for %s/%s: %w", org, repo, err)
@@ -136,7 +136,7 @@ func (l *ghInRepoConfigFileLoader) load(ctx context.Context, org, repo string) (
 		if err != nil {
 			return nil, fmt.Errorf("error reading configuration file contents @ %s/%s/%s: %w", org, repo, l.configPath, err)
 		}
-		config, err := read([]byte(contents))
+		config, err := Read([]byte(contents))
 		if err != nil {
 			return nil, fmt.Errorf("error converting raw config bytes into struct: %w", err)
 		}
@@ -150,21 +150,21 @@ func (l *ghInRepoConfigFileLoader) load(ctx context.Context, org, repo string) (
 // loader and delegates the retrieval to that implementation after replacing
 // the repo parameter.
 type fixedRepoConfigFileLoader struct {
-	loader configFileLoader
+	loader ConfigFileLoader
 	repo   string
 }
 
-// load is a configFileLoader implementation that retrieves the contents of a
+// Load is a configFileLoader implementation that retrieves the contents of a
 // configuration file from a specific repository in the org, not from the target repository.
-func (l *fixedRepoConfigFileLoader) load(ctx context.Context, org, repo string) (*Config, error) {
-	res, err := l.loader.load(ctx, org, l.repo)
+func (l *fixedRepoConfigFileLoader) Load(ctx context.Context, org, repo string) (*Config, error) {
+	res, err := l.loader.Load(ctx, org, l.repo)
 	if err != nil {
 		return nil, fmt.Errorf("error reading config file from child loader: %w", err)
 	}
 	return res, nil
 }
 
-func read(contents []byte) (*Config, error) {
+func Read(contents []byte) (*Config, error) {
 	var config Config
 	// default to the latest version of the config format
 	if err := yaml.Unmarshal(contents, &config); err != nil {

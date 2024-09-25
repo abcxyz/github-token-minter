@@ -30,7 +30,7 @@ type testConfigFileLoader struct {
 	err    error
 }
 
-func (l *testConfigFileLoader) load(ctx context.Context, org, repo string) (*Config, error) {
+func (l *testConfigFileLoader) Load(ctx context.Context, org, repo string) (*Config, error) {
 	return l.result, l.err
 }
 
@@ -55,7 +55,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 		{
 			name: "single child with result",
 			reader: &configEvaluator{
-				loaders: []configFileLoader{
+				loaders: []ConfigFileLoader{
 					&compilingConfigLoader{
 						env: env, loader: &testConfigFileLoader{
 							result: &Config{
@@ -81,7 +81,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 		{
 			name: "single child with error",
 			reader: &configEvaluator{
-				loaders: []configFileLoader{
+				loaders: []ConfigFileLoader{
 					&compilingConfigLoader{
 						env: env, loader: &testConfigFileLoader{
 							result: nil,
@@ -101,7 +101,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 		{
 			name: "multiple children with result in first",
 			reader: &configEvaluator{
-				loaders: []configFileLoader{
+				loaders: []ConfigFileLoader{
 					&compilingConfigLoader{
 						env: env, loader: &testConfigFileLoader{
 							result: &Config{Scopes: map[string]*Scope{
@@ -135,7 +135,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 		{
 			name: "multiple children with error in first",
 			reader: &configEvaluator{
-				loaders: []configFileLoader{
+				loaders: []ConfigFileLoader{
 					&compilingConfigLoader{
 						env: env, loader: &testConfigFileLoader{
 							result: nil,
@@ -161,7 +161,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 		{
 			name: "multiple children with result in second",
 			reader: &configEvaluator{
-				loaders: []configFileLoader{
+				loaders: []ConfigFileLoader{
 					&compilingConfigLoader{
 						env: env, loader: &testConfigFileLoader{
 							result: nil,
@@ -193,7 +193,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 		{
 			name: "multiple children with error in second",
 			reader: &configEvaluator{
-				loaders: []configFileLoader{
+				loaders: []ConfigFileLoader{
 					&compilingConfigLoader{
 						env: env, loader: &testConfigFileLoader{
 							result: nil,
@@ -219,7 +219,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 		{
 			name: "multiple children with no results",
 			reader: &configEvaluator{
-				loaders: []configFileLoader{
+				loaders: []ConfigFileLoader{
 					&compilingConfigLoader{
 						env: env, loader: &testConfigFileLoader{
 							result: nil,
@@ -245,7 +245,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 		{
 			name: "v1 config match first",
 			reader: &configEvaluator{
-				loaders: []configFileLoader{
+				loaders: []ConfigFileLoader{
 					&compilingConfigLoader{
 						env: env, loader: &testConfigFileLoader{
 							result: &Config{
@@ -275,7 +275,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 		{
 			name: "v1 config match second",
 			reader: &configEvaluator{
-				loaders: []configFileLoader{
+				loaders: []ConfigFileLoader{
 					&compilingConfigLoader{
 						env: env, loader: &testConfigFileLoader{
 							result: &Config{
@@ -305,7 +305,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 		{
 			name: "v1 config match none",
 			reader: &configEvaluator{
-				loaders: []configFileLoader{
+				loaders: []ConfigFileLoader{
 					&compilingConfigLoader{
 						env: env, loader: &testConfigFileLoader{
 							result: &Config{
