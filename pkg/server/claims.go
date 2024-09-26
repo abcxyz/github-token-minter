@@ -35,9 +35,9 @@ type JWTParser struct {
 // more usable forms such and org and repo names in the
 // correct format.
 type oidcClaims struct {
-	Audience          []string `json:"audience"`
-	Subject           string   `json:"subject"`
-	Issuer            string   `json:"issuer"`
+	Audience          []string `json:"aud"`
+	Subject           string   `json:"sub"`
+	Issuer            string   `json:"iss"`
 	Ref               string   `json:"ref"`
 	RefType           string   `json:"ref_type"`
 	Sha               string   `json:"sha"`
@@ -63,9 +63,9 @@ type oidcClaims struct {
 // can be used for CEL evaluation.
 func (c *oidcClaims) asMap() map[string]interface{} {
 	return map[string]interface{}{
-		"audience":            c.Audience,
-		"subject":             c.Subject,
-		"issuer":              c.Issuer,
+		"aud":                 c.Audience,
+		"sub":                 c.Subject,
+		"iss":                 c.Issuer,
 		"ref":                 c.Ref,
 		"ref_type":            c.RefType,
 		"sha":                 c.Sha,
