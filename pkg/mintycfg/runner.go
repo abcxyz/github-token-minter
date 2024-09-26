@@ -54,9 +54,8 @@ func Run(ctx context.Context, cfg *Config) error {
 	loader := config.NewCompilingConfigLoader(env, &singleFileConfigLoader{filePath: cfg.MintyFile})
 	config, err := loader.Load(ctx, "", "")
 	if err != nil {
-		fmt.Printf("\nConfiguration failed to compile\n")
-		fmt.Printf("-- Error --\n%v\n", err)
-		return nil
+		fmt.Printf("\n\n-- Error --\n%v\n\n", err)
+		return fmt.Errorf("configuration failed to compile")
 	}
 
 	// render the configuration information
