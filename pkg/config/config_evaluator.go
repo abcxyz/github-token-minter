@@ -108,7 +108,7 @@ func (l *configEvaluator) Eval(ctx context.Context, org, repo, scope string, tok
 			}
 		}
 	}
-	return nil, fmt.Errorf("error reading configuration, exhausted all possible source locations")
+	return nil, fmt.Errorf("error reading configuration, exhausted all possible source locations, failed to locate scope [%s] for repository [%s/%s]", scope, org, repo)
 }
 
 func makeGitHubClientProvider(app *githubauth.App) GitHubClientProvider {

@@ -151,15 +151,14 @@ func (c *Config) Eval(scope string, token interface{}) (*Scope, error) {
 	}
 
 	val, ok := c.Scopes[scope]
-	if !ok {
-		return nil, fmt.Errorf("requested scope [%s] not found", scope)
-	}
-	ok, err = val.Rule.eval(token)
-	if err != nil {
-		return nil, fmt.Errorf("scope rule evaluation failed: %w", err)
-	}
 	if ok {
-		return val, nil
+		ok, err = val.Rule.eval(token)
+		if err != nil {
+			return nil, fmt.Errorf("scope rule evaluation failed: %w", err)
+		}
+		if ok {
+			return val, nil
+		}
 	}
 	return nil, nil
 }
