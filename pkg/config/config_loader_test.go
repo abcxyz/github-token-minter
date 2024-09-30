@@ -149,12 +149,26 @@ rule:
 			path: "minty.yaml",
 			ref:  "main",
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(404)
-				fmt.Fprint(w, "not found")
+				w.WriteHeader(500)
+				fmt.Fprint(w, "I'm broke")
 			},
 			want:      nil,
 			expErr:    true,
 			expErrMsg: "error reading configuration file @ test_org/test_repo/minty.yaml",
+		},
+		{
+			name: "file not found",
+			org:  "test_org",
+			repo: "test_repo",
+			path: "minty.yaml",
+			ref:  "main",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(404)
+				fmt.Fprint(w, "not found")
+			},
+			want:      nil,
+			expErr:    false,
+			expErrMsg: "",
 		},
 	}
 
@@ -187,7 +201,7 @@ rule:
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
 				t.Fatalf(msg)
 			}
-			if !tc.expErr && got == nil {
+			if !tc.expErr && got == nil && tc.want != nil {
 				t.Errorf("program nil without error")
 			}
 		})
