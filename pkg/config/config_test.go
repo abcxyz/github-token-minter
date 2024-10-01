@@ -248,6 +248,26 @@ func TestRuleEval(t *testing.T) {
 			expErrMsg: "",
 		},
 		{
+			name: "success using issuers var",
+			rule: &Rule{
+				If: "assertion.iss == issuers.github",
+			},
+			token:     token,
+			want:      true,
+			expErr:    false,
+			expErrMsg: "",
+		},
+		{
+			name: "bad issuer",
+			rule: &Rule{
+				If: "assertion.iss == issuers.unknown",
+			},
+			token:     token,
+			want:      false,
+			expErr:    true,
+			expErrMsg: "failed to evaluate CEL expression: no such key: unknown",
+		},
+		{
 			name: "no match",
 			rule: &Rule{
 				If: "assertion.workflow == 'not valid'",
@@ -273,7 +293,7 @@ func TestRuleEval(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			env, err := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))
+			env, err := cel.NewEnv(cel.Variable(assertionKey, cel.DynType), cel.Variable(issuersKey, cel.DynType))
 			if err != nil {
 				t.Errorf("failed to create CEL environment: %v", err)
 			}
