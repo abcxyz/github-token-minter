@@ -7,7 +7,6 @@ COPY --from=distroless /etc/passwd /etc/passwd
 COPY --from=distroless /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 COPY minty /minty
-COPY configs /configs
 
 # Normally we would set this to run as "nobody".
 # But goreleaser builds the binary locally and sometimes it will mess up the permission

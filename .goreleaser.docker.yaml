@@ -62,8 +62,6 @@ dockers:
       - '--label=org.opencontainers.image.source={{ .GitURL }}'
       - '--label=org.opencontainers.image.title=github-token-minter-server'
       - '--label=org.opencontainers.image.version={{ .Version }}'
-    extra_files:
-      - 'configs'
 
   - ids:
       - 'server'
@@ -83,8 +81,6 @@ dockers:
       - '--label=org.opencontainers.image.source={{ .GitURL }}'
       - '--label=org.opencontainers.image.title=github-token-minter-server'
       - '--label=org.opencontainers.image.version={{ .Version }}'
-    extra_files:
-      - 'configs'
 
 docker_manifests:
   - image_templates:
