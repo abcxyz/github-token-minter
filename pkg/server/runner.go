@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
@@ -41,7 +42,16 @@ func Run(ctx context.Context, cfg *Config) error {
 		return fmt.Errorf("failed to create github app: %w", err)
 	}
 
-	store, err := config.NewConfigEvaluator(1*time.Hour, cfg.ConfigDir, cfg.RepoPath, cfg.OrgPath, cfg.Ref, app)
+	cacheSeconds, err := strconv.Atoi(cfg.ConfigCacheSeconds)
+	if err != nil {
+		return fmt.Errorf("failed to parse config cache seconds as an integer: %w", err)
+	}
+	if cacheSeconds == 0 {
+		// duration must be a positive integer
+		cacheSeconds = 1
+	}
+
+	store, err := config.NewConfigEvaluator(time.Duration(cacheSeconds)*time.Second, cfg.ConfigDir, cfg.RepoPath, cfg.OrgPath, cfg.Ref, app)
 	if err != nil {
 		return fmt.Errorf("failed to create config evaluator: %w", err)
 	}
