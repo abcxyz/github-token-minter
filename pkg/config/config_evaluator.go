@@ -46,43 +46,24 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
 	}
-	enableCaching := false
-	var localLoader, inRepoLoader, orgLoader ConfigFileLoader
 	// create and configure all of the file loaders
-	if enableCaching {
-		localLoader = newCachingConfigLoader(expireAt,
-			NewCompilingConfigLoader(env, &localConfigFileLoader{configDir: localConfigDir}))
-		inRepoLoader = newCachingConfigLoader(expireAt,
-			NewCompilingConfigLoader(env, &ghInRepoConfigFileLoader{
-				provider:   makeGitHubClientProvider(app),
-				configPath: ".github/minty.yaml",
-				ref:        "main",
-			}))
-		orgLoader = newCachingConfigLoader(expireAt,
-			NewCompilingConfigLoader(env, &fixedRepoConfigFileLoader{
-				repo: ".google-github",
-				loader: &ghInRepoConfigFileLoader{
-					provider:   makeGitHubClientProvider(app),
-					configPath: "minty.yaml",
-					ref:        "main",
-				},
-			}))
-	} else {
-		localLoader = NewCompilingConfigLoader(env, &localConfigFileLoader{configDir: localConfigDir})
-		inRepoLoader = NewCompilingConfigLoader(env, &ghInRepoConfigFileLoader{
+	localLoader := newCachingConfigLoader(expireAt,
+		NewCompilingConfigLoader(env, &localConfigFileLoader{configDir: localConfigDir}))
+	inRepoLoader := newCachingConfigLoader(expireAt,
+		NewCompilingConfigLoader(env, &ghInRepoConfigFileLoader{
 			provider:   makeGitHubClientProvider(app),
 			configPath: ".github/minty.yaml",
 			ref:        "main",
-		})
-		orgLoader = NewCompilingConfigLoader(env, &fixedRepoConfigFileLoader{
+		}))
+	orgLoader := newCachingConfigLoader(expireAt,
+		NewCompilingConfigLoader(env, &fixedRepoConfigFileLoader{
 			repo: ".google-github",
 			loader: &ghInRepoConfigFileLoader{
 				provider:   makeGitHubClientProvider(app),
 				configPath: "minty.yaml",
 				ref:        "main",
 			},
-		})
-	}
+		}))
 	return &configEvaluator{
 		loaders: []ConfigFileLoader{
 			localLoader,

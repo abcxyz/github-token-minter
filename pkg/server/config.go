@@ -34,10 +34,11 @@ type Config struct {
 	// include the protocol (https://) and no trailing slashes.
 	GitHubAPIBaseURL string `env:"GITHUB_API_BASE_URL"`
 
-	ConfigDir string `env:"CONFIGS_DIR,default=configs"`
-	RepoPath  string `env:"REPO_PATH,default=.github/minty.yaml"`
-	OrgPath   string `env:"ORG_PATH,default=.google-github/minty.yaml"`
-	Ref       string `env:"REF,default=main"`
+	ConfigDir          string `env:"CONFIGS_DIR,default=configs"`
+	RepoPath           string `env:"REPO_PATH,default=.github/minty.yaml"`
+	OrgPath            string `env:"ORG_PATH,default=.google-github/minty.yaml"`
+	Ref                string `env:"REF,default=main"`
+	ConfigCacheSeconds string `env:"CONFIG_CACHE_SECONDS=900"`
 }
 
 // Validate validates the artifacts config after load.
@@ -50,6 +51,9 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.JWKSUrl == "" {
 		cfg.JWKSUrl = "https://token.actions.githubusercontent.com/.well-known/jwks"
+	}
+	if cfg.ConfigCacheSeconds == "" {
+		cfg.ConfigCacheSeconds = "900"
 	}
 	return nil
 }
@@ -125,6 +129,13 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		Target: &cfg.Ref,
 		EnvVar: "REG",
 		Usage:  `The ref (sha, branch, etc.) to look for configuration files at.`,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:   "config-cache-minutes",
+		Target: &cfg.ConfigCacheSeconds,
+		EnvVar: "CONFIG_CACHE_MINUTES",
+		Usage:  `The number of minutes to cache configuration files before retrieving fresh ones. Defaults to 15 minutes.`,
 	})
 
 	return set
