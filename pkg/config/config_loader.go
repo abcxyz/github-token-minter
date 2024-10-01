@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"os"
 	"time"
 
@@ -127,9 +128,13 @@ func (l *ghInRepoConfigFileLoader) Load(ctx context.Context, org, repo string) (
 	if err != nil {
 		return nil, fmt.Errorf("error creating GitHub client for %s/%s: %w", org, repo, err)
 	}
-	fileContents, _, _, err := client.Repositories.GetContents(ctx, org, repo, l.configPath, &github.RepositoryContentGetOptions{Ref: l.ref})
+	fileContents, _, resp, err := client.Repositories.GetContents(ctx, org, repo, l.configPath, &github.RepositoryContentGetOptions{Ref: l.ref})
 	if err != nil {
-		return nil, fmt.Errorf("error reading configuration file @ %s/%s/%s: %w", org, repo, l.configPath, err)
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, nil
+		} else {
+			return nil, fmt.Errorf("error reading configuration file @ %s/%s/%s: %w", org, repo, l.configPath, err)
+		}
 	}
 	if fileContents != nil {
 		contents, err := fileContents.GetContent()
