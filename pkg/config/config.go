@@ -29,6 +29,10 @@ const (
 	configVersionV2 = "minty.abcxyz.dev/v2"
 )
 
+var issuersMap = map[string]string{
+	"github": "https://token.actions.githubusercontent.com",
+}
+
 // Rule is a struct that contains the string representation
 // of a CEL expresssion along with the compiled CEL Program.
 type Rule struct {
@@ -105,6 +109,7 @@ func (r *Rule) eval(token interface{}) (bool, error) {
 	}
 	out, _, err := r.Program.Eval(map[string]any{
 		assertionKey: token,
+		issuersKey:   issuersMap,
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to evaluate CEL expression: %w", err)
