@@ -148,6 +148,10 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	if apiError != nil {
 		return apiError
 	}
+	logger.InfoContext(ctx, "token request",
+		"claims", claims,
+		"request", request,
+	)
 
 	// Get the repository's configuration data and evaluate the token against the
 	// configuration to find a matching scope.

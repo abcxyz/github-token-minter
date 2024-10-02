@@ -328,6 +328,40 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 			expErr:    true,
 			expErrMsg: "error reading configuration, exhausted all possible source locations",
 		},
+		{
+			name: "multiple children with scopes, result in second",
+			reader: &configEvaluator{
+				loaders: []ConfigFileLoader{
+					&compilingConfigLoader{
+						env: env, loader: &testConfigFileLoader{
+							result: &Config{Scopes: map[string]*Scope{
+								"not_the_test_scope": {Rule: &Rule{If: "assertion.target == '1234'"}},
+							}},
+							err: nil,
+						},
+					},
+					&compilingConfigLoader{
+						env: env, loader: &testConfigFileLoader{
+							result: &Config{Scopes: map[string]*Scope{
+								"test_scope": {Rule: &Rule{If: "assertion.target == '5678'"}},
+							}},
+							err: nil,
+						},
+					},
+				},
+			},
+			org:   "test_org",
+			repo:  "test_repo",
+			scope: "test_scope",
+			token: map[string]string{"target": "5678"},
+			want: &Scope{
+				Rule: &Rule{
+					If: "assertion.target == 5678",
+				},
+			},
+			expErr:    false,
+			expErrMsg: "",
+		},
 	}
 
 	ctx := context.Background()
