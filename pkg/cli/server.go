@@ -62,7 +62,7 @@ func (c *ServerCommand) Run(ctx context.Context, args []string) error {
 	}
 
 	logger := logging.FromContext(ctx)
-	logger.DebugContext(ctx, "running job",
+	logger.InfoContext(ctx, "running job",
 		"name", version.Name,
 		"commit", version.Commit,
 		"version", version.Version)
@@ -70,7 +70,7 @@ func (c *ServerCommand) Run(ctx context.Context, args []string) error {
 	if err := c.cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
-	logger.DebugContext(ctx, "loaded configuration", "config", c.cfg)
+	logger.InfoContext(ctx, "loaded configuration", "config", c.cfg)
 
 	if err := server.Run(ctx, c.cfg); err != nil {
 		return fmt.Errorf("failed to start server: %w", err)

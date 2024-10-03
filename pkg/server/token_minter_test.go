@@ -159,7 +159,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			configStore, err := config.NewConfigEvaluator(1*time.Hour, "../../testdata/configs", ".github/minty.yaml", ".google-github/minty.yaml", "main", githubApp)
+			configStore, err := config.NewConfigEvaluator(1*time.Hour, "../../testdata/configs", ".github/minty.yaml", ".google-github", "minty.yaml", "main", githubApp)
 			if err != nil {
 				t.Fatal(err)
 			}

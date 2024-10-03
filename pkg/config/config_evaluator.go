@@ -36,14 +36,19 @@ const (
 type GitHubClientProvider func(ctx context.Context, org, repo string) (*github.Client, error)
 
 type ConfigEvaluator interface {
-	Eval(ctx context.Context, org, repo, scope string, token interface{}) (*Scope, error)
+	// Eval looks for a configuration for the combination of org and repo that contains
+	// the requested scope. If a match is made the scope is returned. This function also
+	// returns a string that represents the path to where the scope came from or the file that
+	// was being evaluated when an error occurred. This could be a local file path or a remote
+	// system such as GitHub.
+	Eval(ctx context.Context, org, repo, scope string, token interface{}) (*Scope, string, error)
 }
 
 type configEvaluator struct {
 	loaders []ConfigFileLoader
 }
 
-func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, orgConfigPath, ref string, app *githubauth.App) (*configEvaluator, error) {
+func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, orgConfigRepo, orgConfigPath, ref string, app *githubauth.App) (*configEvaluator, error) {
 	// create an environment to compile any cel expressions
 	env, err := cel.NewEnv(
 		cel.Variable(assertionKey, cel.DynType),
@@ -58,16 +63,16 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 	inRepoLoader := newCachingConfigLoader(expireAt,
 		NewCompilingConfigLoader(env, &ghInRepoConfigFileLoader{
 			provider:   makeGitHubClientProvider(app),
-			configPath: ".github/minty.yaml",
-			ref:        "main",
+			configPath: repoConfigPath,
+			ref:        ref,
 		}))
 	orgLoader := newCachingConfigLoader(expireAt,
 		NewCompilingConfigLoader(env, &fixedRepoConfigFileLoader{
-			repo: ".google-github",
+			repo: orgConfigRepo,
 			loader: &ghInRepoConfigFileLoader{
 				provider:   makeGitHubClientProvider(app),
-				configPath: "minty.yaml",
-				ref:        "main",
+				configPath: orgConfigPath,
+				ref:        ref,
 			},
 		}))
 	return &configEvaluator{
@@ -79,23 +84,24 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 	}, nil
 }
 
-func (l *configEvaluator) Eval(ctx context.Context, org, repo, scope string, token interface{}) (*Scope, error) {
+func (l *configEvaluator) Eval(ctx context.Context, org, repo, scope string, token interface{}) (*Scope, string, error) {
 	for _, loader := range l.loaders {
+		source := loader.Source(org, repo)
 		contents, err := loader.Load(ctx, org, repo)
 		if err != nil {
-			return nil, fmt.Errorf("error reading configuration, child reader threw error: %w", err)
+			return nil, source, fmt.Errorf("error reading configuration, child reader threw error: %w", err)
 		}
 		if contents != nil {
 			s, err := contents.Eval(scope, token)
 			if err != nil {
-				return nil, fmt.Errorf("error evaluating scope: %w", err)
+				return nil, source, fmt.Errorf("error evaluating scope: %w", err)
 			}
 			if s != nil {
-				return s, nil
+				return s, source, nil
 			}
 		}
 	}
-	return nil, fmt.Errorf("error reading configuration, exhausted all possible source locations, failed to locate scope [%s] for repository [%s/%s]", scope, org, repo)
+	return nil, fmt.Sprintf("%s/%s", org, repo), fmt.Errorf("error reading configuration, exhausted all possible source locations, failed to locate scope [%s] for repository [%s/%s]", scope, org, repo)
 }
 
 func makeGitHubClientProvider(app *githubauth.App) GitHubClientProvider {
