@@ -36,6 +36,11 @@ const (
 type GitHubClientProvider func(ctx context.Context, org, repo string) (*github.Client, error)
 
 type ConfigEvaluator interface {
+	// Eval looks for a configuration for the combination of org and repo that contains
+	// the requested scope. If a match is made the scope is returned. This function also
+	// returns a string that represents the path to where the scope came from or the file that
+	// was being evaluated when an error occurred. This could be a local file path or a remote
+	// system such as GitHub.
 	Eval(ctx context.Context, org, repo, scope string, token interface{}) (*Scope, string, error)
 }
 
