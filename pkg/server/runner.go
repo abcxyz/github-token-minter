@@ -51,7 +51,15 @@ func Run(ctx context.Context, cfg *Config) error {
 		cacheSeconds = 1
 	}
 
-	store, err := config.NewConfigEvaluator(time.Duration(cacheSeconds)*time.Second, cfg.ConfigDir, cfg.RepoPath, cfg.OrgPath, cfg.Ref, app)
+	store, err := config.NewConfigEvaluator(
+		time.Duration(cacheSeconds)*time.Second,
+		cfg.ConfigDir,
+		cfg.RepoConfigPath,
+		cfg.OrgConfigRepo,
+		cfg.OrgConfigPath,
+		cfg.Ref,
+		app,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create config evaluator: %w", err)
 	}

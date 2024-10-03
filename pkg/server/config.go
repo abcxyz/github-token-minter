@@ -27,7 +27,7 @@ import (
 type Config struct {
 	Port       string `env:"PORT,default=8080"`
 	AppID      string `env:"GITHUB_APP_ID,required"`
-	PrivateKey string `env:"GITHUB_PRIVATE_KEY,required"`
+	PrivateKey string `env:"GITHUB_PRIVATE_KEY,required" yaml:"-" json:"-"`
 	JWKSUrl    string `env:"GITHUB_JKWS_URL,default=https://token.actions.githubusercontent.com/.well-known/jwks"`
 
 	// GitHubAPIBaseURL is the base URL for the GitHub installation. It should
@@ -35,8 +35,9 @@ type Config struct {
 	GitHubAPIBaseURL string `env:"GITHUB_API_BASE_URL"`
 
 	ConfigDir          string `env:"CONFIGS_DIR,default=configs"`
-	RepoPath           string `env:"REPO_PATH,default=.github/minty.yaml"`
-	OrgPath            string `env:"ORG_PATH,default=.google-github/minty.yaml"`
+	RepoConfigPath     string `env:"REPO_CONFIG_PATH,default=.github/minty.yaml"`
+	OrgConfigRepo      string `env:"ORG_CONFIG_REPO,default=.google-github"`
+	OrgConfigPath      string `env:"ORG_CONFIG_PATH,default=minty.yaml"`
 	Ref                string `env:"REF,default=main"`
 	ConfigCacheSeconds string `env:"CONFIG_CACHE_SECONDS=900"`
 }
@@ -55,6 +56,20 @@ func (cfg *Config) Validate() error {
 	if cfg.ConfigCacheSeconds == "" {
 		cfg.ConfigCacheSeconds = "900"
 	}
+
+	if cfg.OrgConfigRepo == "" {
+		cfg.OrgConfigRepo = ".google-github"
+	}
+	if cfg.OrgConfigPath == "" {
+		cfg.OrgConfigPath = "minty.yaml"
+	}
+	if cfg.RepoConfigPath == "" {
+		cfg.RepoConfigPath = ".github/minty.yaml"
+	}
+	if cfg.Ref == "" {
+		cfg.Ref = "main"
+	}
+
 	return nil
 }
 
@@ -111,23 +126,30 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "repo-path",
-		Target: &cfg.RepoPath,
-		EnvVar: "REPO_PATH",
+		Name:   "repo-config-path",
+		Target: &cfg.RepoConfigPath,
+		EnvVar: "REPO_CONFIG_PATH",
 		Usage:  `The path to the minty configuration file in a repository.`,
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "org-path",
-		Target: &cfg.OrgPath,
-		EnvVar: "ORG_PATH",
+		Name:   "org-config-path",
+		Target: &cfg.OrgConfigPath,
+		EnvVar: "ORG_CONFIG_PATH",
 		Usage:  `The path to the minty configuration file for an organization.`,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:   "org-config-repo",
+		Target: &cfg.OrgConfigRepo,
+		EnvVar: "ORG_CONFIG_REPO",
+		Usage:  `The repository that contains the configuration file for an organization.`,
 	})
 
 	f.StringVar(&cli.StringVar{
 		Name:   "ref",
 		Target: &cfg.Ref,
-		EnvVar: "REG",
+		EnvVar: "REF",
 		Usage:  `The ref (sha, branch, etc.) to look for configuration files at.`,
 	})
 

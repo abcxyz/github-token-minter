@@ -148,6 +148,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	if apiError != nil {
 		return apiError
 	}
+
 	logger.InfoContext(ctx, "token request",
 		"claims", claims,
 		"request", request,
@@ -155,12 +156,12 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 
 	// Get the repository's configuration data and evaluate the token against the
 	// configuration to find a matching scope.
-	scope, err := s.configStore.Eval(ctx, claims.ParsedOrgName, claims.ParsedRepoName, request.Scope, claims.asMap())
+	scope, source, err := s.configStore.Eval(ctx, claims.ParsedOrgName, claims.ParsedRepoName, request.Scope, claims.asMap())
 	if err != nil {
 		return &apiResponse{
 			http.StatusInternalServerError,
 			fmt.Sprintf("requested scope %q is not found for repository %q", request.Scope, claims.Repository),
-			fmt.Errorf("error reading configuration for repository %s from configuration store: %w", claims.Repository, err),
+			fmt.Errorf("error reading configuration for repository %s from configuration store with config_source %s: %w", claims.Repository, source, err),
 		}
 	}
 	if scope == nil {
@@ -206,6 +207,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 		"claims", claims,
 		"request", tokenRequest,
 		"scope", scope,
+		"config_source", source,
 	)
 
 	accessToken, err := installation.AccessToken(ctx, &tokenRequest)

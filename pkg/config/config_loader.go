@@ -33,6 +33,11 @@ import (
 // ConfigFileLoader represents an object that is capable of
 // retrieving a configuration files contents in its raw form.
 type ConfigFileLoader interface {
+	// Source is a function that returns the location where the loader expects
+	// that it will found the configuration for a given org/repo combination.
+	Source(org, repo string) string
+	// Load reads the configuration for an org and repo and marshals
+	// it into a Config object.
 	Load(ctx context.Context, org, repo string) (*Config, error)
 }
 
@@ -73,6 +78,10 @@ func (l *compilingConfigLoader) Load(ctx context.Context, org, repo string) (*Co
 	return cfg, nil
 }
 
+func (l *compilingConfigLoader) Source(org, repo string) string {
+	return l.loader.Source(org, repo)
+}
+
 func (l *cachingConfigFileLoader) Load(ctx context.Context, org, repo string) (*Config, error) {
 	key := fmt.Sprintf("%s/%s", org, repo)
 	// first look for the config object in cache
@@ -87,6 +96,10 @@ func (l *cachingConfigFileLoader) Load(ctx context.Context, org, repo string) (*
 	l.cache.Set(key, cfg)
 
 	return cfg, nil
+}
+
+func (l *cachingConfigFileLoader) Source(org, repo string) string {
+	return l.loader.Source(org, repo)
 }
 
 // localConfigFileLoader is a configFileLoader implementation that
@@ -111,6 +124,10 @@ func (l *localConfigFileLoader) Load(ctx context.Context, org, repo string) (*Co
 		return nil, fmt.Errorf("error converting raw config bytes into struct: %w", err)
 	}
 	return config, nil
+}
+
+func (l *localConfigFileLoader) Source(org, repo string) string {
+	return fmt.Sprintf("file://%s/%s/%s.yaml", l.configDir, org, repo)
 }
 
 // ghInRepoConfigFileLoader reads a configuration file from a specific
@@ -150,6 +167,10 @@ func (l *ghInRepoConfigFileLoader) Load(ctx context.Context, org, repo string) (
 	return nil, nil
 }
 
+func (l *ghInRepoConfigFileLoader) Source(org, repo string) string {
+	return fmt.Sprintf("https://github.com/%s/%s/%s", org, repo, l.configPath)
+}
+
 // fixedRepoConfigFileLoader reads the contents of a configuration file from
 // a specific repository, not from the target repository. It wraps another
 // loader and delegates the retrieval to that implementation after replacing
@@ -167,6 +188,10 @@ func (l *fixedRepoConfigFileLoader) Load(ctx context.Context, org, repo string) 
 		return nil, fmt.Errorf("error reading config file from child loader: %w", err)
 	}
 	return res, nil
+}
+
+func (l *fixedRepoConfigFileLoader) Source(org, repo string) string {
+	return l.loader.Source(org, l.repo)
 }
 
 func Read(contents []byte) (*Config, error) {

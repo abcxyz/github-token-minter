@@ -303,3 +303,50 @@ scope:
 		})
 	}
 }
+
+func TestConfigFileLoaderSource(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name   string
+		loader ConfigFileLoader
+		org    string
+		repo   string
+		want   string
+	}{
+		{
+			name:   "local config loader",
+			loader: &localConfigFileLoader{configDir: "test"},
+			org:    "test_org",
+			repo:   "test_repo",
+			want:   "file://test/test_org/test_repo.yaml",
+		},
+		{
+			name:   "in repo config loader",
+			loader: &ghInRepoConfigFileLoader{configPath: ".test/minty.yaml"},
+			org:    "test_org",
+			repo:   "test_repo",
+			want:   "https://github.com/test_org/test_repo/.test/minty.yaml",
+		},
+		{
+			name:   "fixed repo config loader",
+			loader: &fixedRepoConfigFileLoader{repo: "not_test_repo", loader: &ghInRepoConfigFileLoader{configPath: "minty.yaml"}},
+			org:    "test_org",
+			repo:   "test_repo",
+			want:   "https://github.com/test_org/not_test_repo/minty.yaml",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := tc.loader.Source(tc.org, tc.repo)
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}

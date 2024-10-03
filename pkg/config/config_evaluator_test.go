@@ -34,6 +34,10 @@ func (l *testConfigFileLoader) Load(ctx context.Context, org, repo string) (*Con
 	return l.result, l.err
 }
 
+func (l *testConfigFileLoader) Source(org, repo string) string {
+	return fmt.Sprintf("mem://%s/%s", org, repo)
+}
+
 func TestOrderedConfigFileLoader(t *testing.T) {
 	t.Parallel()
 
@@ -371,7 +375,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := tc.reader.Eval(ctx, tc.org, tc.repo, tc.scope, tc.token)
+			got, _, err := tc.reader.Eval(ctx, tc.org, tc.repo, tc.scope, tc.token)
 			if diff := cmp.Diff(tc.want, got, cmp.FilterPath(func(p cmp.Path) bool {
 				return !(p.Last().String() == "Program")
 			}, cmp.Ignore())); diff != "" {
