@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	assertionKey string = "assertion"
-	issuersKey   string = "issuers"
+	AssertionKey string = "assertion"
+	IssuersKey   string = "issuers"
 )
 
 // GitHubClientProvider is a function that given an org and repo
@@ -51,8 +51,8 @@ type configEvaluator struct {
 func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, orgConfigRepo, orgConfigPath, ref string, app *githubauth.App) (*configEvaluator, error) {
 	// create an environment to compile any cel expressions
 	env, err := cel.NewEnv(
-		cel.Variable(assertionKey, cel.DynType),
-		cel.Variable(issuersKey, cel.DynType),
+		cel.Variable(AssertionKey, cel.DynType),
+		cel.Variable(IssuersKey, cel.DynType),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
