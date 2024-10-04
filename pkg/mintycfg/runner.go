@@ -50,7 +50,10 @@ func (l *singleFileConfigLoader) Source(org, repo string) string {
 
 func Run(ctx context.Context, cfg *Config) error {
 	// create an environment to compile any cel expressions
-	env, err := cel.NewEnv(cel.Variable("assertion", cel.DynType))
+	env, err := cel.NewEnv(
+		cel.Variable(config.AssertionKey, cel.DynType),
+		cel.Variable(config.IssuersKey, cel.DynType),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create CEL environment: %w", err)
 	}

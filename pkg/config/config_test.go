@@ -47,7 +47,7 @@ func TestCompileExpression(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 
-		env, _ := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))
+		env, _ := cel.NewEnv(cel.Variable(AssertionKey, cel.DynType))
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -86,7 +86,7 @@ func TestRulesetCompile(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 
-		env, _ := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))
+		env, _ := cel.NewEnv(cel.Variable(AssertionKey, cel.DynType))
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -125,7 +125,7 @@ func TestScopeCompile(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 
-		env, _ := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))
+		env, _ := cel.NewEnv(cel.Variable(AssertionKey, cel.DynType))
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -178,7 +178,7 @@ func TestConfigCompile(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 
-		env, _ := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))
+		env, _ := cel.NewEnv(cel.Variable(AssertionKey, cel.DynType))
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -293,7 +293,7 @@ func TestRuleEval(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			env, err := cel.NewEnv(cel.Variable(assertionKey, cel.DynType), cel.Variable(issuersKey, cel.DynType))
+			env, err := cel.NewEnv(cel.Variable(AssertionKey, cel.DynType), cel.Variable(IssuersKey, cel.DynType))
 			if err != nil {
 				t.Errorf("failed to create CEL environment: %v", err)
 			}

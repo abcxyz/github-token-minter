@@ -108,8 +108,8 @@ func (r *Rule) eval(token interface{}) (bool, error) {
 		return true, nil
 	}
 	out, _, err := r.Program.Eval(map[string]any{
-		assertionKey: token,
-		issuersKey:   issuersMap,
+		AssertionKey: token,
+		IssuersKey:   issuersMap,
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to evaluate CEL expression: %w", err)

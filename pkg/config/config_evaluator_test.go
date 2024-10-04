@@ -41,7 +41,7 @@ func (l *testConfigFileLoader) Source(org, repo string) string {
 func TestOrderedConfigFileLoader(t *testing.T) {
 	t.Parallel()
 
-	env, err := cel.NewEnv(cel.Variable(assertionKey, cel.DynType))
+	env, err := cel.NewEnv(cel.Variable(AssertionKey, cel.DynType))
 	if err != nil {
 		t.Fatal(err)
 	}
