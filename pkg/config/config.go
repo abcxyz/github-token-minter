@@ -29,8 +29,14 @@ const (
 	configVersionV2 = "minty.abcxyz.dev/v2"
 )
 
+const (
+	GitHubIssuer = "https://token.actions.githubusercontent.com"
+	GoogleIssuer = "https://accounts.google.com"
+)
+
 var issuersMap = map[string]string{
-	"github": "https://token.actions.githubusercontent.com",
+	"github": GitHubIssuer,
+	"google": GoogleIssuer,
 }
 
 // Rule is a struct that contains the string representation

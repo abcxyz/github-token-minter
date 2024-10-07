@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
@@ -121,7 +122,7 @@ func parsePrivateClaims(oidcToken jwt.Token) (*oidcClaims, error) {
 	claims.Subject = oidcToken.Subject()
 	claims.Issuer = oidcToken.Issuer()
 
-	r, err := requiredClaim(oidcToken, "repository")
+	r, err := extractRepository(oidcToken)
 	if err != nil {
 		return nil, err
 	}
@@ -155,6 +156,18 @@ func parsePrivateClaims(oidcToken jwt.Token) (*oidcClaims, error) {
 	claims.ParsedRepoName = repoParts[1]
 
 	return &claims, nil
+}
+
+func extractRepository(oidcToken jwt.Token) (string, error) {
+	if oidcToken.Issuer() == config.GitHubIssuer {
+		return requiredClaim(oidcToken, "repository")
+	}
+
+	if len(oidcToken.Audience()) != 1 {
+		return "", fmt.Errorf("non-github OIDC token's audience field should have exactly one entry of a repository containing a minty config")
+	}
+	scopeRepository, _ := strings.CutPrefix(oidcToken.Audience()[0], "https://github.com/")
+	return scopeRepository, nil
 }
 
 func requiredClaim(oidcToken jwt.Token, claim string) (string, error) {
