@@ -21,6 +21,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -74,11 +75,12 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 	})
 
 	cases := []struct {
-		name    string
-		req     *http.Request
-		expCode int
-		expResp string
-		expErr  string
+		name     string
+		req      *http.Request
+		expCode  int
+		expResp  string
+		expErr   string
+		resolver mockJwksResolver
 	}{
 		{
 			name: "no_token_header",
@@ -124,6 +126,9 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				r.Header.Set("X-GitHub-OIDC-Token", signed)
 				return r
 			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
 			expCode: 400,
 			expResp: "request does not contain required information",
 			expErr:  `claim "repository" not found`,
@@ -134,13 +139,39 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				body := strings.NewReader(`{"scope":"test"}`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
 
-				signed := testTokenBuilder(t, signer, nil)
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GoogleIssuer)
+				})
 				r.Header.Set("X-GitHub-OIDC-Token", signed)
 				return r
 			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
 			expCode: 400,
 			expResp: "request does not contain required information",
 			expErr:  `non-github OIDC token's audience field should have exactly one entry of a repository containing a minty config`,
+		},
+		{
+			name: "failed_to_resolve_keyset",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				err: errors.New("could not resolve key set"),
+			},
+			expCode: 401,
+			expResp: "request not authorized: could not resolve JWK keys",
+			expErr:  "failed to validate jwt",
 		},
 		{
 			name: "happy_path_github",
@@ -156,6 +187,9 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				r.Header.Set("X-GitHub-OIDC-Token", signed)
 				return r
 			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
 			expCode: 200,
 			expResp: "this-is-the-token-from-github",
 		},
@@ -173,6 +207,9 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				r.Header.Set("X-GitHub-OIDC-Token", signed)
 				return r
 			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
 			expCode: 200,
 			expResp: "this-is-the-token-from-github",
 		},
@@ -198,7 +235,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			server, err := NewRouter(ctx, githubApp, configStore, &JWTParser{ParseOptions: jwtParseOptions})
+			server, err := NewRouter(ctx, githubApp, configStore, &JWTParser{ParseOptions: jwtParseOptions, jwkResolver: &tc.resolver})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -489,4 +526,16 @@ func testTokenBuilder(tb testing.TB, signer crypto.Signer, fn func(*jwt.Builder)
 		tb.Fatal(err)
 	}
 	return string(signed)
+}
+
+type mockJwksResolver struct {
+	keySet jwk.Set
+	err    error
+}
+
+func (r *mockJwksResolver) ResolveKeySet(ctx context.Context, oidcHeader string) (jwk.Set, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.keySet, nil
 }

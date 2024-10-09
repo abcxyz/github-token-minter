@@ -20,8 +20,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/abcxyz/github-token-minter/pkg/config"
@@ -64,19 +62,12 @@ func Run(ctx context.Context, cfg *Config) error {
 		return fmt.Errorf("failed to create config evaluator: %w", err)
 	}
 
-	// Setup JWKS verification.
-	jwkCache := jwk.NewCache(ctx)
-	if err := jwkCache.Register(cfg.JWKSUrl); err != nil {
-		return fmt.Errorf("failed to register jwks endpoint: %w", err)
-	}
-	jwkCachedSet := jwk.NewCachedSet(jwkCache, cfg.JWKSUrl)
 	jwtParseOptions := []jwt.ParseOption{
-		jwt.WithKeySet(jwkCachedSet, jws.WithInferAlgorithmFromKey(true)),
 		jwt.WithAcceptableSkew(5 * time.Second),
 	}
 
 	// Create the Router for the token minting server.
-	tokenServer, err := NewRouter(ctx, app, store, &JWTParser{ParseOptions: jwtParseOptions})
+	tokenServer, err := NewRouter(ctx, app, store, &JWTParser{ParseOptions: jwtParseOptions, jwkResolver: NewOIDCResolver(ctx)})
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
