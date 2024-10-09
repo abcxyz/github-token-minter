@@ -93,9 +93,13 @@ func Run(ctx context.Context, cfg *Config) error {
 			return fmt.Errorf("error evaluating scope: %q - %w", cfg.Scope, err)
 		}
 		fmt.Printf("Evaluated token against scope: %s\n", cfg.Scope)
-		fmt.Printf("Found scope: %v\n", cfg.Scope)
-		fmt.Printf("  - Permissions: %v\n", scope.Permissions)
-		fmt.Printf("  - Repositories: %v\n", scope.Repositories)
+		if scope == nil {
+			fmt.Printf("Requested scope was not found or did not match the criteria based on the provided token: %v\n", cfg.Scope)
+		} else {
+			fmt.Printf("Found match for scope: %s\n", cfg.Scope)
+			fmt.Printf("  - Permissions: %v\n", scope.Permissions)
+			fmt.Printf("  - Repositories: %v\n", scope.Repositories)
+		}
 		fmt.Printf("\n#################\n\n")
 	}
 
