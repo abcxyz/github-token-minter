@@ -98,7 +98,7 @@ func (p *JWTParser) parseAuthToken(ctx context.Context, oidcHeader string) (*oid
 	if err != nil {
 		return nil, &apiResponse{
 			http.StatusUnauthorized,
-			fmt.Sprintf("request not authorized: could not resolve JWK keys"),
+			"request not authorized: could not resolve JWK keys",
 			fmt.Errorf("failed to validate jwt: %w", err),
 		}
 	}

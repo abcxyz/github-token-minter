@@ -52,7 +52,7 @@ func (r *OIDCResolver) ResolveKeySet(ctx context.Context, oidcHeader string) (jw
 		return nil, fmt.Errorf("failed to extract issuer from token: %w", err)
 	}
 
-	err = r.registerIssuer(issuer)
+	err = r.registerIssuer(ctx, issuer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register issuer %q: %w", issuer, err)
 	}
@@ -69,8 +69,8 @@ func (r *OIDCResolver) extractIssuer(ctx context.Context, oidcHeader string) (st
 	return token.Issuer(), nil
 }
 
-func (r *OIDCResolver) registerIssuer(issuer string) error {
-	jwksURI, err := r.resolveJwksURI(issuer)
+func (r *OIDCResolver) registerIssuer(ctx context.Context, issuer string) error {
+	jwksURI, err := r.resolveJwksURI(ctx, issuer)
 	if err != nil {
 		return fmt.Errorf("failed to resolve JWKS URI for %q: %w", issuer, err)
 	}
@@ -85,7 +85,7 @@ func (r *OIDCResolver) registerIssuer(issuer string) error {
 	return nil
 }
 
-func (r *OIDCResolver) resolveJwksURI(issuer string) (string, error) {
+func (r *OIDCResolver) resolveJwksURI(ctx context.Context, issuer string) (string, error) {
 	uri, cached := r.issuerToJwksURI[issuer]
 	if cached {
 		return uri, nil
@@ -96,7 +96,11 @@ func (r *OIDCResolver) resolveJwksURI(issuer string) (string, error) {
 		return "", fmt.Errorf("error processing issuer URL %q: %w", issuer, err)
 	}
 
-	resp, err := http.Get(configURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, configURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("error creating GET request for %q: %w", configURL, err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("error fetching OpenID Configuration from %q: %w", configURL, err)
 	}
