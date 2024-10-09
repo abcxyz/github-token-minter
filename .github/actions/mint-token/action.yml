@@ -17,6 +17,10 @@ inputs:
   requested_permissions:
     description: 'Permission request information in the form {"repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
     required: true
+  use_gcloud_token_directly:
+    description: 'Call github-token-minter service with OIDC token issued by GCP service account instead of GitHub'
+    required: false
+    default: false
 
 outputs:
   token:
@@ -48,7 +52,7 @@ runs:
         script: |
           try {
             const { TOKEN, SERVICE_URL, REQUESTED_PERMISSIONS } = process.env;
-            const idToken = await core.getIDToken('github-token-minter');
+            const idToken = inputs.use_gcloud_token_directly ? TOKEN : await core.getIDToken('github-token-minter');
             const response = await fetch(`${SERVICE_URL}/token`, {
               method: 'post',
               body: REQUESTED_PERMISSIONS,
