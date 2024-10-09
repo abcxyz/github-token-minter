@@ -69,3 +69,21 @@ variable "github_owner_id" {
   description = "The ID of the GitHub organization."
   type        = string
 }
+
+variable "alerts" {
+  description = "The configuration block for token minter service alerts and notifications"
+  type = object({
+    enabled             = bool
+    channels_non_paging = map(any)
+  })
+  default = {
+    enabled = false
+    channels_non_paging = {
+      email = {
+        labels = {
+          email_address = ""
+        }
+      }
+    }
+  }
+}
