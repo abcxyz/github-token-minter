@@ -20,9 +20,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+
+	"github.com/abcxyz/pkg/cache"
 )
 
 type JWKResolver interface {
@@ -31,7 +34,7 @@ type JWKResolver interface {
 
 type OIDCResolver struct {
 	cache           *jwk.Cache
-	issuerToJwksURI map[string]string
+	issuerToJwksURI *cache.Cache[string]
 }
 
 type OpenIDConfiguration struct {
@@ -41,8 +44,9 @@ type OpenIDConfiguration struct {
 
 func NewOIDCResolver(ctx context.Context) *OIDCResolver {
 	return &OIDCResolver{
-		cache:           jwk.NewCache(ctx),
-		issuerToJwksURI: map[string]string{},
+		cache: jwk.NewCache(ctx),
+		// 24 hour cache timeout, jwks_uri should change very infrequently
+		issuerToJwksURI: cache.New[string](time.Hour * 24),
 	}
 }
 
@@ -52,12 +56,12 @@ func (r *OIDCResolver) ResolveKeySet(ctx context.Context, oidcHeader string) (jw
 		return nil, fmt.Errorf("failed to extract issuer from token: %w", err)
 	}
 
-	err = r.registerIssuer(ctx, issuer)
+	jwksURI, err := r.registerIssuer(ctx, issuer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register issuer %q: %w", issuer, err)
 	}
 
-	return jwk.NewCachedSet(r.cache, r.issuerToJwksURI[issuer]), nil
+	return jwk.NewCachedSet(r.cache, jwksURI), nil
 }
 
 func (r *OIDCResolver) extractIssuer(ctx context.Context, oidcHeader string) (string, error) {
@@ -69,24 +73,24 @@ func (r *OIDCResolver) extractIssuer(ctx context.Context, oidcHeader string) (st
 	return token.Issuer(), nil
 }
 
-func (r *OIDCResolver) registerIssuer(ctx context.Context, issuer string) error {
+func (r *OIDCResolver) registerIssuer(ctx context.Context, issuer string) (string, error) {
 	jwksURI, err := r.resolveJwksURI(ctx, issuer)
 	if err != nil {
-		return fmt.Errorf("failed to resolve JWKS URI for %q: %w", issuer, err)
+		return "", fmt.Errorf("failed to resolve JWKS URI for %q: %w", issuer, err)
 	}
 
 	if !r.cache.IsRegistered(jwksURI) {
 		err = r.cache.Register(jwksURI)
 		if err != nil {
-			return fmt.Errorf("failed to register JWKS URI %q to cache: %w", jwksURI, err)
+			return "", fmt.Errorf("failed to register JWKS URI %q to cache: %w", jwksURI, err)
 		}
 	}
 
-	return nil
+	return jwksURI, nil
 }
 
 func (r *OIDCResolver) resolveJwksURI(ctx context.Context, issuer string) (string, error) {
-	uri, cached := r.issuerToJwksURI[issuer]
+	uri, cached := r.issuerToJwksURI.Lookup(issuer)
 	if cached {
 		return uri, nil
 	}
@@ -117,7 +121,7 @@ func (r *OIDCResolver) resolveJwksURI(ctx context.Context, issuer string) (strin
 		return "", fmt.Errorf("failed to unmarshal OpenID Configuration: %w", err)
 	}
 
-	r.issuerToJwksURI[issuer] = config.JwksURI
+	r.issuerToJwksURI.Set(issuer, config.JwksURI)
 
 	return config.JwksURI, nil
 }
