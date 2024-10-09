@@ -113,7 +113,23 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			expErr:  "failed to validate jwt",
 		},
 		{
-			name: "missing_required_claims",
+			name: "missing_repository_github",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+				})
+				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				return r
+			}(),
+			expCode: 400,
+			expResp: "request does not contain required information",
+			expErr:  `claim "repository" not found`,
+		},
+		{
+			name: "missing_repository_non_github",
 			req: func() *http.Request {
 				body := strings.NewReader(`{"scope":"test"}`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
@@ -124,16 +140,34 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			}(),
 			expCode: 400,
 			expResp: "request does not contain required information",
-			expErr:  `claim "repository" not found`,
+			expErr:  `non-github OIDC token's audience field should have exactly one entry of a repository containing a minty config`,
 		},
 		{
-			name: "happy_path",
+			name: "happy_path_github",
 			req: func() *http.Request {
 				body := strings.NewReader(`{"scope":"test"}`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
 
 				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
 					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				return r
+			}(),
+			expCode: 200,
+			expResp: "this-is-the-token-from-github",
+		},
+		{
+			name: "happy_path_non_github",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GoogleIssuer)
+					b.Audience([]string{"abcxyz/pkg"})
 					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
 				})
 				r.Header.Set("X-GitHub-OIDC-Token", signed)
