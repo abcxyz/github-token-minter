@@ -166,7 +166,7 @@ jobs:
         with:
           wif_provider: '${{ vars.WIF_PROVIDER }}'
           wif_service_account: '${{ vars.WIF_SERVICE_ACCOUNT }}'
-          service_audience: '${{ env.INTEGRATION_SERVICE_AUDIENCE }}'
+          service_audience: 'https://github.com/abcyxz/github-token-minter'
           service_url: '${{ env.INTEGRATION_SERVICE_URL }}'
           requested_permissions: '{"scope":"integ","repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
           use_gcloud_token_directly: 'true'
