@@ -169,7 +169,7 @@ jobs:
           service_audience: '${{ env.INTEGRATION_SERVICE_AUDIENCE }}'
           service_url: '${{ env.INTEGRATION_SERVICE_URL }}'
           requested_permissions: '{"scope":"integ","repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
-          use_gcloud_token_directly: true
+          use_gcloud_token_directly: 'true'
 
       - name: 'verify-google-token'
         run: |

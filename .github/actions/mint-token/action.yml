@@ -19,8 +19,7 @@ inputs:
     required: true
   use_gcloud_token_directly:
     description: 'Call github-token-minter service with OIDC token issued by GCP service account instead of GitHub'
-    required: false
-    default: false
+    default: 'false'
 
 outputs:
   token:
@@ -48,11 +47,12 @@ runs:
         TOKEN: '${{ steps.auth.outputs.id_token }}'
         SERVICE_URL: '${{ inputs.service_url }}'
         REQUESTED_PERMISSIONS: '${{ inputs.requested_permissions }}'
+        USE_GCLOUD_TOKEN_DIRECTLY: '${{ inputs.use_gcloud_token_directly }}'
       with:
         script: |
           try {
-            const { TOKEN, SERVICE_URL, REQUESTED_PERMISSIONS } = process.env;
-            const idToken = inputs.use_gcloud_token_directly ? TOKEN : await core.getIDToken('github-token-minter');
+            const { TOKEN, SERVICE_URL, REQUESTED_PERMISSIONS, USE_GCLOUD_TOKEN_DIRECTLY } = process.env;
+            const idToken = USE_GCLOUD_TOKEN_DIRECTLY == "true" ? TOKEN : await core.getIDToken('github-token-minter');
             const response = await fetch(`${SERVICE_URL}/token`, {
               method: 'post',
               body: REQUESTED_PERMISSIONS,
