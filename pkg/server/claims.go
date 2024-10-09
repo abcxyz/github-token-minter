@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/abcxyz/github-token-minter/pkg/config"
@@ -29,6 +30,7 @@ import (
 // a JWT auth token into a set of OIDC claims.
 type JWTParser struct {
 	ParseOptions []jwt.ParseOption
+	jwkResolver  JWKResolver
 }
 
 // oidcClaims is an object that contains all of the expected
@@ -92,8 +94,16 @@ func (c *oidcClaims) asMap() map[string]interface{} {
 
 // parseAuthToken converts a JWT token into a collection of OIDC claims.
 func (p *JWTParser) parseAuthToken(ctx context.Context, oidcHeader string) (*oidcClaims, *apiResponse) {
+	keySet, err := p.jwkResolver.ResolveKeySet(ctx, oidcHeader)
+	if err != nil {
+		return nil, &apiResponse{
+			http.StatusUnauthorized,
+			"request not authorized: could not resolve JWK keys",
+			fmt.Errorf("failed to validate jwt: %w", err),
+		}
+	}
 	// Parse the token data into a JWT
-	parseOpts := append([]jwt.ParseOption{jwt.WithContext(ctx)}, p.ParseOptions...)
+	parseOpts := append([]jwt.ParseOption{jwt.WithContext(ctx), jwt.WithKeySet(keySet, jws.WithInferAlgorithmFromKey(true))}, p.ParseOptions...)
 	oidcToken, err := jwt.Parse([]byte(oidcHeader), parseOpts...)
 	if err != nil {
 		return nil, &apiResponse{
