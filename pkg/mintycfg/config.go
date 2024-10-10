@@ -28,8 +28,8 @@ import (
 // for running the artifact job.
 type Config struct {
 	MintyFile string `env:"MINTY_FILE,required"`
-	Scope     string `env:"SCOPE,required"`
-	Token     string `env:"TOKEN,required"`
+	Scope     string `env:"SCOPE"`
+	Token     string `env:"TOKEN"`
 }
 
 // Validate validates the artifacts config after load.
