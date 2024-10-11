@@ -54,6 +54,7 @@ func NewOIDCResolver(ctx context.Context, issuerAllowlist []string, jwksURICache
 	}
 }
 
+// ResolveKeySet finds and caches the correct OIDC key set to use based on the token's issuer's OpenID Configuration.
 func (r *OIDCResolver) ResolveKeySet(ctx context.Context, oidcHeader string) (jwk.Set, error) {
 	// Parse without verification to extract issuer so we can use it to obtain the key set to use for verification
 	token, err := jwt.ParseString(oidcHeader, jwt.WithContext(ctx), jwt.WithVerify(false), jwt.WithValidate(false))
