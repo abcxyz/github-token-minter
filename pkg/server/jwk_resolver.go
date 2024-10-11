@@ -56,7 +56,7 @@ func NewOIDCResolver(ctx context.Context, issuerAllowlist []string, jwksURICache
 
 func (r *OIDCResolver) ResolveKeySet(ctx context.Context, oidcHeader string) (jwk.Set, error) {
 	// Parse without verification to extract issuer so we can use it to obtain the key set to use for verification
-	token, err := jwt.ParseString(oidcHeader, jwt.WithContext(ctx), jwt.WithVerify(false))
+	token, err := jwt.ParseString(oidcHeader, jwt.WithContext(ctx), jwt.WithVerify(false), jwt.WithValidate(false))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse issuer from jwt header: %w", err)
 	}
