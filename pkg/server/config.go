@@ -16,7 +16,9 @@ package server
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/abcxyz/pkg/cli"
 )
 
@@ -24,7 +26,6 @@ type Config struct {
 	Port       string
 	AppID      string
 	PrivateKey string
-	JWKSUrl    string
 
 	// GitHubAPIBaseURL is the base URL for the GitHub installation. It should
 	// include the protocol (https://) and no trailing slashes.
@@ -36,6 +37,9 @@ type Config struct {
 	OrgConfigPath      string
 	Ref                string
 	ConfigCacheSeconds string
+
+	JWKSURICacheSeconds string
+	IssuerAllowlist     string
 }
 
 // Validate validates the artifacts config after load.
@@ -45,9 +49,6 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.PrivateKey == "" {
 		return fmt.Errorf("GITHUB_PRIVATE_KEY is required")
-	}
-	if cfg.JWKSUrl == "" {
-		cfg.JWKSUrl = "https://token.actions.githubusercontent.com/.well-known/jwks"
 	}
 	if cfg.ConfigCacheSeconds == "" {
 		cfg.ConfigCacheSeconds = "900"
@@ -64,6 +65,14 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.Ref == "" {
 		cfg.Ref = "main"
+	}
+
+	if cfg.JWKSURICacheSeconds == "" {
+		// 4 hours default
+		cfg.JWKSURICacheSeconds = "14400"
+	}
+	if cfg.IssuerAllowlist == "" {
+		cfg.IssuerAllowlist = strings.Join([]string{config.GitHubIssuer, config.GoogleIssuer}, ",")
 	}
 
 	return nil
@@ -141,6 +150,20 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		Target: &cfg.ConfigCacheSeconds,
 		EnvVar: "CONFIG_CACHE_MINUTES",
 		Usage:  `The number of minutes to cache configuration files before retrieving fresh ones. Defaults to 15 minutes.`,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:   "jwks-uri-cache-seconds",
+		Target: &cfg.JWKSURICacheSeconds,
+		EnvVar: "JWKS_URI_CACHE_SECONDS",
+		Usage:  `The number of seconds to cache the jwks_uri from an OIDC token issuer's OpenID Configuration before retrieving fresh ones. Defaults to 4 hours.`,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:   "issuer-allowlist",
+		Target: &cfg.IssuerAllowlist,
+		EnvVar: "ISSUER_ALLOWLIST",
+		Usage:  `The list of OIDC token issuers that GitHub Token Minter will accept. Format is a comma-separated list of URLs. Defaults to GitHub and Google issuers.`,
 	})
 
 	return set

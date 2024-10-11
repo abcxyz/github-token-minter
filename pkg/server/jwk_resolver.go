@@ -20,6 +20,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
@@ -33,8 +35,10 @@ type JWKResolver interface {
 }
 
 type OIDCResolver struct {
+	issuerAllowlist []string
 	cache           *jwk.Cache
 	issuerToJwksURI *cache.Cache[string]
+	mu              sync.Mutex
 }
 
 type OpenIDConfiguration struct {
@@ -42,59 +46,59 @@ type OpenIDConfiguration struct {
 	JwksURI string `json:"jwks_uri"`
 }
 
-func NewOIDCResolver(ctx context.Context) *OIDCResolver {
+func NewOIDCResolver(ctx context.Context, issuerAllowlist []string, jwksURICacheTimeout time.Duration) *OIDCResolver {
 	return &OIDCResolver{
-		cache: jwk.NewCache(ctx),
-		// 24 hour cache timeout, jwks_uri should change very infrequently
-		issuerToJwksURI: cache.New[string](time.Hour * 24),
+		issuerAllowlist: issuerAllowlist,
+		cache:           jwk.NewCache(ctx),
+		issuerToJwksURI: cache.New[string](jwksURICacheTimeout),
 	}
 }
 
 func (r *OIDCResolver) ResolveKeySet(ctx context.Context, oidcHeader string) (jwk.Set, error) {
-	issuer, err := r.extractIssuer(ctx, oidcHeader)
+	// Parse without verification to extract issuer so we can use it to obtain the key set to use for verification
+	token, err := jwt.ParseString(oidcHeader, jwt.WithContext(ctx), jwt.WithVerify(false))
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract issuer from token: %w", err)
+		return nil, fmt.Errorf("failed to parse issuer from jwt header: %w", err)
+	}
+	issuer := token.Issuer()
+
+	if !slices.Contains(r.issuerAllowlist, issuer) {
+		return nil, fmt.Errorf("issuer %q is not allowlisted", issuer)
 	}
 
-	jwksURI, err := r.registerIssuer(ctx, issuer)
+	jwksURI, err := r.issuerToJwksURI.WriteThruLookup(issuer, func() (string, error) {
+		return r.resolveJwksURI(ctx, issuer)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to register issuer %q: %w", issuer, err)
+		return nil, fmt.Errorf("failed to resolve JWKS URI for %q: %w", issuer, err)
+	}
+
+	if !r.cache.IsRegistered(jwksURI) {
+		if err := r.cacheRegister(ctx, jwksURI); err != nil {
+			return nil, err
+		}
 	}
 
 	return jwk.NewCachedSet(r.cache, jwksURI), nil
 }
 
-func (r *OIDCResolver) extractIssuer(ctx context.Context, oidcHeader string) (string, error) {
-	// Parse without validation to extract issuer so we can use it to obtain the key set to use for validation
-	token, err := jwt.ParseString(oidcHeader, jwt.WithContext(ctx), jwt.WithVerify(false))
-	if err != nil {
-		return "", fmt.Errorf("failed to parse jwt header: %w", err)
+func (r *OIDCResolver) cacheRegister(ctx context.Context, jwksURI string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.cache.IsRegistered(jwksURI) {
+		return nil
 	}
-	return token.Issuer(), nil
-}
-
-func (r *OIDCResolver) registerIssuer(ctx context.Context, issuer string) (string, error) {
-	jwksURI, err := r.resolveJwksURI(ctx, issuer)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve JWKS URI for %q: %w", issuer, err)
+	if err := r.cache.Register(jwksURI); err != nil {
+		return fmt.Errorf("failed to register JWKS URI %q to cache: %w", jwksURI, err)
 	}
-
-	if !r.cache.IsRegistered(jwksURI) {
-		err = r.cache.Register(jwksURI)
-		if err != nil {
-			return "", fmt.Errorf("failed to register JWKS URI %q to cache: %w", jwksURI, err)
-		}
+	// call Refresh to validate URI
+	if _, err := r.cache.Refresh(ctx, jwksURI); err != nil {
+		return fmt.Errorf("failed to refresh JWKS URI %q in cache: %w", jwksURI, err)
 	}
-
-	return jwksURI, nil
+	return nil
 }
 
 func (r *OIDCResolver) resolveJwksURI(ctx context.Context, issuer string) (string, error) {
-	uri, cached := r.issuerToJwksURI.Lookup(issuer)
-	if cached {
-		return uri, nil
-	}
-
 	configURL, err := url.JoinPath(issuer, ".well-known", "openid-configuration")
 	if err != nil {
 		return "", fmt.Errorf("error processing issuer URL %q: %w", issuer, err)
@@ -110,18 +114,15 @@ func (r *OIDCResolver) resolveJwksURI(ctx context.Context, issuer string) (strin
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 25_165_824)) // 24 MiB
 	if err != nil {
 		return "", fmt.Errorf("failed to read response body from GET %q: %w", configURL, err)
 	}
 
 	var config OpenIDConfiguration
-	err = json.Unmarshal(body, &config)
-	if err != nil {
+	if err := json.Unmarshal(body, &config); err != nil {
 		return "", fmt.Errorf("failed to unmarshal OpenID Configuration: %w", err)
 	}
-
-	r.issuerToJwksURI.Set(issuer, config.JwksURI)
 
 	return config.JwksURI, nil
 }

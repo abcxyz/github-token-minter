@@ -19,6 +19,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"testing"
+	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
@@ -31,12 +32,14 @@ func TestJWKResolver(t *testing.T) {
 	t.Parallel()
 
 	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
-	resolver := NewOIDCResolver(ctx)
 
 	signer, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	allowlist := []string{config.GitHubIssuer, config.GoogleIssuer, "https://fakeurlthatdoesnotexist.com"}
+	resolver := NewOIDCResolver(ctx, allowlist, time.Hour*4)
 
 	cases := []struct {
 		name   string
@@ -52,7 +55,12 @@ func TestJWKResolver(t *testing.T) {
 			issuer: config.GoogleIssuer,
 		},
 		{
-			name:   "invalid-issuer",
+			name:   "not-allowed-issuer",
+			issuer: "https://issuernotinallowlist.com",
+			expErr: "is not allowlisted",
+		},
+		{
+			name:   "bad-issuer",
 			issuer: "https://fakeurlthatdoesnotexist.com",
 			expErr: "error fetching OpenID Configuration",
 		},
