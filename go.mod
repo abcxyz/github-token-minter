@@ -10,7 +10,6 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-github/v64 v64.0.0
 	github.com/lestrrat-go/jwx/v2 v2.0.21
-	github.com/sethvargo/go-envconfig v1.0.3
 	gopkg.in/yaml.v3 v3.0.1
 )
 
