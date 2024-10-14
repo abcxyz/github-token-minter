@@ -15,21 +15,17 @@
 package mintycfg
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/sethvargo/go-envconfig"
-
-	"github.com/abcxyz/pkg/cfgloader"
 	"github.com/abcxyz/pkg/cli"
 )
 
 // Config defines the set of environment variables required
 // for running the artifact job.
 type Config struct {
-	MintyFile string `env:"MINTY_FILE,required"`
-	Scope     string `env:"SCOPE"`
-	Token     string `env:"TOKEN"`
+	MintyFile string
+	Scope     string
+	Token     string
 }
 
 // Validate validates the artifacts config after load.
@@ -38,19 +34,6 @@ func (cfg *Config) Validate() error {
 		return fmt.Errorf("MINTY_FILE is required")
 	}
 	return nil
-}
-
-// NewConfig creates a new Config from environment variables.
-func NewConfig(ctx context.Context) (*Config, error) {
-	return newConfig(ctx, envconfig.OsLookuper())
-}
-
-func newConfig(ctx context.Context, lu envconfig.Lookuper) (*Config, error) {
-	var cfg Config
-	if err := cfgloader.Load(ctx, &cfg, cfgloader.WithLookuper(lu)); err != nil {
-		return nil, fmt.Errorf("failed to parse minty validation config: %w", err)
-	}
-	return &cfg, nil
 }
 
 // ToFlags binds the config to the [cli.FlagSet] and returns it.

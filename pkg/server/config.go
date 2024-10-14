@@ -15,31 +15,27 @@
 package server
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/sethvargo/go-envconfig"
-
-	"github.com/abcxyz/pkg/cfgloader"
 	"github.com/abcxyz/pkg/cli"
 )
 
 type Config struct {
-	Port       string `env:"PORT,default=8080"`
-	AppID      string `env:"GITHUB_APP_ID,required"`
-	PrivateKey string `env:"GITHUB_PRIVATE_KEY,required" yaml:"-" json:"-"`
-	JWKSUrl    string `env:"GITHUB_JKWS_URL,default=https://token.actions.githubusercontent.com/.well-known/jwks"`
+	Port       string
+	AppID      string
+	PrivateKey string
+	JWKSUrl    string
 
 	// GitHubAPIBaseURL is the base URL for the GitHub installation. It should
 	// include the protocol (https://) and no trailing slashes.
-	GitHubAPIBaseURL string `env:"GITHUB_API_BASE_URL"`
+	GitHubAPIBaseURL string
 
-	ConfigDir          string `env:"CONFIGS_DIR,default=configs"`
-	RepoConfigPath     string `env:"REPO_CONFIG_PATH,default=.github/minty.yaml"`
-	OrgConfigRepo      string `env:"ORG_CONFIG_REPO,default=.google-github"`
-	OrgConfigPath      string `env:"ORG_CONFIG_PATH,default=minty.yaml"`
-	Ref                string `env:"REF,default=main"`
-	ConfigCacheSeconds string `env:"CONFIG_CACHE_SECONDS=900"`
+	ConfigDir          string
+	RepoConfigPath     string
+	OrgConfigRepo      string
+	OrgConfigPath      string
+	Ref                string
+	ConfigCacheSeconds string
 }
 
 // Validate validates the artifacts config after load.
@@ -71,19 +67,6 @@ func (cfg *Config) Validate() error {
 	}
 
 	return nil
-}
-
-// NewConfig creates a new Config from environment variables.
-func NewConfig(ctx context.Context) (*Config, error) {
-	return newConfig(ctx, envconfig.OsLookuper())
-}
-
-func newConfig(ctx context.Context, lu envconfig.Lookuper) (*Config, error) {
-	var cfg Config
-	if err := cfgloader.Load(ctx, &cfg, cfgloader.WithLookuper(lu)); err != nil {
-		return nil, fmt.Errorf("failed to parse server config: %w", err)
-	}
-	return &cfg, nil
 }
 
 // ToFlags binds the config to the [cli.FlagSet] and returns it.
