@@ -144,17 +144,19 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 	})
 
 	f.DurationVar(&cli.DurationVar{
-		Name:   "jwks-cache-duration",
-		Target: &cfg.JWKSCacheDuration,
-		EnvVar: "JWKS_CACHE_DURATION",
-		Usage:  `The duration to cache the JWKS for an OIDC token issuer. Defaults to 4 hours.`,
+		Name:    "jwks-cache-duration",
+		Target:  &cfg.JWKSCacheDuration,
+		EnvVar:  "JWKS_CACHE_DURATION",
+		Usage:   `The duration to cache the JWKS for an OIDC token issuer. Defaults to 4 hours.`,
+		Default: 4 * time.Hour,
 	})
 
 	f.StringSliceVar(&cli.StringSliceVar{
-		Name:   "issuer-allowlist",
-		Target: &cfg.IssuerAllowlist,
-		EnvVar: "ISSUER_ALLOWLIST",
-		Usage:  `The list of OIDC token issuers that GitHub Token Minter will accept. Format is a comma-separated list of URLs. Defaults to GitHub and Google issuers.`,
+		Name:    "issuer-allowlist",
+		Target:  &cfg.IssuerAllowlist,
+		EnvVar:  "ISSUER_ALLOWLIST",
+		Usage:   `The list of OIDC token issuers that GitHub Token Minter will accept. Format is a comma-separated list of URLs. Defaults to GitHub and Google issuers.`,
+		Default: []string{config.GitHubIssuer, config.GoogleIssuer},
 	})
 
 	return set
