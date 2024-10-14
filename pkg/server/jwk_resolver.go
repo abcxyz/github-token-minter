@@ -75,7 +75,7 @@ func (r *OIDCResolver) ResolveKeySet(ctx context.Context, oidcHeader string) (jw
 		return keySet, nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to resolve key set: %w", err)
 	}
 
 	return keySet, nil
