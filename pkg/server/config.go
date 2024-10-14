@@ -16,9 +16,8 @@ package server
 
 import (
 	"fmt"
-	"strings"
+	"time"
 
-	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/abcxyz/pkg/cli"
 )
 
@@ -38,8 +37,8 @@ type Config struct {
 	Ref                string
 	ConfigCacheSeconds string
 
-	JWKSURICacheSeconds string
-	IssuerAllowlist     string
+	JWKSURICacheDuration time.Duration
+	IssuerAllowlist      []string
 }
 
 // Validate validates the artifacts config after load.
@@ -65,14 +64,6 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.Ref == "" {
 		cfg.Ref = "main"
-	}
-
-	if cfg.JWKSURICacheSeconds == "" {
-		// 4 hours default
-		cfg.JWKSURICacheSeconds = "14400"
-	}
-	if cfg.IssuerAllowlist == "" {
-		cfg.IssuerAllowlist = strings.Join([]string{config.GitHubIssuer, config.GoogleIssuer}, ",")
 	}
 
 	return nil
@@ -152,14 +143,14 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		Usage:  `The number of minutes to cache configuration files before retrieving fresh ones. Defaults to 15 minutes.`,
 	})
 
-	f.StringVar(&cli.StringVar{
-		Name:   "jwks-uri-cache-seconds",
-		Target: &cfg.JWKSURICacheSeconds,
-		EnvVar: "JWKS_URI_CACHE_SECONDS",
-		Usage:  `The number of seconds to cache the jwks_uri from an OIDC token issuer's OpenID Configuration before retrieving fresh ones. Defaults to 4 hours.`,
+	f.DurationVar(&cli.DurationVar{
+		Name:   "jwks-uri-cache-duration",
+		Target: &cfg.JWKSURICacheDuration,
+		EnvVar: "JWKS_URI_CACHE_DURATION",
+		Usage:  `The duration to cache the jwks_uri from an OIDC token issuer's OpenID Configuration before retrieving fresh ones. Defaults to 4 hours.`,
 	})
 
-	f.StringVar(&cli.StringVar{
+	f.StringSliceVar(&cli.StringSliceVar{
 		Name:   "issuer-allowlist",
 		Target: &cfg.IssuerAllowlist,
 		EnvVar: "ISSUER_ALLOWLIST",

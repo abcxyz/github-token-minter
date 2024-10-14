@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -67,11 +66,7 @@ func Run(ctx context.Context, cfg *Config) error {
 		jwt.WithAcceptableSkew(5 * time.Second),
 	}
 
-	jwksURICacheSeconds, err := strconv.Atoi(cfg.JWKSURICacheSeconds)
-	if err != nil {
-		return fmt.Errorf("failed to parse jwks uri cache seconds as an integer: %w", err)
-	}
-	jwkResolver := NewOIDCResolver(ctx, strings.Split(cfg.IssuerAllowlist, ","), time.Duration(jwksURICacheSeconds)*time.Second)
+	jwkResolver := NewOIDCResolver(ctx, cfg.IssuerAllowlist, cfg.JWKSURICacheDuration)
 
 	// Create the Router for the token minting server.
 	tokenServer, err := NewRouter(ctx, app, store, &JWTParser{ParseOptions: jwtParseOptions, jwkResolver: jwkResolver})
