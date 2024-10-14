@@ -43,10 +43,10 @@ type OpenIDConfiguration struct {
 	JwksURI string `json:"jwks_uri"`
 }
 
-func NewOIDCResolver(ctx context.Context, issuerAllowlist []string, jwksURICacheTimeout time.Duration) *OIDCResolver {
+func NewOIDCResolver(ctx context.Context, issuerAllowlist []string, cacheTimeout time.Duration) *OIDCResolver {
 	return &OIDCResolver{
 		issuerAllowlist: issuerAllowlist,
-		cache:           cache.New[jwk.Set](jwksURICacheTimeout),
+		cache:           cache.New[jwk.Set](cacheTimeout),
 	}
 }
 

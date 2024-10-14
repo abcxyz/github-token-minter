@@ -37,8 +37,8 @@ type Config struct {
 	Ref                string
 	ConfigCacheSeconds string
 
-	JWKSURICacheDuration time.Duration
-	IssuerAllowlist      []string
+	JWKSCacheDuration time.Duration
+	IssuerAllowlist   []string
 }
 
 // Validate validates the artifacts config after load.
@@ -144,10 +144,10 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 	})
 
 	f.DurationVar(&cli.DurationVar{
-		Name:   "jwks-uri-cache-duration",
-		Target: &cfg.JWKSURICacheDuration,
-		EnvVar: "JWKS_URI_CACHE_DURATION",
-		Usage:  `The duration to cache the jwks_uri from an OIDC token issuer's OpenID Configuration before retrieving fresh ones. Defaults to 4 hours.`,
+		Name:   "jwks-cache-duration",
+		Target: &cfg.JWKSCacheDuration,
+		EnvVar: "JWKS_CACHE_DURATION",
+		Usage:  `The duration to cache the JWKS for an OIDC token issuer. Defaults to 4 hours.`,
 	})
 
 	f.StringSliceVar(&cli.StringSliceVar{

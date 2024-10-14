@@ -66,7 +66,7 @@ func Run(ctx context.Context, cfg *Config) error {
 		jwt.WithAcceptableSkew(5 * time.Second),
 	}
 
-	jwkResolver := NewOIDCResolver(ctx, cfg.IssuerAllowlist, cfg.JWKSURICacheDuration)
+	jwkResolver := NewOIDCResolver(ctx, cfg.IssuerAllowlist, cfg.JWKSCacheDuration)
 
 	// Create the Router for the token minting server.
 	tokenServer, err := NewRouter(ctx, app, store, &JWTParser{ParseOptions: jwtParseOptions, jwkResolver: jwkResolver})
