@@ -16,7 +16,9 @@ package server
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/abcxyz/pkg/cli"
 )
 
@@ -24,7 +26,6 @@ type Config struct {
 	Port       string
 	AppID      string
 	PrivateKey string
-	JWKSUrl    string
 
 	// GitHubAPIBaseURL is the base URL for the GitHub installation. It should
 	// include the protocol (https://) and no trailing slashes.
@@ -36,6 +37,9 @@ type Config struct {
 	OrgConfigPath      string
 	Ref                string
 	ConfigCacheSeconds string
+
+	JWKSCacheDuration time.Duration
+	IssuerAllowlist   []string
 }
 
 // Validate validates the artifacts config after load.
@@ -45,9 +49,6 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.PrivateKey == "" {
 		return fmt.Errorf("GITHUB_PRIVATE_KEY is required")
-	}
-	if cfg.JWKSUrl == "" {
-		cfg.JWKSUrl = "https://token.actions.githubusercontent.com/.well-known/jwks"
 	}
 	if cfg.ConfigCacheSeconds == "" {
 		cfg.ConfigCacheSeconds = "900"
@@ -141,6 +142,22 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		Target: &cfg.ConfigCacheSeconds,
 		EnvVar: "CONFIG_CACHE_MINUTES",
 		Usage:  `The number of minutes to cache configuration files before retrieving fresh ones. Defaults to 15 minutes.`,
+	})
+
+	f.DurationVar(&cli.DurationVar{
+		Name:    "jwks-cache-duration",
+		Target:  &cfg.JWKSCacheDuration,
+		EnvVar:  "JWKS_CACHE_DURATION",
+		Usage:   `The duration for which to cache the JWKS for an OIDC token issuer.`,
+		Default: 4 * time.Hour,
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:    "issuer-allowlist",
+		Target:  &cfg.IssuerAllowlist,
+		EnvVar:  "ISSUER_ALLOWLIST",
+		Usage:   `The list of OIDC token issuers that GitHub Token Minter will accept. Format is a comma-separated list of URLs or the flag can be specified multiple times.`,
+		Default: []string{config.GitHubIssuer, config.GoogleIssuer},
 	})
 
 	return set
