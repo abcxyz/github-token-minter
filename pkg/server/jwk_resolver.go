@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"sync"
 	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
@@ -36,9 +35,7 @@ type JWKResolver interface {
 
 type OIDCResolver struct {
 	issuerAllowlist []string
-	cache           *jwk.Cache
-	issuerToJwksURI *cache.Cache[string]
-	mu              sync.Mutex
+	cache           *cache.Cache[jwk.Set]
 }
 
 type OpenIDConfiguration struct {
@@ -49,8 +46,7 @@ type OpenIDConfiguration struct {
 func NewOIDCResolver(ctx context.Context, issuerAllowlist []string, jwksURICacheTimeout time.Duration) *OIDCResolver {
 	return &OIDCResolver{
 		issuerAllowlist: issuerAllowlist,
-		cache:           jwk.NewCache(ctx),
-		issuerToJwksURI: cache.New[string](jwksURICacheTimeout),
+		cache:           cache.New[jwk.Set](jwksURICacheTimeout),
 	}
 }
 
@@ -67,36 +63,22 @@ func (r *OIDCResolver) ResolveKeySet(ctx context.Context, oidcHeader string) (jw
 		return nil, fmt.Errorf("issuer %q is not allowlisted", issuer)
 	}
 
-	jwksURI, err := r.issuerToJwksURI.WriteThruLookup(issuer, func() (string, error) {
-		return r.resolveJwksURI(ctx, issuer)
+	keySet, err := r.cache.WriteThruLookup(issuer, func() (jwk.Set, error) {
+		jwksURI, err := r.resolveJwksURI(ctx, issuer)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve JWKS URI for %q: %w", issuer, err)
+		}
+		keySet, err := jwk.Fetch(ctx, jwksURI)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch JWKS for %q: %w", issuer, err)
+		}
+		return keySet, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve JWKS URI for %q: %w", issuer, err)
+		return nil, err
 	}
 
-	if !r.cache.IsRegistered(jwksURI) {
-		if err := r.cacheRegister(ctx, jwksURI); err != nil {
-			return nil, err
-		}
-	}
-
-	return jwk.NewCachedSet(r.cache, jwksURI), nil
-}
-
-func (r *OIDCResolver) cacheRegister(ctx context.Context, jwksURI string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.cache.IsRegistered(jwksURI) {
-		return nil
-	}
-	if err := r.cache.Register(jwksURI); err != nil {
-		return fmt.Errorf("failed to register JWKS URI %q to cache: %w", jwksURI, err)
-	}
-	// call Refresh to validate URI
-	if _, err := r.cache.Refresh(ctx, jwksURI); err != nil {
-		return fmt.Errorf("failed to refresh JWKS URI %q in cache: %w", jwksURI, err)
-	}
-	return nil
+	return keySet, nil
 }
 
 func (r *OIDCResolver) resolveJwksURI(ctx context.Context, issuer string) (string, error) {
