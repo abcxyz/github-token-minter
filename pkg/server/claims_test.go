@@ -95,19 +95,13 @@ func TestTokenClaim(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			runCase(t, tc.token, tc.value, tc.required, tc.want, tc.expErrMsg)
+			got, err := tokenClaim[any](token, tc.value, tc.required)
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("mismatch (-want, +got):\n%s", diff)
+			}
+			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
+				t.Fatalf(msg)
+			}
 		})
-	}
-}
-
-func runCase[T any](t *testing.T, token jwt.Token, value string, required bool, want T, expErrMsg string) {
-	t.Helper()
-
-	got, err := tokenClaim[T](token, value, required)
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("mismatch (-want, +got):\n%s", diff)
-	}
-	if msg := testutil.DiffErrString(err, expErrMsg); msg != "" {
-		t.Fatalf(msg)
 	}
 }
