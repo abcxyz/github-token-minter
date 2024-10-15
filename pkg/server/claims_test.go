@@ -23,7 +23,17 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestTokenClaimString(t *testing.T) {
+type TestCase[T any] struct {
+	name      string
+	token     jwt.Token
+	value     string
+	required  bool
+	want      T
+	expErr    bool
+	expErrMsg string
+}
+
+func TestTokenClaim(t *testing.T) {
 	t.Parallel()
 
 	token, _ := jwt.NewBuilder().
@@ -31,18 +41,11 @@ func TestTokenClaimString(t *testing.T) {
 		Subject("https://token.actions.githubusercontent.com").
 		Issuer("repo:abcxyz/test:ref:refs/heads/main").
 		Claim("repository", "abcxyz/test").
-		Claim("nonstring_type", 1245).
+		Claim("int_claim", 1245).
+		Claim("bool_claim", true).
 		Build()
 
-	cases := []struct {
-		name      string
-		token     jwt.Token
-		value     string
-		required  bool
-		want      string
-		expErr    bool
-		expErrMsg string
-	}{
+	stringCases := []TestCase[string]{
 		{
 			name:      "success",
 			token:     token,
@@ -64,11 +67,11 @@ func TestTokenClaimString(t *testing.T) {
 		{
 			name:      "required wrong type",
 			token:     token,
-			value:     "nonstring_type",
+			value:     "bool_claim",
 			required:  true,
 			want:      "",
 			expErr:    true,
-			expErrMsg: `claim "nonstring_type" not the correct type want=string, got=int`,
+			expErrMsg: `claim "bool_claim" not the correct type want=string, got=bool`,
 		},
 		{
 			name:      "missing optional",
@@ -80,14 +83,41 @@ func TestTokenClaimString(t *testing.T) {
 			expErrMsg: "",
 		},
 	}
+	boolCases := []TestCase[bool]{
+		{
+			name:      "success",
+			token:     token,
+			value:     "bool_claim",
+			required:  true,
+			want:      true,
+			expErr:    false,
+			expErrMsg: "",
+		},
+	}
+	intCases := []TestCase[int]{
+		{
+			name:      "success",
+			token:     token,
+			value:     "int_claim",
+			required:  true,
+			want:      1245,
+			expErr:    false,
+			expErrMsg: "",
+		},
+	}
+	runCases(t, stringCases)
+	runCases(t, boolCases)
+	runCases(t, intCases)
+}
 
+func runCases[T any](t *testing.T, cases []TestCase[T]) {
 	for _, tc := range cases {
 		tc := tc
 
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := tokenClaimString(tc.token, tc.value, tc.required)
+			got, err := tokenClaim[T](tc.token, tc.value, tc.required)
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
