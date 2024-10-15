@@ -39,28 +39,33 @@ type JWTParser struct {
 // more usable forms such and org and repo names in the
 // correct format.
 type oidcClaims struct {
-	Audience          []string `json:"aud"`
-	Subject           string   `json:"sub"`
-	Issuer            string   `json:"iss"`
-	Ref               string   `json:"ref"`
-	RefType           string   `json:"ref_type"`
-	Sha               string   `json:"sha"`
-	Repository        string   `json:"repository"`
-	RepositoryID      string   `json:"repository_id"`
-	RepositoryOwner   string   `json:"repository_owner"`
-	RepositoryOwnerID string   `json:"repository_owner_id"`
-	RunID             string   `json:"run_id"`
-	RunNumber         string   `json:"run_number"`
-	Actor             string   `json:"actor"`
-	ActorID           string   `json:"actor_id"`
-	EventName         string   `json:"event_name"`
-	Workflow          string   `json:"workflow"`
-	WorkflowRef       string   `json:"workflow_ref"`
-	WorkflowSha       string   `json:"workflow_sha"`
-	JobWorkflowRef    string   `json:"job_workflow_ref"`
-	JobWorkflowSha    string   `json:"job_workflow_sha"`
-	ParsedOrgName     string   `json:"parsed_org_name"`
-	ParsedRepoName    string   `json:"parsed_repo_name"`
+	Audience []string `json:"aud"`
+	Subject  string   `json:"sub"`
+	Issuer   string   `json:"iss"`
+
+	// GitHub claims
+	Ref               string `json:"ref"`
+	RefType           string `json:"ref_type"`
+	Sha               string `json:"sha"`
+	Repository        string `json:"repository"`
+	RepositoryID      string `json:"repository_id"`
+	RepositoryOwner   string `json:"repository_owner"`
+	RepositoryOwnerID string `json:"repository_owner_id"`
+	RunID             string `json:"run_id"`
+	RunNumber         string `json:"run_number"`
+	Actor             string `json:"actor"`
+	ActorID           string `json:"actor_id"`
+	EventName         string `json:"event_name"`
+	Workflow          string `json:"workflow"`
+	WorkflowRef       string `json:"workflow_ref"`
+	WorkflowSha       string `json:"workflow_sha"`
+	JobWorkflowRef    string `json:"job_workflow_ref"`
+	JobWorkflowSha    string `json:"job_workflow_sha"`
+	ParsedOrgName     string `json:"parsed_org_name"`
+	ParsedRepoName    string `json:"parsed_repo_name"`
+
+	// Google claims
+	Email string `json:"email"`
 }
 
 // asMap converts the struct into a map of strings which
@@ -89,6 +94,7 @@ func (c *oidcClaims) asMap() map[string]interface{} {
 		"job_workflow_sha":    c.JobWorkflowSha,
 		"parsed_org_name":     c.ParsedOrgName,
 		"parsed_repo_name":    c.ParsedRepoName,
+		"email":               c.Email,
 	}
 }
 
@@ -155,6 +161,8 @@ func parsePrivateClaims(oidcToken jwt.Token) (*oidcClaims, error) {
 	claims.WorkflowSha = optionalClaim(oidcToken, "workflow_sha")
 	claims.JobWorkflowRef = optionalClaim(oidcToken, "job_workflow_ref")
 	claims.JobWorkflowSha = optionalClaim(oidcToken, "job_workflow_sha")
+
+	claims.Email = optionalClaim(oidcToken, "email")
 
 	// The repository claim is of the form <org_name>/<repo_name>.
 	// Use this string split instead of attempting to use this and the repository_owner claim since
