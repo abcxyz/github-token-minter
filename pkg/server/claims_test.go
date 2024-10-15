@@ -111,6 +111,8 @@ func TestTokenClaim(t *testing.T) {
 }
 
 func runCases[T any](t *testing.T, cases []TestCase[T]) {
+	t.Helper()
+
 	for _, tc := range cases {
 		tc := tc
 
