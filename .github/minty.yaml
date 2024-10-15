@@ -8,7 +8,7 @@ rule:
       assertion.repository_id == '576289489'
     ) || (
       assertion.iss == issuers.google &&
-      assertion.sub == '112892967544648233217' # integration WIF service account 
+      assertion.sub == '112892967544648233217' # integration WIF service account
     )
 
 scope:
@@ -29,7 +29,7 @@ scope:
       if: |-
         assertion.workflow_ref.startsWith("abcxyz/github-token-minter/.github/workflows/ci.yml") || (
           assertion.iss == issuers.google &&
-          assertion.sub == "112892967544648233217" # integration WIF service account 
+          assertion.sub == "112892967544648233217" # integration WIF service account
         )
     repositories:
       - 'github-token-minter'
