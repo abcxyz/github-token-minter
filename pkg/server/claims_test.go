@@ -23,7 +23,7 @@ import (
 	"github.com/abcxyz/pkg/testutil"
 )
 
-func TestTokenClaimString(t *testing.T) {
+func TestTokenClaim(t *testing.T) {
 	t.Parallel()
 
 	token, _ := jwt.NewBuilder().
@@ -31,7 +31,8 @@ func TestTokenClaimString(t *testing.T) {
 		Subject("https://token.actions.githubusercontent.com").
 		Issuer("repo:abcxyz/test:ref:refs/heads/main").
 		Claim("repository", "abcxyz/test").
-		Claim("nonstring_type", 1245).
+		Claim("int_claim", 1245).
+		Claim("bool_claim", true).
 		Build()
 
 	cases := []struct {
@@ -39,7 +40,7 @@ func TestTokenClaimString(t *testing.T) {
 		token     jwt.Token
 		value     string
 		required  bool
-		want      string
+		want      any
 		expErr    bool
 		expErrMsg string
 	}{
@@ -57,25 +58,32 @@ func TestTokenClaimString(t *testing.T) {
 			token:     token,
 			value:     "test",
 			required:  true,
-			want:      "",
 			expErr:    true,
 			expErrMsg: `claim "test" not found`,
-		},
-		{
-			name:      "required wrong type",
-			token:     token,
-			value:     "nonstring_type",
-			required:  true,
-			want:      "",
-			expErr:    true,
-			expErrMsg: `claim "nonstring_type" not the correct type want=string, got=int`,
 		},
 		{
 			name:      "missing optional",
 			token:     token,
 			value:     "test",
 			required:  false,
-			want:      "",
+			expErr:    false,
+			expErrMsg: "",
+		},
+		{
+			name:      "success_bool",
+			token:     token,
+			value:     "bool_claim",
+			required:  true,
+			want:      true,
+			expErr:    false,
+			expErrMsg: "",
+		},
+		{
+			name:      "success_int",
+			token:     token,
+			value:     "int_claim",
+			required:  true,
+			want:      1245,
 			expErr:    false,
 			expErrMsg: "",
 		},
@@ -87,7 +95,134 @@ func TestTokenClaimString(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := tokenClaimString(tc.token, tc.value, tc.required)
+			got, err := tokenClaim[any](tc.token, tc.value, tc.required)
+			if diff := cmp.Diff(tc.want, got); diff != "" {
+				t.Errorf("mismatch (-want, +got):\n%s", diff)
+			}
+			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
+				t.Fatalf(msg)
+			}
+		})
+	}
+}
+
+func TestParsePrivateClaims(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name         string
+		tokenBuilder *jwt.Builder
+		want         *oidcClaims
+		expErrMsg    string
+	}{
+		{
+			name: "success-github",
+			tokenBuilder: jwt.NewBuilder().
+				Audience([]string{"https://github.com/abcxyz"}).
+				Subject("repo:abcxyz/test:ref:refs/heads/main").
+				Issuer("https://token.actions.githubusercontent.com").
+				Claim("repository", "abcxyz/test"),
+			want: &oidcClaims{
+				Audience:       []string{"https://github.com/abcxyz"},
+				Issuer:         "https://token.actions.githubusercontent.com",
+				Subject:        "repo:abcxyz/test:ref:refs/heads/main",
+				Repository:     "abcxyz/test",
+				ParsedOrgName:  "abcxyz",
+				ParsedRepoName: "test",
+			},
+		},
+		{
+			name: "success-google",
+			tokenBuilder: jwt.NewBuilder().
+				Audience([]string{"https://github.com/abcxyz/test"}).
+				Subject("12571298569128659").
+				Issuer("https://accounts.google.com").
+				Claim("email_verified", true).
+				Claim("email", "service-account@project-id.iam.gserviceaccount.com"),
+			want: &oidcClaims{
+				Audience:       []string{"https://github.com/abcxyz/test"},
+				Issuer:         "https://accounts.google.com",
+				Subject:        "12571298569128659",
+				Repository:     "abcxyz/test",
+				ParsedOrgName:  "abcxyz",
+				ParsedRepoName: "test",
+				Email:          "service-account@project-id.iam.gserviceaccount.com",
+			},
+		},
+		{
+			name: "google-unverified-email",
+			tokenBuilder: jwt.NewBuilder().
+				Audience([]string{"https://github.com/abcxyz/test"}).
+				Subject("12571298569128659").
+				Issuer("https://accounts.google.com").
+				Claim("email_verified", false).
+				Claim("email", "service-account@project-id.iam.gserviceaccount.com"),
+			want: &oidcClaims{
+				Audience:       []string{"https://github.com/abcxyz/test"},
+				Issuer:         "https://accounts.google.com",
+				Subject:        "12571298569128659",
+				Repository:     "abcxyz/test",
+				ParsedOrgName:  "abcxyz",
+				ParsedRepoName: "test",
+			},
+		},
+		{
+			name: "google-missing-email-verified",
+			tokenBuilder: jwt.NewBuilder().
+				Audience([]string{"https://github.com/abcxyz/test"}).
+				Subject("12571298569128659").
+				Issuer("https://accounts.google.com").
+				Claim("email", "service-account@project-id.iam.gserviceaccount.com"),
+			want: &oidcClaims{
+				Audience:       []string{"https://github.com/abcxyz/test"},
+				Issuer:         "https://accounts.google.com",
+				Subject:        "12571298569128659",
+				Repository:     "abcxyz/test",
+				ParsedOrgName:  "abcxyz",
+				ParsedRepoName: "test",
+			},
+		},
+		{
+			name: "google-bad-audience-repo",
+			tokenBuilder: jwt.NewBuilder().
+				Audience([]string{"https://github.com/abcxyz"}).
+				Subject("12571298569128659").
+				Issuer("https://accounts.google.com").
+				Claim("email", "service-account@project-id.iam.gserviceaccount.com").
+				Claim("email_verified", true),
+			expErrMsg: "'repository' claim formatted incorrectly, requires <org_name>/<repo_name> format",
+		},
+		{
+			name: "github-bad-repo",
+			tokenBuilder: jwt.NewBuilder().
+				Audience([]string{"https://github.com/abcxyz"}).
+				Subject("repo:abcxyz/test:ref:refs/heads/main").
+				Issuer("https://token.actions.githubusercontent.com").
+				Claim("repository", "abcxyz"),
+			expErrMsg: "'repository' claim formatted incorrectly, requires <org_name>/<repo_name> format",
+		},
+		{
+			name: "github-missing-repo",
+			tokenBuilder: jwt.NewBuilder().
+				Audience([]string{"https://github.com/abcxyz"}).
+				Subject("repo:abcxyz/test:ref:refs/heads/main").
+				Issuer("https://token.actions.githubusercontent.com"),
+			expErrMsg: `claim "repository" not found`,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			token, err := tc.tokenBuilder.Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			got, err := parsePrivateClaims(token)
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}

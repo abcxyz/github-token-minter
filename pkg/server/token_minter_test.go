@@ -203,6 +203,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 					b.Issuer(config.GoogleIssuer)
 					b.Audience([]string{"abcxyz/pkg"})
 					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+					b.Claim("email", "service-account-email@project-id.iam.gserviceaccount.com")
 				})
 				r.Header.Set("X-GitHub-OIDC-Token", signed)
 				return r

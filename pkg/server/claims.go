@@ -39,28 +39,33 @@ type JWTParser struct {
 // more usable forms such and org and repo names in the
 // correct format.
 type oidcClaims struct {
-	Audience          []string `json:"aud"`
-	Subject           string   `json:"sub"`
-	Issuer            string   `json:"iss"`
-	Ref               string   `json:"ref"`
-	RefType           string   `json:"ref_type"`
-	Sha               string   `json:"sha"`
-	Repository        string   `json:"repository"`
-	RepositoryID      string   `json:"repository_id"`
-	RepositoryOwner   string   `json:"repository_owner"`
-	RepositoryOwnerID string   `json:"repository_owner_id"`
-	RunID             string   `json:"run_id"`
-	RunNumber         string   `json:"run_number"`
-	Actor             string   `json:"actor"`
-	ActorID           string   `json:"actor_id"`
-	EventName         string   `json:"event_name"`
-	Workflow          string   `json:"workflow"`
-	WorkflowRef       string   `json:"workflow_ref"`
-	WorkflowSha       string   `json:"workflow_sha"`
-	JobWorkflowRef    string   `json:"job_workflow_ref"`
-	JobWorkflowSha    string   `json:"job_workflow_sha"`
-	ParsedOrgName     string   `json:"parsed_org_name"`
-	ParsedRepoName    string   `json:"parsed_repo_name"`
+	Audience []string `json:"aud"`
+	Subject  string   `json:"sub"`
+	Issuer   string   `json:"iss"`
+
+	// GitHub claims
+	Ref               string `json:"ref"`
+	RefType           string `json:"ref_type"`
+	Sha               string `json:"sha"`
+	Repository        string `json:"repository"`
+	RepositoryID      string `json:"repository_id"`
+	RepositoryOwner   string `json:"repository_owner"`
+	RepositoryOwnerID string `json:"repository_owner_id"`
+	RunID             string `json:"run_id"`
+	RunNumber         string `json:"run_number"`
+	Actor             string `json:"actor"`
+	ActorID           string `json:"actor_id"`
+	EventName         string `json:"event_name"`
+	Workflow          string `json:"workflow"`
+	WorkflowRef       string `json:"workflow_ref"`
+	WorkflowSha       string `json:"workflow_sha"`
+	JobWorkflowRef    string `json:"job_workflow_ref"`
+	JobWorkflowSha    string `json:"job_workflow_sha"`
+	ParsedOrgName     string `json:"parsed_org_name"`
+	ParsedRepoName    string `json:"parsed_repo_name"`
+
+	// Google claims
+	Email string `json:"email"`
 }
 
 // asMap converts the struct into a map of strings which
@@ -89,6 +94,7 @@ func (c *oidcClaims) asMap() map[string]interface{} {
 		"job_workflow_sha":    c.JobWorkflowSha,
 		"parsed_org_name":     c.ParsedOrgName,
 		"parsed_repo_name":    c.ParsedRepoName,
+		"email":               c.Email,
 	}
 }
 
@@ -139,22 +145,27 @@ func parsePrivateClaims(oidcToken jwt.Token) (*oidcClaims, error) {
 	}
 	claims.Repository = r
 
-	claims.Ref = optionalClaim(oidcToken, "ref")
-	claims.RefType = optionalClaim(oidcToken, "ref_type")
-	claims.Sha = optionalClaim(oidcToken, "sha")
-	claims.RepositoryID = optionalClaim(oidcToken, "repository_id")
-	claims.RepositoryOwner = optionalClaim(oidcToken, "repository_owner")
-	claims.RepositoryOwnerID = optionalClaim(oidcToken, "repository_owner_id")
-	claims.RunID = optionalClaim(oidcToken, "run_id")
-	claims.RunNumber = optionalClaim(oidcToken, "run_number")
-	claims.Actor = optionalClaim(oidcToken, "actor")
-	claims.ActorID = optionalClaim(oidcToken, "actor_id")
-	claims.EventName = optionalClaim(oidcToken, "event_name")
-	claims.Workflow = optionalClaim(oidcToken, "workflow")
-	claims.WorkflowRef = optionalClaim(oidcToken, "workflow_ref")
-	claims.WorkflowSha = optionalClaim(oidcToken, "workflow_sha")
-	claims.JobWorkflowRef = optionalClaim(oidcToken, "job_workflow_ref")
-	claims.JobWorkflowSha = optionalClaim(oidcToken, "job_workflow_sha")
+	claims.Ref = optionalClaim[string](oidcToken, "ref")
+	claims.RefType = optionalClaim[string](oidcToken, "ref_type")
+	claims.Sha = optionalClaim[string](oidcToken, "sha")
+	claims.RepositoryID = optionalClaim[string](oidcToken, "repository_id")
+	claims.RepositoryOwner = optionalClaim[string](oidcToken, "repository_owner")
+	claims.RepositoryOwnerID = optionalClaim[string](oidcToken, "repository_owner_id")
+	claims.RunID = optionalClaim[string](oidcToken, "run_id")
+	claims.RunNumber = optionalClaim[string](oidcToken, "run_number")
+	claims.Actor = optionalClaim[string](oidcToken, "actor")
+	claims.ActorID = optionalClaim[string](oidcToken, "actor_id")
+	claims.EventName = optionalClaim[string](oidcToken, "event_name")
+	claims.Workflow = optionalClaim[string](oidcToken, "workflow")
+	claims.WorkflowRef = optionalClaim[string](oidcToken, "workflow_ref")
+	claims.WorkflowSha = optionalClaim[string](oidcToken, "workflow_sha")
+	claims.JobWorkflowRef = optionalClaim[string](oidcToken, "job_workflow_ref")
+	claims.JobWorkflowSha = optionalClaim[string](oidcToken, "job_workflow_sha")
+
+	emailVerified := optionalClaim[bool](oidcToken, "email_verified")
+	if emailVerified {
+		claims.Email = optionalClaim[string](oidcToken, "email")
+	}
 
 	// The repository claim is of the form <org_name>/<repo_name>.
 	// Use this string split instead of attempting to use this and the repository_owner claim since
@@ -171,7 +182,7 @@ func parsePrivateClaims(oidcToken jwt.Token) (*oidcClaims, error) {
 
 func extractRepository(oidcToken jwt.Token) (string, error) {
 	if oidcToken.Issuer() == config.GitHubIssuer {
-		return requiredClaim(oidcToken, "repository")
+		return requiredClaim[string](oidcToken, "repository")
 	}
 
 	if len(oidcToken.Audience()) != 1 {
@@ -181,24 +192,25 @@ func extractRepository(oidcToken jwt.Token) (string, error) {
 	return scopeRepository, nil
 }
 
-func requiredClaim(oidcToken jwt.Token, claim string) (string, error) {
-	return tokenClaimString(oidcToken, claim, true)
+func requiredClaim[T any](oidcToken jwt.Token, claim string) (T, error) {
+	return tokenClaim[T](oidcToken, claim, true)
 }
 
-func optionalClaim(oidcToken jwt.Token, claim string) string {
+func optionalClaim[T any](oidcToken jwt.Token, claim string) T {
 	// Intentionally dropping the error here since the existence of the claim does not matter
-	result, _ := tokenClaimString(oidcToken, claim, false)
+	result, _ := tokenClaim[T](oidcToken, claim, false)
 	return result
 }
 
-func tokenClaimString(oidcToken jwt.Token, claim string, required bool) (string, error) {
+func tokenClaim[T any](oidcToken jwt.Token, claim string, required bool) (T, error) {
 	val, ok := oidcToken.Get(claim)
+	var zero T
 	if required && !ok {
-		return "", fmt.Errorf("claim %q not found", claim)
+		return zero, fmt.Errorf("claim %q not found", claim)
 	}
-	result, ok := val.(string)
+	result, ok := val.(T)
 	if required && !ok {
-		return "", fmt.Errorf("claim %q not the correct type want=string, got=%T", claim, val)
+		return zero, fmt.Errorf("claim %q not the correct type want=string, got=%T", claim, val)
 	}
 	return result, nil
 }
