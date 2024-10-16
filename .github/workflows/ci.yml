@@ -161,20 +161,29 @@ jobs:
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/abcxyz/github-token-minter/issues/events
 
-      - id: 'mint-google-token'
-        uses: './.github/actions/mint-token'
+      - id: 'get-gcloud-token'
+        name: 'Get GCloud Auth Token'
+        uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
         with:
-          wif_provider: '${{ vars.WIF_PROVIDER }}'
-          wif_service_account: '${{ vars.WIF_SERVICE_ACCOUNT }}'
-          service_audience: '${{ env.INTEGRATION_SERVICE_AUDIENCE }}'
-          service_url: '${{ env.INTEGRATION_SERVICE_URL }}'
-          requested_permissions: '{"scope":"integ","repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
-          use_gcloud_token: 'true'
+          create_credentials_file: false
+          export_environment_variables: false
+          workload_identity_provider: '${{ inputs.wif_provider }}'
+          service_account: '${{ inputs.wif_service_account }}'
+          token_format: 'id_token'
+          id_token_audience: 'abcxyz/github-token-minter'
+          id_token_include_email: true
 
-      - name: 'verify-google-token'
+      - id: 'mint-and-verify-gcloud-token'
         run: |
+          token=$(curl --fail \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-OIDC-Token: ${{ steps.get-gcloud-token.outputs.token }}" \
+            -H "Authorization: Bearer ${{ steps.get-gcloud-token.outputs.token }}" \
+            -d '{"scope":"integ","repositories":["github-token-minter"],"permissions":{"issues":"read"}}' \
+            ${{ env.INTEGRATION_SERVICE_URL }}/token | jq '.token')
           curl --fail \
             -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ steps.mint-google-token.outputs.token }}"\
+            -H "Authorization: Bearer $token"\
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/abcxyz/github-token-minter/issues/events

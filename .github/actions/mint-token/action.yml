@@ -17,9 +17,6 @@ inputs:
   requested_permissions:
     description: 'Permission request information in the form {"repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
     required: true
-  use_gcloud_token:
-    description: 'Call github-token-minter service with OIDC token issued by GCP service account instead of GitHub'
-    default: 'false'
 
 outputs:
   token:
@@ -41,31 +38,17 @@ runs:
         id_token_audience: '${{ inputs.service_audience }}'
         id_token_include_email: true
 
-    - id: 'gettoken'
-      name: 'Get GCloud Auth Token'
-      uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
-      with:
-        create_credentials_file: false
-        export_environment_variables: false
-        workload_identity_provider: '${{ inputs.wif_provider }}'
-        service_account: '${{ inputs.wif_service_account }}'
-        token_format: 'id_token'
-        id_token_audience: 'abcxyz/github-token-minter'
-        id_token_include_email: true
-
     - id: 'mint-token'
       uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
       env:
         TOKEN: '${{ steps.auth.outputs.id_token }}'
-        GCLOUD_TOKEN: '${{ steps.gettoken.outputs.id_token }}'
         SERVICE_URL: '${{ inputs.service_url }}'
         REQUESTED_PERMISSIONS: '${{ inputs.requested_permissions }}'
-        USE_GCLOUD_TOKEN: '${{ inputs.use_gcloud_token }}'
       with:
         script: |
           try {
-            const { TOKEN, SERVICE_URL, REQUESTED_PERMISSIONS, USE_GCLOUD_TOKEN, GCLOUD_TOKEN } = process.env;
-            const idToken = USE_GCLOUD_TOKEN == "true" ? GCLOUD_TOKEN : await core.getIDToken('github-token-minter');
+            const { TOKEN, SERVICE_URL, REQUESTED_PERMISSIONS } = process.env;
+            const idToken = await core.getIDToken('github-token-minter');
             const response = await fetch(`${SERVICE_URL}/token`, {
               method: 'post',
               body: REQUESTED_PERMISSIONS,
