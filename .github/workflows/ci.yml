@@ -167,8 +167,8 @@ jobs:
         with:
           create_credentials_file: false
           export_environment_variables: false
-          workload_identity_provider: '${{ inputs.wif_provider }}'
-          service_account: '${{ inputs.wif_service_account }}'
+          workload_identity_provider: '${{ vars.wif_provider }}'
+          service_account: '${{ vars.wif_service_account }}'
           token_format: 'id_token'
           id_token_audience: 'abcxyz/github-token-minter'
           id_token_include_email: true
