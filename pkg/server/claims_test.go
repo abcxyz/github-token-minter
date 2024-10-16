@@ -155,6 +155,23 @@ func TestParsePrivateClaims(t *testing.T) {
 				Audience([]string{"https://github.com/abcxyz/test"}).
 				Subject("12571298569128659").
 				Issuer("https://accounts.google.com").
+				Claim("email_verified", false).
+				Claim("email", "service-account@project-id.iam.gserviceaccount.com"),
+			want: &oidcClaims{
+				Audience:       []string{"https://github.com/abcxyz/test"},
+				Issuer:         "https://accounts.google.com",
+				Subject:        "12571298569128659",
+				Repository:     "abcxyz/test",
+				ParsedOrgName:  "abcxyz",
+				ParsedRepoName: "test",
+			},
+		},
+		{
+			name: "google-missing-email-verified",
+			tokenBuilder: jwt.NewBuilder().
+				Audience([]string{"https://github.com/abcxyz/test"}).
+				Subject("12571298569128659").
+				Issuer("https://accounts.google.com").
 				Claim("email", "service-account@project-id.iam.gserviceaccount.com"),
 			want: &oidcClaims{
 				Audience:       []string{"https://github.com/abcxyz/test"},
