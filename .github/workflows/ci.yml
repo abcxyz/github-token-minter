@@ -178,8 +178,8 @@ jobs:
           token=$(curl --fail \
             -X POST \
             -H "Content-Type: application/json" \
-            -H "X-GitHub-OIDC-Token: ${{ steps.get-gcloud-token.outputs.token }}" \
-            -H "Authorization: Bearer ${{ steps.get-gcloud-token.outputs.token }}" \
+            -H "X-GitHub-OIDC-Token: ${{ steps.get-gcloud-token.outputs.id_token }}" \
+            -H "Authorization: Bearer ${{ steps.get-gcloud-token.outputs.id_token }}" \
             -d '{"scope":"integ","repositories":["github-token-minter"],"permissions":{"issues":"read"}}' \
             ${{ env.INTEGRATION_SERVICE_URL }}/token | jq '.token')
           curl --fail \
