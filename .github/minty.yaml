@@ -2,9 +2,14 @@ version: 'minty.abcxyz.dev/v2'
 
 rule:
   if: |-
-    assertion.iss == issuers.github &&
-    assertion.repository_owner_id == '93787867' &&
-    assertion.repository_id == '576289489'
+    (
+      assertion.iss == issuers.github &&
+      assertion.repository_owner_id == '93787867' &&
+      assertion.repository_id == '576289489'
+    ) || (
+      assertion.iss == issuers.google &&
+      assertion.sub == '112892967544648233217' // integration WIF service account
+    )
 
 scope:
   create-tag:
@@ -21,7 +26,11 @@ scope:
 
   integ:
     rule:
-      if: 'assertion.workflow_ref.startsWith("abcxyz/github-token-minter/.github/workflows/ci.yml")'
+      if: |-
+        assertion.workflow_ref.startsWith("abcxyz/github-token-minter/.github/workflows/ci.yml") || (
+          assertion.iss == issuers.google &&
+          assertion.sub == "112892967544648233217" // integration WIF service account
+        )
     repositories:
       - 'github-token-minter'
     permissions:
