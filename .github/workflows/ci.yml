@@ -187,7 +187,7 @@ jobs:
 
       - id: 'mint-and-verify-gcloud-token'
         run: |
-          token=$(curl --fail \
+          token=$(curl --fail -s \
             -X POST \
             -H "Content-Type: application/json" \
             -H "X-GitHub-OIDC-Token: ${{ steps.get-oidc-caller-token.outputs.id_token }}" \
