@@ -161,6 +161,8 @@ jobs:
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/abcxyz/github-token-minter/issues/events
 
+      # Generate an id token that impersonates a service account to call the minty endpoint.
+      # Audience must be set to the integration service in order to call Cloud Run.
       - id: 'auth'
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
@@ -173,6 +175,8 @@ jobs:
           id_token_audience: '${{ env.INTEGRATION_SERVICE_AUDIENCE }}'
           id_token_include_email: true
 
+      # Generate an id token that impersonates a service account to request access to the minty repository.
+      # Audience must be set to the relevant repo ('abcxyz/github-token-minter') so minty can lookup the correct config.
       - id: 'get-oidc-caller-token'
         name: 'Get GCloud Auth Token to use as OIDC token input to token minter'
         uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
