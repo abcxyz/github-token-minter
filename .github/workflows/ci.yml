@@ -144,7 +144,7 @@ jobs:
       - name: 'Checkout'
         uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
 
-      - id: 'mint-token'
+      - id: 'mint-github-token'
         uses: './.github/actions/mint-token'
         with:
           wif_provider: '${{ vars.WIF_PROVIDER }}'
@@ -153,10 +153,53 @@ jobs:
           service_url: '${{ env.INTEGRATION_SERVICE_URL }}'
           requested_permissions: '{"scope":"integ","repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
 
-      - name: 'verify'
+      - name: 'verify-github-token'
         run: |
           curl --fail \
             -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ steps.mint-token.outputs.token }}"\
+            -H "Authorization: Bearer ${{ steps.mint-github-token.outputs.token }}"\
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/abcxyz/github-token-minter/issues/events
+
+      # Generate an id token that impersonates a service account to call the minty endpoint.
+      # Audience must be set to the integration service in order to call Cloud Run.
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
+        with:
+          create_credentials_file: false
+          export_environment_variables: false
+          workload_identity_provider: '${{ vars.wif_provider }}'
+          service_account: '${{ vars.wif_service_account }}'
+          token_format: 'id_token'
+          id_token_audience: '${{ env.INTEGRATION_SERVICE_AUDIENCE }}'
+          id_token_include_email: true
+
+      # Generate an id token that impersonates a service account to request access to the minty repository.
+      # Audience must be set to the relevant repo ('abcxyz/github-token-minter') so minty can lookup the correct config.
+      - id: 'get-oidc-caller-token'
+        name: 'Get GCloud Auth Token to use as OIDC token input to token minter'
+        uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
+        with:
+          create_credentials_file: false
+          export_environment_variables: false
+          workload_identity_provider: '${{ vars.wif_provider }}'
+          service_account: '${{ vars.wif_service_account }}'
+          token_format: 'id_token'
+          id_token_audience: 'abcxyz/github-token-minter'
+          id_token_include_email: true
+
+      - id: 'mint-and-verify-gcloud-token'
+        run: |
+          token=$(curl --fail \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-OIDC-Token: ${{ steps.get-oidc-caller-token.outputs.id_token }}" \
+            -H "Authorization: Bearer ${{ steps.auth.outputs.id_token }}" \
+            -d '{"scope":"integ","repositories":["github-token-minter"],"permissions":{"issues":"read"}}' \
+            ${{ env.INTEGRATION_SERVICE_URL }}/token)
+          curl --fail \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $token"\
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/abcxyz/github-token-minter/issues/events
