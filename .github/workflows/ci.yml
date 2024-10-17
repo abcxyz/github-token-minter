@@ -187,13 +187,13 @@ jobs:
 
       - id: 'mint-and-verify-gcloud-token'
         run: |
-          token=$(curl --fail -s \
+          token=$(curl --fail \
             -X POST \
             -H "Content-Type: application/json" \
             -H "X-GitHub-OIDC-Token: ${{ steps.get-oidc-caller-token.outputs.id_token }}" \
             -H "Authorization: Bearer ${{ steps.auth.outputs.id_token }}" \
             -d '{"scope":"integ","repositories":["github-token-minter"],"permissions":{"issues":"read"}}' \
-            ${{ env.INTEGRATION_SERVICE_URL }}/token | jq '.token')
+            ${{ env.INTEGRATION_SERVICE_URL }}/token)
           curl --fail \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $token"\
