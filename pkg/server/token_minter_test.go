@@ -214,6 +214,32 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			expResp: "this-is-the-token-from-github",
 		},
 		{
+			name: "happy_path_github_both_headers",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signedV2 := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				signedV1 := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "invalid")
+				})
+				// v2 header should take priority
+				r.Header.Set("X-OIDC-Token", signedV2)
+				r.Header.Set("X-GitHub-OIDC-Token", signedV1)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "this-is-the-token-from-github",
+		},
+		{
 			name: "happy_path_non_github",
 			req: func() *http.Request {
 				body := strings.NewReader(`{"scope":"test"}`)
