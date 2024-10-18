@@ -95,7 +95,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			req: func() *http.Request {
 				body := strings.NewReader(`totally not valid`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
-				r.Header.Set("X-GitHub-OIDC-Token", "abc123")
+				r.Header.Set("X-OIDC-Token", "abc123")
 				return r
 			}(),
 			expCode: 400,
@@ -107,7 +107,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			req: func() *http.Request {
 				body := strings.NewReader(`{"scope":"test"}`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
-				r.Header.Set("X-GitHub-OIDC-Token", "abc123")
+				r.Header.Set("X-OIDC-Token", "abc123")
 				return r
 			}(),
 			expCode: 401,
@@ -123,7 +123,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
 					b.Issuer(config.GitHubIssuer)
 				})
-				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				r.Header.Set("X-OIDC-Token", signed)
 				return r
 			}(),
 			resolver: mockJwksResolver{
@@ -142,7 +142,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
 					b.Issuer(config.GoogleIssuer)
 				})
-				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				r.Header.Set("X-OIDC-Token", signed)
 				return r
 			}(),
 			resolver: mockJwksResolver{
@@ -163,7 +163,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 					b.Claim("repository", "abcxyz/pkg")
 					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
 				})
-				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				r.Header.Set("X-OIDC-Token", signed)
 				return r
 			}(),
 			resolver: mockJwksResolver{
@@ -184,7 +184,53 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 					b.Claim("repository", "abcxyz/pkg")
 					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
 				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "this-is-the-token-from-github",
+		},
+		{
+			name: "happy_path_github_v1_auth_header",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
 				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "this-is-the-token-from-github",
+		},
+		{
+			name: "happy_path_github_both_headers",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signedV2 := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				signedV1 := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "invalid")
+				})
+				// v2 header should take priority
+				r.Header.Set("X-OIDC-Token", signedV2)
+				r.Header.Set("X-GitHub-OIDC-Token", signedV1)
 				return r
 			}(),
 			resolver: mockJwksResolver{
@@ -205,7 +251,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
 					b.Claim("email", "service-account-email@project-id.iam.gserviceaccount.com")
 				})
-				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				r.Header.Set("X-OIDC-Token", signed)
 				return r
 			}(),
 			resolver: mockJwksResolver{
@@ -464,6 +510,15 @@ func TestAllowRequestAllRepos(t *testing.T) {
 				t.Errorf("allowRequestAllRepos got=%t, want=%t", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestAuthHeaderV1DeprecationDeadline(t *testing.T) {
+	t.Parallel()
+
+	keepUntil := time.Date(2024, 12, 13, 0, 0, 0, 0, time.UTC)
+	if time.Now().UTC().After(keepUntil) {
+		t.Fatalf("X-GitHub-OIDC-Token header should have been deprecated before %s", keepUntil)
 	}
 }
 
