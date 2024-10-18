@@ -513,6 +513,13 @@ func TestAllowRequestAllRepos(t *testing.T) {
 	}
 }
 
+func TestAuthHeaderV1DeprecationDeadline(t *testing.T) {
+	keepUntil := time.Date(2024, 12, 13, 0, 0, 0, 0, time.UTC)
+	if time.Now().UTC().After(keepUntil) {
+		t.Fatalf("X-GitHub-OIDC-Token header should have been deprecated before %s", keepUntil)
+	}
+}
+
 func testJwksServer(tb testing.TB) (*httptest.Server, crypto.Signer) {
 	tb.Helper()
 
