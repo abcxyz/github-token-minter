@@ -122,15 +122,15 @@ OIDC tokens for Google Cloud Service Accounts are also accepted. These tokens in
 ```json
 {
   "aud": "testorg/testrepo",
-  "azp": "105300703958411563713",
-  "email": "test-dmearl-sa@dmearl-gma-test-82.iam.gserviceaccount.com",
+  "azp": "123456789012345678901",
+  "email": "example-service-account@example-project-id.iam.gserviceaccount.com",
   "email_verified": "true",
   "exp": "1729210450",
   "iat": "1729206850",
   "iss": "https://accounts.google.com",
-  "sub": "105300703958411563713",
+  "sub": "123456789012345678901",
   "alg": "RS256",
-  "kid": "73e25f9789119c7875d58087a78ac23f5ef2eda3",
+  "kid": "ffffffffffffffffffffffffffffffffffffffff",
   "typ": "JWT"
 }
 ```
