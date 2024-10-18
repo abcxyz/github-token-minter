@@ -117,7 +117,7 @@ The object mirrors what is available in an OIDC token for a GitHub Workflow, bel
 }
 ```
 
-OIDC tokens for GCP Service Accounts are also accepted. These tokens include fewer claims and can be distinguished by the issuer field `iss`, example below. Note that GitHub tokens include a `repository` claim, but Google tokens specify the repository using the audience claim `aud`.
+OIDC tokens for Google Cloud Service Accounts are also accepted. These tokens include fewer claims and can be distinguished by the issuer field `iss`, example below. Note that GitHub tokens include a `repository` claim, but Google tokens specify the repository using the audience claim `aud`.
 
 ```json
 {
