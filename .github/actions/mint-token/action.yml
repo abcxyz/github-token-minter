@@ -54,7 +54,7 @@ runs:
               body: REQUESTED_PERMISSIONS,
               headers: {
                 'Content-Type': 'application/json',
-                'X-GitHub-OIDC-Token': idToken,
+                'X-OIDC-Token': idToken,
                 'Authorization': `Bearer ${TOKEN}`,
               }
             });
