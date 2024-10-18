@@ -95,7 +95,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			req: func() *http.Request {
 				body := strings.NewReader(`totally not valid`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
-				r.Header.Set("X-GitHub-OIDC-Token", "abc123")
+				r.Header.Set("X-OIDC-Token", "abc123")
 				return r
 			}(),
 			expCode: 400,
@@ -107,7 +107,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			req: func() *http.Request {
 				body := strings.NewReader(`{"scope":"test"}`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
-				r.Header.Set("X-GitHub-OIDC-Token", "abc123")
+				r.Header.Set("X-OIDC-Token", "abc123")
 				return r
 			}(),
 			expCode: 401,
@@ -123,7 +123,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
 					b.Issuer(config.GitHubIssuer)
 				})
-				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				r.Header.Set("X-OIDC-Token", signed)
 				return r
 			}(),
 			resolver: mockJwksResolver{
@@ -142,7 +142,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
 					b.Issuer(config.GoogleIssuer)
 				})
-				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				r.Header.Set("X-OIDC-Token", signed)
 				return r
 			}(),
 			resolver: mockJwksResolver{
@@ -163,7 +163,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 					b.Claim("repository", "abcxyz/pkg")
 					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
 				})
-				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				r.Header.Set("X-OIDC-Token", signed)
 				return r
 			}(),
 			resolver: mockJwksResolver{
@@ -175,6 +175,26 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 		},
 		{
 			name: "happy_path_github",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "this-is-the-token-from-github",
+		},
+		{
+			name: "happy_path_github_v1_auth_header",
 			req: func() *http.Request {
 				body := strings.NewReader(`{"scope":"test"}`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
@@ -205,7 +225,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
 					b.Claim("email", "service-account-email@project-id.iam.gserviceaccount.com")
 				})
-				r.Header.Set("X-GitHub-OIDC-Token", signed)
+				r.Header.Set("X-OIDC-Token", signed)
 				return r
 			}(),
 			resolver: mockJwksResolver{
