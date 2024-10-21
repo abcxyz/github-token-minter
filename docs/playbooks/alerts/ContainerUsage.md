@@ -2,7 +2,7 @@
 
 ## High CPU Utilization
 
-This alert fires when a Cloud Run service is experiencing high CPU utilization across all container instances. The alert policy monitors the P99 sampling metric. We consider any lower p value to be too relaxed. 
+This alert fires when the Cloud Run service is experiencing high CPU utilization across all container instances. The alert policy monitors the P99 sampling metric. We consider any lower p value to be too relaxed. 
 
 ### Triage Steps
 
