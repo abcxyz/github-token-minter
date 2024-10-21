@@ -2,7 +2,7 @@
 
 ## 4xx Alert Policy
 
-This alert fires when the Token Minter Cloud Run service is experiencing a high level of bad requests. The alert policy monitors the `request-count` metric and checks for the response code class 4xx.
+This alert fires when the Cloud Run service is experiencing a high level of bad requests. The alert policy monitors the `request-count` metric and checks for the response code class 4xx.
 
 ### Triage Steps
 
