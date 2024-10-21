@@ -209,8 +209,8 @@ jobs:
         with:
           wif_provider: '${{ vars.TOKEN_MINTER_WIF_PROVIDER }}'
           wif_service_account: '${{ vars.TOKEN_MINTER_WIF_SERVICE_ACCOUNT }}'
-          service_audience: '${{ env.TOKEN_MINTER_SERVICE_AUDIENCE }}'
-          service_url: '${{ env.TOKEN_MINTER_SERVICE_URL }}'
+          service_audience: '${{ vars.TOKEN_MINTER_SERVICE_AUDIENCE }}'
+          service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
           requested_permissions: '{"scope":"integ","repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
 
       - name: 'verify-prod-github-token'
