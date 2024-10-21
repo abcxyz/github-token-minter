@@ -2,7 +2,7 @@
 
 ## 5xx Alert Policy
 
-This alert fires when the Token Minter Cloud Run service is experiencing server faults. The alert policy monitors the `request-count` metric and checks for the response code class 5xx.
+This alert fires when the Cloud Run service is experiencing server faults. The alert policy monitors the `request-count` metric and checks for the response code class 5xx.
 
 ### Triage Steps
 
