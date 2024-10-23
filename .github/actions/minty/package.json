@@ -1,0 +1,17 @@
+{
+  "name": "minty",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build-min": "ncc build -o dist/main -m main.js && ncc build -o dist/post -m post.js",
+    "build": "ncc build -o dist/main main.js && ncc build -o dist/post post.js"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.0"
+  }
+}
