@@ -132,7 +132,7 @@ jobs:
             --image="${{ env.DOCKER_REPO }}/${{ env.IMAGE_NAME }}:${{ env.DOCKER_TAG }}-amd64" \
             --tag="${{ env.TAG_ID }}"
 
-  integration:
+  integration-mint-token:
     runs-on: 'ubuntu-latest'
     needs:
       - 'deployment'
@@ -161,6 +161,56 @@ jobs:
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/abcxyz/github-token-minter/issues/events
 
+  integration-minty:
+    runs-on: 'ubuntu-latest'
+    needs:
+      - 'deployment'
+    permissions:
+      contents: 'write'
+      packages: 'write'
+      id-token: 'write'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
+
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
+        with:
+          create_credentials_file: false
+          export_environment_variables: false
+          workload_identity_provider: '${{ vars.WIF_PROVIDER }}'
+          service_account: '${{ vars.WIF_SERVICE_ACCOUNT }}'
+          token_format: 'id_token'
+          id_token_audience: '${{ env.INTEGRATION_SERVICE_AUDIENCE }}'
+          id_token_include_email: true
+
+      - id: 'mint-github-token'
+        uses: './.github/actions/minty'
+        with:
+          id_token: '${{ steps.auth.outputs.id_token }}'
+          service_url: '${{ env.INTEGRATION_SERVICE_URL }}'
+          requested_permissions: '{"scope":"integ","repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
+
+      - name: 'verify-github-token'
+        run: |
+          curl --fail \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ steps.mint-github-token.outputs.token }}"\
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/abcxyz/github-token-minter/issues/events
+
+  integration-gcp-sa:
+    runs-on: 'ubuntu-latest'
+    needs:
+      - 'deployment'
+    permissions:
+      contents: 'write'
+      packages: 'write'
+      id-token: 'write'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
       # Generate an id token that impersonates a service account to call the minty endpoint.
       # Audience must be set to the integration service in order to call Cloud Run.
       - id: 'auth'
@@ -204,12 +254,34 @@ jobs:
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/abcxyz/github-token-minter/issues/events
 
-      - id: 'mint-prod-github-token'
-        uses: './.github/actions/mint-token'
+  verify-prod:
+    runs-on: 'ubuntu-latest'
+    needs:
+      - 'deployment'
+    permissions:
+      contents: 'write'
+      packages: 'write'
+      id-token: 'write'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332' # ratchet:actions/checkout@v4
+
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa' # ratchet:google-github-actions/auth@v2
         with:
-          wif_provider: '${{ vars.TOKEN_MINTER_WIF_PROVIDER }}'
-          wif_service_account: '${{ vars.TOKEN_MINTER_WIF_SERVICE_ACCOUNT }}'
-          service_audience: '${{ vars.TOKEN_MINTER_SERVICE_AUDIENCE }}'
+          create_credentials_file: false
+          export_environment_variables: false
+          workload_identity_provider: '${{ vars.TOKEN_MINTER_WIF_PROVIDER }}'
+          service_account: '${{ vars.TOKEN_MINTER_WIF_SERVICE_ACCOUNT }}'
+          token_format: 'id_token'
+          id_token_audience: '${{ vars.TOKEN_MINTER_SERVICE_AUDIENCE }}'
+          id_token_include_email: true
+
+      - id: 'mint-prod-github-token'
+        uses: './.github/actions/minty'
+        with:
+          id_token: '${{ steps.auth.outputs.id_token }}'
           service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
           requested_permissions: '{"scope":"integ","repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
 
