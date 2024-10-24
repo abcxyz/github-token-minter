@@ -1,0 +1,22 @@
+name: 'github-token-minter action'
+description: 'Exchange a GitHub OIDC token for one with elevated privlidges. Post processing causes the token to expire.'
+
+inputs:
+  id_token:
+    description: 'GCP Identity Token'
+    required: true
+  service_url:
+    description: 'URL for the production github-token-minter service'
+    required: true
+  requested_permissions:
+    description: 'Permission request information in the form {"repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
+    required: true
+
+outputs:
+  token:
+    description: 'Newly minted token'
+
+runs:
+  using: 'node20'
+  main: 'dist/main/index.js'
+  post: 'dist/post/index.js'
