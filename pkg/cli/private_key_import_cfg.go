@@ -17,6 +17,7 @@ package cli
 import (
 	"context"
 	"fmt"
+
 	"github.com/abcxyz/github-token-minter/pkg/privatekey"
 	"github.com/abcxyz/github-token-minter/pkg/version"
 	"github.com/abcxyz/pkg/cli"
