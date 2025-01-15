@@ -24,11 +24,11 @@ import (
 // Config defines the set of environment variables required
 // for running the private key job.
 type Config struct {
-	ProjectID      string
-	Location       string
-	KeyRing        string
-	Key            string
-	PrivateKeyFile string
+	ProjectID  string
+	Location   string
+	KeyRing    string
+	Key        string
+	PrivateKey string
 }
 
 // Validate validates the config after load.
@@ -49,8 +49,8 @@ func (cfg *Config) Validate() (vErr error) {
 		vErr = errors.Join(vErr, fmt.Errorf("KEY is required"))
 	}
 
-	if cfg.PrivateKeyFile == "" {
-		vErr = errors.Join(vErr, fmt.Errorf("PRIVATE_KEY_FILE is required"))
+	if cfg.PrivateKey == "" {
+		vErr = errors.Join(vErr, fmt.Errorf("PRIVATE_KEY is required"))
 	}
 	return
 }
@@ -88,10 +88,9 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "private-key-file",
-		Target: &cfg.PrivateKeyFile,
-		EnvVar: "PRIVATE_KEY_FILE",
-		Usage:  `The private key file to import.`,
+		Name:   "private-key",
+		Target: &cfg.PrivateKey,
+		Usage:  `The private key file to import. By default accept a filepath, and if input is exactly "-", read the value from stdin instead`,
 	})
 
 	return set
