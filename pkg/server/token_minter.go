@@ -35,9 +35,8 @@ import (
 )
 
 const (
-	AuthHeaderV2 = "X-OIDC-Token"
-	AuthHeaderV1 = "X-GitHub-OIDC-Token"
-	JWTCacheKey  = "github-app-jwt"
+	AuthHeader  = "X-OIDC-Token"
+	JWTCacheKey = "github-app-jwt"
 )
 
 // TokenMinterServer is the implementation of an HTTP server that exchanges
@@ -122,14 +121,10 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	logger := logging.FromContext(ctx)
 
 	// Retrieve the OIDC token from a header.
-	oidcHeader := r.Header.Get(AuthHeaderV2)
-	// Check old auth header for backwards compatibility
-	if oidcHeader == "" {
-		oidcHeader = r.Header.Get(AuthHeaderV1)
-	}
+	oidcHeader := r.Header.Get(AuthHeader)
 	// Ensure the token is in the header
 	if oidcHeader == "" {
-		return &apiResponse{http.StatusBadRequest, fmt.Sprintf("request not authorized: %q header is missing", AuthHeaderV2), nil}
+		return &apiResponse{http.StatusBadRequest, fmt.Sprintf("request not authorized: %q header is missing", AuthHeader), nil}
 	}
 	// Parse the request information
 	defer r.Body.Close()

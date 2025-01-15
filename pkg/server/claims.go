@@ -114,7 +114,7 @@ func (p *JWTParser) parseAuthToken(ctx context.Context, oidcHeader string) (*oid
 	if err != nil {
 		return nil, &apiResponse{
 			http.StatusUnauthorized,
-			fmt.Sprintf("request not authorized: %q header is invalid", AuthHeaderV2),
+			fmt.Sprintf("request not authorized: %q header is invalid", AuthHeader),
 			fmt.Errorf("failed to validate jwt: %w", err),
 		}
 	}
