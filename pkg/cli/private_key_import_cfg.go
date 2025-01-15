@@ -18,13 +18,13 @@ import (
 	"context"
 	"fmt"
 
+	kms "cloud.google.com/go/kms/apiv1"
+
 	"github.com/abcxyz/github-token-minter/pkg/privatekey"
 	"github.com/abcxyz/github-token-minter/pkg/version"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/multicloser"
-
-	kms "cloud.google.com/go/kms/apiv1"
 )
 
 var _ cli.Command = (*PrivateKeyImportCommand)(nil)
