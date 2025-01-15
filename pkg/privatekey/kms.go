@@ -33,7 +33,7 @@ func NewKeyServer(ctx context.Context, kms *kms.KeyManagementClient) (*KeyServer
 	return &KeyServer{kms}, nil
 }
 
-// CreateKeyRingIfNotExists create a key ring if it doesn't exist
+// CreateKeyRingIfNotExists create a key ring if it doesn't exist.
 func (s *KeyServer) CreateKeyRingIfNotExists(ctx context.Context, projectID, location, keyRing string) (*kmspb.KeyRing, error) {
 	parent := fmt.Sprintf("projects/%s/locations/%s", projectID, location)
 
