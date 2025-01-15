@@ -22,6 +22,9 @@ import (
 	"github.com/abcxyz/github-token-minter/pkg/version"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/multicloser"
+
+	kms "cloud.google.com/go/kms/apiv1"
 )
 
 var _ cli.Command = (*PrivateKeyImportCommand)(nil)
@@ -70,5 +73,29 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 	logger.DebugContext(ctx, "loaded configuration", "config", c.cfg)
+
+	var closer *multicloser.Closer
+	kmsClient, err := kms.NewKeyManagementClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to setup kms client: %w", err)
+	}
+	closer = multicloser.Append(closer, kmsClient.Close)
+
+	keyServer, err := privatekey.NewKeyServer(ctx, kmsClient)
+	if err != nil {
+		return fmt.Errorf("failed to create key server: %w", err)
+	}
+	gotKeyRing, err := keyServer.CreateKeyRingIfNotExists(ctx, c.cfg.ProjectID, c.cfg.Location, c.cfg.KeyRing)
+	if err != nil {
+		return fmt.Errorf("encountered error when creating/getting key ring: %w", err)
+	}
+	logger.InfoContext(ctx, "Got key ring successfully", "key ring", gotKeyRing.GetName())
+	// TODO Create key and import key version
+
+	defer func() {
+		if err := closer.Close(); err != nil {
+			logger.ErrorContext(ctx, "failed to close", "error", err)
+		}
+	}()
 	return nil
 }
