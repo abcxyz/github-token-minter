@@ -49,6 +49,17 @@ var rootCmd = func() cli.Command {
 					},
 				}
 			},
+			"private-key": func() cli.Command {
+				return &cli.RootCommand{
+					Name:        "private-key",
+					Description: "Private-key operations",
+					Commands: map[string]cli.CommandFactory{
+						"import": func() cli.Command {
+							return &PrivateKeyImportCommand{}
+						},
+					},
+				}
+			},
 		},
 	}
 }
