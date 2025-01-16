@@ -33,7 +33,7 @@ func NewKeyServer(ctx context.Context, kms *kms.KeyManagementClient) (*KeyServer
 	return &KeyServer{kms}, nil
 }
 
-// CreateKeyRingIfNotExists create a key ring if it doesn't exist.
+// CreateKeyRingIfNotExists get the existing key ring or create a key ring if it doesn't exist.
 func (s *KeyServer) CreateKeyRingIfNotExists(ctx context.Context, projectID, location, keyRing string) (*kmspb.KeyRing, error) {
 	parent := fmt.Sprintf("projects/%s/locations/%s", projectID, location)
 
@@ -62,8 +62,8 @@ func (s *KeyServer) CreateKeyRingIfNotExists(ctx context.Context, projectID, loc
 	return fetchedKeyRing, nil
 }
 
-// CreateKeyIfNotExists create a key if it doesn't exist.
-func (s *KeyServer) CreateKeyIfNotExists(ctx context.Context, projectID, location, keyRing, key string) (*kmspb.CryptoKey, error) {
+// GetOrCreateKey get the existing key or create a key if it doesn't exist.
+func (s *KeyServer) GetOrCreateKey(ctx context.Context, projectID, location, keyRing, key string) (*kmspb.CryptoKey, error) {
 	keyPath := fmt.Sprintf("projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s", projectID, location, keyRing, key)
 
 	fetchedKey, err := s.kms.GetCryptoKey(ctx, &kmspb.GetCryptoKeyRequest{
@@ -90,9 +90,8 @@ func (s *KeyServer) CreateKeyIfNotExists(ctx context.Context, projectID, locatio
 				return nil, fmt.Errorf("failed to create key with key path %q: %w", keyPath, err)
 			}
 			return createdKey, nil
-		} else {
-			return nil, fmt.Errorf("failed to query key ring with key path %q: %w", keyPath, err)
 		}
+		return nil, fmt.Errorf("failed to query key ring with key path %q: %w", keyPath, err)
 	}
 
 	return fetchedKey, nil
