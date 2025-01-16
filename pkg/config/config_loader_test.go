@@ -174,8 +174,6 @@ rule:
 
 	ctx := context.Background()
 	for _, tc := range cases {
-		tc := tc
-
 		mux := http.NewServeMux()
 		mux.Handle("/api/v3/repos/test_org/test_repo/contents/minty.yaml", tc.handler)
 		srv := httptest.NewServer(mux)
@@ -199,7 +197,7 @@ rule:
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
+				t.Fatal(msg)
 			}
 			if !tc.expErr && got == nil && tc.want != nil {
 				t.Errorf("program nil without error")
@@ -288,8 +286,6 @@ scope:
 		},
 	}
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -298,7 +294,7 @@ scope:
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
+				t.Fatal(msg)
 			}
 		})
 	}
@@ -338,8 +334,6 @@ func TestConfigFileLoaderSource(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
