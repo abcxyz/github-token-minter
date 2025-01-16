@@ -33,8 +33,8 @@ func NewKeyServer(ctx context.Context, kms *kms.KeyManagementClient) (*KeyServer
 	return &KeyServer{kms}, nil
 }
 
-// CreateKeyRingIfNotExists get the existing key ring or create a key ring if it doesn't exist.
-func (s *KeyServer) CreateKeyRingIfNotExists(ctx context.Context, projectID, location, keyRing string) (*kmspb.KeyRing, error) {
+// GetOrCreateKeyRing get the existing key ring or create a key ring if it doesn't exist.
+func (s *KeyServer) GetOrCreateKeyRing(ctx context.Context, projectID, location, keyRing string) (*kmspb.KeyRing, error) {
 	parent := fmt.Sprintf("projects/%s/locations/%s", projectID, location)
 
 	// Check if the key ring already exists.

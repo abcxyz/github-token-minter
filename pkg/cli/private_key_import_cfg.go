@@ -85,7 +85,7 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 	if err != nil {
 		return fmt.Errorf("failed to create key server: %w", err)
 	}
-	gotKeyRing, err := keyServer.CreateKeyRingIfNotExists(ctx, c.cfg.ProjectID, c.cfg.Location, c.cfg.KeyRing)
+	gotKeyRing, err := keyServer.GetOrCreateKeyRing(ctx, c.cfg.ProjectID, c.cfg.Location, c.cfg.KeyRing)
 	if err != nil {
 		return fmt.Errorf("encountered error when creating/getting key ring: %w", err)
 	}
