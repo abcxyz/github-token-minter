@@ -33,8 +33,8 @@ func NewKeyServer(ctx context.Context, kms *kms.KeyManagementClient) (*KeyServer
 	return &KeyServer{kms}, nil
 }
 
-// CreateKeyRingIfNotExists create a key ring if it doesn't exist.
-func (s *KeyServer) CreateKeyRingIfNotExists(ctx context.Context, projectID, location, keyRing string) (*kmspb.KeyRing, error) {
+// GetOrCreateKeyRing get the existing key ring or create a key ring if it doesn't exist.
+func (s *KeyServer) GetOrCreateKeyRing(ctx context.Context, projectID, location, keyRing string) (*kmspb.KeyRing, error) {
 	parent := fmt.Sprintf("projects/%s/locations/%s", projectID, location)
 
 	// Check if the key ring already exists.
@@ -60,4 +60,39 @@ func (s *KeyServer) CreateKeyRingIfNotExists(ctx context.Context, projectID, loc
 
 	// Key ring already exists.
 	return fetchedKeyRing, nil
+}
+
+// GetOrCreateKey get the existing key or create a key if it doesn't exist.
+func (s *KeyServer) GetOrCreateKey(ctx context.Context, projectID, location, keyRing, key string) (*kmspb.CryptoKey, error) {
+	keyPath := fmt.Sprintf("projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s", projectID, location, keyRing, key)
+
+	fetchedKey, err := s.kms.GetCryptoKey(ctx, &kmspb.GetCryptoKeyRequest{
+		Name: keyPath,
+	})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			// Key doesn't exist, create it.
+			req := &kmspb.CreateCryptoKeyRequest{
+				Parent:      fmt.Sprintf("projects/%s/locations/%s/keyRings/%s", projectID, location, keyRing),
+				CryptoKeyId: key,
+				CryptoKey: &kmspb.CryptoKey{
+					Purpose:    kmspb.CryptoKey_ASYMMETRIC_SIGN,
+					ImportOnly: true,
+					VersionTemplate: &kmspb.CryptoKeyVersionTemplate{
+						Algorithm: kmspb.CryptoKeyVersion_RSA_SIGN_PKCS1_2048_SHA256,
+					},
+				},
+				SkipInitialVersionCreation: true,
+			}
+
+			createdKey, err := s.kms.CreateCryptoKey(ctx, req)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create key with key path %q: %w", keyPath, err)
+			}
+			return createdKey, nil
+		}
+		return nil, fmt.Errorf("failed to query key ring with key path %q: %w", keyPath, err)
+	}
+
+	return fetchedKey, nil
 }
