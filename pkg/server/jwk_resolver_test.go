@@ -67,8 +67,6 @@ func TestJWKResolver(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -79,7 +77,7 @@ func TestJWKResolver(t *testing.T) {
 			keySet, err := resolver.ResolveKeySet(ctx, tokenString)
 
 			if diff := testutil.DiffErrString(err, tc.expErr); diff != "" {
-				t.Errorf(diff)
+				t.Error(diff)
 			}
 
 			if tc.expErr == "" && keySet.Len() == 0 {

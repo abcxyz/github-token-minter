@@ -45,15 +45,13 @@ func TestCompileExpression(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-		tc := tc
-
 		env, _ := cel.NewEnv(cel.Variable(AssertionKey, cel.DynType))
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			pgm, err := compileExpression(env, tc.expr)
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
+				t.Fatal(msg)
 			}
 			if !tc.expErr && pgm == nil {
 				t.Errorf("program nil without error")
@@ -84,15 +82,13 @@ func TestRulesetCompile(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-		tc := tc
-
 		env, _ := cel.NewEnv(cel.Variable(AssertionKey, cel.DynType))
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			err := tc.ruleset.compile(env)
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
+				t.Fatal(msg)
 			}
 			if !tc.expErr && tc.ruleset.Program == nil {
 				t.Errorf("program nil without error")
@@ -123,15 +119,13 @@ func TestScopeCompile(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-		tc := tc
-
 		env, _ := cel.NewEnv(cel.Variable(AssertionKey, cel.DynType))
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			err := tc.ruleset.compile(env)
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
+				t.Fatal(msg)
 			}
 			if !tc.expErr && tc.ruleset.Rule.Program == nil {
 				t.Errorf("program nil without error")
@@ -176,15 +170,13 @@ func TestConfigCompile(t *testing.T) {
 		},
 	}
 	for _, tc := range cases {
-		tc := tc
-
 		env, _ := cel.NewEnv(cel.Variable(AssertionKey, cel.DynType))
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			err := tc.config.compile(env)
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
+				t.Fatal(msg)
 			}
 			if !tc.expErr && tc.config.Rule.Program == nil {
 				t.Errorf("policy program nil without error")
@@ -290,7 +282,6 @@ func TestRuleEval(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

@@ -90,8 +90,6 @@ func TestTokenClaim(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -100,7 +98,7 @@ func TestTokenClaim(t *testing.T) {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
+				t.Fatal(msg)
 			}
 		})
 	}
@@ -212,8 +210,6 @@ func TestParsePrivateClaims(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -227,7 +223,7 @@ func TestParsePrivateClaims(t *testing.T) {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
+				t.Fatal(msg)
 			}
 		})
 	}

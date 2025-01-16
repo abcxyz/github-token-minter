@@ -217,8 +217,6 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -249,7 +247,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Errorf("expected body\n\n%s\n\nto contain\n\n%s\n\n", got, want)
 			}
 			if diff := testutil.DiffErrString(resp.Error, tc.expErr); diff != "" {
-				t.Errorf(diff)
+				t.Error(diff)
 			}
 		})
 	}
@@ -405,8 +403,6 @@ func TestValidateRepositories(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -415,7 +411,7 @@ func TestValidateRepositories(t *testing.T) {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
+				t.Fatal(msg)
 			}
 			if !tc.expErr && got == nil {
 				t.Errorf("program nil without error")
@@ -454,8 +450,6 @@ func TestAllowRequestAllRepos(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

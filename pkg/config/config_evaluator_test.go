@@ -370,8 +370,6 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 
 	ctx := context.Background()
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -382,7 +380,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
-				t.Fatalf(msg)
+				t.Fatal(msg)
 			}
 			if !tc.expErr && got == nil {
 				t.Errorf("program nil without error")
