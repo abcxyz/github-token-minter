@@ -95,6 +95,7 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 		return fmt.Errorf("encountered error when creating/getting key: %w", err)
 	}
 	logger.InfoContext(ctx, "Got key successfully", "key_ring", gotKey.GetName())
+
 	// TODO import key version
 
 	defer func() {

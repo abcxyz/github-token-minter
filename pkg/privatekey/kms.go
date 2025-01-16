@@ -15,13 +15,19 @@
 package privatekey
 
 import (
-	"context"
-	"fmt"
-
 	kms "cloud.google.com/go/kms/apiv1"
 	"cloud.google.com/go/kms/apiv1/kmspb"
+	"context"
+	"errors"
+	"fmt"
+	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"math/rand"
+)
+
+const (
+	letterBytes = "abcdefghijklmnopqrstuvwxyz"
 )
 
 // KeyServer provides functionalities regarding KMS private key import.
@@ -95,4 +101,54 @@ func (s *KeyServer) GetOrCreateKey(ctx context.Context, projectID, location, key
 	}
 
 	return fetchedKey, nil
+}
+
+// GetOrCreateImportJob get the existing active import job or create an import job if it doesn't exist.
+func (s *KeyServer) GetOrCreateImportJob(ctx context.Context, projectID, location, keyRing, importJobPrefix string) (*kmspb.ImportJob, error) {
+	parent := fmt.Sprintf("projects/%s/locations/%s/keyRings/%s", projectID, location, keyRing)
+
+	listReq := &kmspb.ListImportJobsRequest{
+		Parent: parent,
+		Filter: "state = EXPIRED AND protectionLevel = SOFTWARE AND importMethod = RSA_OAEP_4096_SHA256_AES_256",
+	}
+	it := s.kms.ListImportJobs(ctx, listReq)
+
+	for {
+		job, err := it.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to list import jobs with parent %q: %w", parent, err)
+		}
+
+	}
+
+	// No active import job found, create a new one
+	createReq := &kmspb.CreateImportJobRequest{
+		Parent:      parent,
+		ImportJobId: generateImportJobId(importJobPrefix), // Implement a function to generate a unique ID
+		ImportJob: &kmspb.ImportJob{
+			ImportMethod:    kmspb.ImportJob_RSA_OAEP_4096_SHA1_AES_256,
+			ProtectionLevel: kmspb.ProtectionLevel_SOFTWARE,
+		},
+	}
+	newJob, err := s.kms.CreateImportJob(ctx, createReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create import job: %w", err)
+	}
+
+	return newJob, nil
+}
+
+func generateImportJobId(prefix string) string {
+	randomS := randomString(4)
+	return fmt.Sprintf("%s-%s", prefix, randomS)
+}
+func randomString(n int) string {
+	r := make([]byte, n)
+	for i := range r {
+		r[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(r)
 }
