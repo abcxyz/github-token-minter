@@ -90,7 +90,12 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 		return fmt.Errorf("encountered error when creating/getting key ring: %w", err)
 	}
 	logger.InfoContext(ctx, "Got key ring successfully", "key_ring", gotKeyRing.GetName())
-	// TODO Create key and import key version
+	gotKey, err := keyServer.CreateKeyIfNotExists(ctx, c.cfg.ProjectID, c.cfg.Location, c.cfg.KeyRing, c.cfg.Key)
+	if err != nil {
+		return fmt.Errorf("encountered error when creating/getting key: %w", err)
+	}
+	logger.InfoContext(ctx, "Got key successfully", "key_ring", gotKey.GetName())
+	// TODO import key version
 
 	defer func() {
 		if err := closer.Close(); err != nil {
