@@ -89,12 +89,17 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 	if err != nil {
 		return fmt.Errorf("encountered error when creating/getting key ring: %w", err)
 	}
-	logger.InfoContext(ctx, "Got key ring successfully", "key_ring", gotKeyRing.GetName())
+	logger.InfoContext(ctx, "Got key ring successfully\n", "key_ring", gotKeyRing.GetName())
 	gotKey, err := keyServer.GetOrCreateKey(ctx, c.cfg.ProjectID, c.cfg.Location, c.cfg.KeyRing, c.cfg.Key)
 	if err != nil {
 		return fmt.Errorf("encountered error when creating/getting key: %w", err)
 	}
-	logger.InfoContext(ctx, "Got key successfully", "key_ring", gotKey.GetName())
+	logger.InfoContext(ctx, "Got key successfully\n", "key_ring", gotKey.GetName())
+	gotImportJob, err := keyServer.GetOrCreateImportJob(ctx, c.cfg.ProjectID, c.cfg.Location, c.cfg.KeyRing, c.cfg.ImportJobPrefix)
+	if err != nil {
+		return fmt.Errorf("encountered error when creating/getting import job: %w", err)
+	}
+	logger.InfoContext(ctx, "Got import job successfully\n", "import_job", gotImportJob.GetName())
 	// TODO import key version
 
 	defer func() {

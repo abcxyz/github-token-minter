@@ -24,11 +24,12 @@ import (
 // Config defines the set of environment variables required
 // for running the private key job.
 type Config struct {
-	ProjectID  string
-	Location   string
-	KeyRing    string
-	Key        string
-	PrivateKey string
+	ProjectID       string
+	Location        string
+	KeyRing         string
+	Key             string
+	PrivateKey      string
+	ImportJobPrefix string
 }
 
 // Validate validates the config after load.
@@ -52,6 +53,10 @@ func (cfg *Config) Validate() (vErr error) {
 	if cfg.PrivateKey == "" {
 		vErr = errors.Join(vErr, fmt.Errorf("PRIVATE_KEY is required"))
 	}
+
+	if cfg.ImportJobPrefix == "" {
+		vErr = errors.Join(vErr, fmt.Errorf("IMPORT_JOB_PREFIX is required"))
+	}
 	return
 }
 
@@ -67,10 +72,11 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "location",
-		Target: &cfg.Location,
-		EnvVar: "LOCATION",
-		Usage:  `The Cloud KMS location of the key ring.`,
+		Name:    "location",
+		Target:  &cfg.Location,
+		EnvVar:  "LOCATION",
+		Default: "global",
+		Usage:   `The Cloud KMS location of the key ring.`,
 	})
 
 	f.StringVar(&cli.StringVar{
@@ -85,6 +91,14 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		Target: &cfg.Key,
 		EnvVar: "KEY",
 		Usage:  `the name of the key.`,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:    "import-job-prefix",
+		Target:  &cfg.ImportJobPrefix,
+		EnvVar:  "IMPORT_JOB_PREFIX",
+		Default: "app-signing-key",
+		Usage:   `the prefix of the import job name.`,
 	})
 
 	f.StringVar(&cli.StringVar{

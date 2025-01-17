@@ -16,12 +16,21 @@ package privatekey
 
 import (
 	"context"
+	"crypto/rand"
+	"errors"
 	"fmt"
+	"math/big"
+	"strings"
 
 	kms "cloud.google.com/go/kms/apiv1"
 	"cloud.google.com/go/kms/apiv1/kmspb"
+	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	letterBytes = "abcdefghijklmnopqrstuvwxyz"
 )
 
 // KeyServer provides functionalities regarding KMS private key import.
@@ -95,4 +104,74 @@ func (s *KeyServer) GetOrCreateKey(ctx context.Context, projectID, location, key
 	}
 
 	return fetchedKey, nil
+}
+
+// GetOrCreateImportJob get the existing active import job or create an import job if it doesn't exist.
+func (s *KeyServer) GetOrCreateImportJob(ctx context.Context, projectID, location, keyRing, importJobPrefix string) (*kmspb.ImportJob, error) {
+	parent := fmt.Sprintf("projects/%s/locations/%s/keyRings/%s", projectID, location, keyRing)
+
+	listReq := &kmspb.ListImportJobsRequest{
+		Parent:   parent,
+		Filter:   "state = ACTIVE AND protectionLevel = SOFTWARE AND importMethod = RSA_OAEP_4096_SHA1_AES_256",
+		PageSize: 1000,
+	}
+	it := s.kms.ListImportJobs(ctx, listReq)
+
+	var jobs []*kmspb.ImportJob
+	for {
+		job, err := it.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to list import jobs with parent %q: %w", parent, err)
+		}
+		slices := strings.Split(job.GetName(), "/")
+		jobName := slices[len(slices)-1]
+		if strings.HasPrefix(jobName, importJobPrefix) {
+			jobs = append(jobs, job)
+		}
+	}
+	if len(jobs) > 0 {
+		return jobs[0], nil
+	}
+
+	jobID, err := generateImportJobID(importJobPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("failed to genereate import job id: %w", err)
+	}
+	createReq := &kmspb.CreateImportJobRequest{
+		Parent:      parent,
+		ImportJobId: jobID,
+		ImportJob: &kmspb.ImportJob{
+			ImportMethod:    kmspb.ImportJob_RSA_OAEP_4096_SHA1_AES_256,
+			ProtectionLevel: kmspb.ProtectionLevel_SOFTWARE,
+		},
+	}
+	newJob, err := s.kms.CreateImportJob(ctx, createReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create import job: %w", err)
+	}
+
+	return newJob, nil
+}
+
+func generateImportJobID(prefix string) (string, error) {
+	randomS, err := randomString(4)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random string: %w", err)
+	}
+	return fmt.Sprintf("%s-%s", prefix, randomS), nil
+}
+
+func randomString(n int) (string, error) {
+	r := make([]byte, n)
+	for i := range r {
+		randomIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(letterBytes))))
+		if err != nil {
+			return "", fmt.Errorf("failed to generate random index: %w", err)
+		}
+		r[i] = letterBytes[randomIndex.Int64()]
+	}
+	return string(r), nil
 }
