@@ -15,15 +15,17 @@
 package privatekey
 
 import (
-	kms "cloud.google.com/go/kms/apiv1"
-	"cloud.google.com/go/kms/apiv1/kmspb"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
+
+	kms "cloud.google.com/go/kms/apiv1"
+	"cloud.google.com/go/kms/apiv1/kmspb"
 	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"math/rand"
 )
 
 const (
@@ -109,10 +111,11 @@ func (s *KeyServer) GetOrCreateImportJob(ctx context.Context, projectID, locatio
 
 	listReq := &kmspb.ListImportJobsRequest{
 		Parent: parent,
-		Filter: "state = EXPIRED AND protectionLevel = SOFTWARE AND importMethod = RSA_OAEP_4096_SHA256_AES_256",
+		Filter: "state = ACTIVE AND protectionLevel = SOFTWARE AND importMethod = RSA_OAEP_4096_SHA1_AES_256",
 	}
 	it := s.kms.ListImportJobs(ctx, listReq)
 
+	var jobs []*kmspb.ImportJob
 	for {
 		job, err := it.Next()
 		if errors.Is(err, iterator.Done) {
@@ -121,13 +124,19 @@ func (s *KeyServer) GetOrCreateImportJob(ctx context.Context, projectID, locatio
 		if err != nil {
 			return nil, fmt.Errorf("failed to list import jobs with parent %q: %w", parent, err)
 		}
-
+		jobs = append(jobs, job)
+	}
+	if len(jobs) > 0 {
+		return jobs[0], nil
 	}
 
-	// No active import job found, create a new one
+	jobID, err := generateImportJobID(importJobPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("failed to genereate import job id: %w", err)
+	}
 	createReq := &kmspb.CreateImportJobRequest{
 		Parent:      parent,
-		ImportJobId: generateImportJobId(importJobPrefix), // Implement a function to generate a unique ID
+		ImportJobId: jobID,
 		ImportJob: &kmspb.ImportJob{
 			ImportMethod:    kmspb.ImportJob_RSA_OAEP_4096_SHA1_AES_256,
 			ProtectionLevel: kmspb.ProtectionLevel_SOFTWARE,
@@ -141,14 +150,22 @@ func (s *KeyServer) GetOrCreateImportJob(ctx context.Context, projectID, locatio
 	return newJob, nil
 }
 
-func generateImportJobId(prefix string) string {
-	randomS := randomString(4)
-	return fmt.Sprintf("%s-%s", prefix, randomS)
+func generateImportJobID(prefix string) (string, error) {
+	randomS, err := randomString(4)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random string: %w", err)
+	}
+	return fmt.Sprintf("%s-%s", prefix, randomS), nil
 }
-func randomString(n int) string {
+
+func randomString(n int) (string, error) {
 	r := make([]byte, n)
 	for i := range r {
-		r[i] = letterBytes[rand.Intn(len(letterBytes))]
+		randomIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(letterBytes))))
+		if err != nil {
+			return "", fmt.Errorf("failed to generate random index: %w", err)
+		}
+		r[i] = letterBytes[randomIndex.Int64()]
 	}
-	return string(r)
+	return string(r), nil
 }
