@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	kms "cloud.google.com/go/kms/apiv1"
 	"cloud.google.com/go/kms/apiv1/kmspb"
@@ -110,8 +111,9 @@ func (s *KeyServer) GetOrCreateImportJob(ctx context.Context, projectID, locatio
 	parent := fmt.Sprintf("projects/%s/locations/%s/keyRings/%s", projectID, location, keyRing)
 
 	listReq := &kmspb.ListImportJobsRequest{
-		Parent: parent,
-		Filter: "state = ACTIVE AND protectionLevel = SOFTWARE AND importMethod = RSA_OAEP_4096_SHA1_AES_256",
+		Parent:   parent,
+		Filter:   "state = ACTIVE AND protectionLevel = SOFTWARE AND importMethod = RSA_OAEP_4096_SHA1_AES_256",
+		PageSize: 1000,
 	}
 	it := s.kms.ListImportJobs(ctx, listReq)
 
@@ -124,7 +126,11 @@ func (s *KeyServer) GetOrCreateImportJob(ctx context.Context, projectID, locatio
 		if err != nil {
 			return nil, fmt.Errorf("failed to list import jobs with parent %q: %w", parent, err)
 		}
-		jobs = append(jobs, job)
+		slices := strings.Split(job.GetName(), "/")
+		jobName := slices[len(slices)-1]
+		if strings.HasPrefix(jobName, importJobPrefix) {
+			jobs = append(jobs, job)
+		}
 	}
 	if len(jobs) > 0 {
 		return jobs[0], nil
