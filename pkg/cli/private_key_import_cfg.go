@@ -105,7 +105,7 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 	if err != nil {
 		return fmt.Errorf("encountered error when checking state of import job: %w", err)
 	}
-	if importedJob.State != kmspb.ImportJob_ACTIVE {
+	if importedJob.GetState() != kmspb.ImportJob_ACTIVE {
 		return fmt.Errorf("import job is not in active stage")
 	}
 	createdKeyVersion, err := keyServer.ImportManuallyWrappedKey(ctx, gotImportJob.GetName(), gotKey.GetName(), c.cfg.PrivateKey)
@@ -117,7 +117,7 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 	if err != nil {
 		return fmt.Errorf("encountered error when querying imported key version %q: %w", createdKeyVersion.GetName(), err)
 	}
-	if importedKeyVersion.State != kmspb.CryptoKeyVersion_ENABLED {
+	if importedKeyVersion.GetState() != kmspb.CryptoKeyVersion_ENABLED {
 		return fmt.Errorf("import key version is not in enabled stage")
 	}
 	fmt.Printf("key version imported (%q) is ready to use\n",

@@ -212,7 +212,7 @@ func (s *KeyServer) ImportManuallyWrappedKey(ctx context.Context, importJobName,
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve import job: %w", err)
 	}
-	pubBlock, _ := pem.Decode([]byte(importJob.PublicKey.Pem))
+	pubBlock, _ := pem.Decode([]byte(importJob.GetPublicKey().GetPem()))
 	pubAny, err := x509.ParsePKIXPublicKey(pubBlock.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse import job public key: %w", err)
