@@ -15,11 +15,11 @@
 package cli
 
 import (
-	"cloud.google.com/go/kms/apiv1/kmspb"
 	"context"
 	"fmt"
 
 	kms "cloud.google.com/go/kms/apiv1"
+	"cloud.google.com/go/kms/apiv1/kmspb"
 
 	"github.com/abcxyz/github-token-minter/pkg/privatekey"
 	"github.com/abcxyz/github-token-minter/pkg/version"

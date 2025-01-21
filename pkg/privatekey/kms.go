@@ -15,8 +15,6 @@
 package privatekey
 
 import (
-	kms "cloud.google.com/go/kms/apiv1"
-	"cloud.google.com/go/kms/apiv1/kmspb"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -25,12 +23,15 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"math/big"
+	"strings"
+
+	kms "cloud.google.com/go/kms/apiv1"
+	"cloud.google.com/go/kms/apiv1/kmspb"
 	"github.com/google/tink/go/kwp/subtle"
 	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"math/big"
-	"strings"
 )
 
 const (
@@ -114,7 +115,7 @@ func (s *KeyServer) GetOrCreateKey(ctx context.Context, projectID, location, key
 func (s *KeyServer) GetOrCreateImportJob(ctx context.Context, projectID, location, keyRing, importJobPrefix string) (*kmspb.ImportJob, error) {
 	parent := fmt.Sprintf("projects/%s/locations/%s/keyRings/%s", projectID, location, keyRing)
 
-	//be careful when you change the import method, it may cause import failure
+	// be careful when you change the import method, it may cause import failure
 	listReq := &kmspb.ListImportJobsRequest{
 		Parent:   parent,
 		Filter:   "state = ACTIVE AND protectionLevel = SOFTWARE AND importMethod = RSA_OAEP_4096_SHA256_AES_256",
@@ -146,7 +147,7 @@ func (s *KeyServer) GetOrCreateImportJob(ctx context.Context, projectID, locatio
 		return nil, fmt.Errorf("failed to genereate import job id: %w", err)
 	}
 
-	//be careful when you change the import method, it may cause import failure
+	// be careful when you change the import method, it may cause import failure
 	createReq := &kmspb.CreateImportJobRequest{
 		Parent:      parent,
 		ImportJobId: jobID,
