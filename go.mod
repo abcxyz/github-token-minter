@@ -10,6 +10,7 @@ require (
 	github.com/google/cel-go v0.22.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-github/v64 v64.0.0
+	github.com/google/tink/go v1.7.0
 	github.com/lestrrat-go/jwx/v2 v2.1.3
 	google.golang.org/api v0.217.0
 	google.golang.org/grpc v1.69.4

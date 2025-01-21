@@ -15,6 +15,7 @@
 package cli
 
 import (
+	"cloud.google.com/go/kms/apiv1/kmspb"
 	"context"
 	"fmt"
 
@@ -89,18 +90,38 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 	if err != nil {
 		return fmt.Errorf("encountered error when creating/getting key ring: %w", err)
 	}
-	logger.InfoContext(ctx, "Got key ring successfully\n", "key_ring", gotKeyRing.GetName())
+	logger.DebugContext(ctx, "Got key ring successfully\n", "key_ring", gotKeyRing.GetName())
 	gotKey, err := keyServer.GetOrCreateKey(ctx, c.cfg.ProjectID, c.cfg.Location, c.cfg.KeyRing, c.cfg.Key)
 	if err != nil {
 		return fmt.Errorf("encountered error when creating/getting key: %w", err)
 	}
-	logger.InfoContext(ctx, "Got key successfully\n", "key_ring", gotKey.GetName())
+	logger.DebugContext(ctx, "Got key successfully", "key_ring", gotKey.GetName())
 	gotImportJob, err := keyServer.GetOrCreateImportJob(ctx, c.cfg.ProjectID, c.cfg.Location, c.cfg.KeyRing, c.cfg.ImportJobPrefix)
 	if err != nil {
 		return fmt.Errorf("encountered error when creating/getting import job: %w", err)
 	}
-	logger.InfoContext(ctx, "Got import job successfully\n", "import_job", gotImportJob.GetName())
-	// TODO import key version
+	logger.DebugContext(ctx, "Got import job successfully", "import_job", gotImportJob.GetName())
+	importedJob, err := keyServer.GetImportJob(ctx, gotImportJob.GetName())
+	if err != nil {
+		return fmt.Errorf("encountered error when checking state of import job: %w", err)
+	}
+	if importedJob.State != kmspb.ImportJob_ACTIVE {
+		return fmt.Errorf("import job is not in active stage")
+	}
+	createdKeyVersion, err := keyServer.ImportManuallyWrappedKey(ctx, gotImportJob.GetName(), gotKey.GetName(), c.cfg.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("failed to import key version: %w", err)
+	}
+	logger.DebugContext(ctx, "Got key version imported", "key_version", createdKeyVersion.GetName())
+	importedKeyVersion, err := keyServer.GetKeyVersion(ctx, createdKeyVersion.GetName())
+	if err != nil {
+		return fmt.Errorf("encountered error when querying imported key version %q: %w", createdKeyVersion.GetName(), err)
+	}
+	if importedKeyVersion.State != kmspb.CryptoKeyVersion_ENABLED {
+		return fmt.Errorf("import key version is not in enabled stage")
+	}
+	fmt.Printf("key version imported (%q) is ready to use\n",
+		importedKeyVersion.GetName())
 
 	defer func() {
 		if err := closer.Close(); err != nil {
