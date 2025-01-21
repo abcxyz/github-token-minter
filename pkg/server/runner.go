@@ -34,8 +34,13 @@ func Run(ctx context.Context, cfg *Config) error {
 		options = append(options, githubauth.WithBaseURL(cfg.GitHubAPIBaseURL))
 	}
 
+	signer, err := githubauth.NewPrivateKeySigner(cfg.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("failed to create private key signer: %w", err)
+	}
+
 	// Setup the GitHub App.
-	app, err := githubauth.NewApp(cfg.AppID, cfg.PrivateKey, options...)
+	app, err := githubauth.NewApp(cfg.AppID, signer, options...)
 	if err != nil {
 		return fmt.Errorf("failed to create github app: %w", err)
 	}
