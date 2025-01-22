@@ -114,7 +114,7 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 		return fmt.Errorf("failed to import key version: %w", err)
 	}
 	logger.DebugContext(ctx, "Got key version imported", "key_version", createdKeyVersion.GetName())
-	//sleep 3 second to wait for the key version to becoming enabled.
+	// sleep 3 second to wait for the key version to becoming enabled.
 	time.Sleep(3 * time.Second)
 	importedKeyVersion, err := keyServer.GetKeyVersion(ctx, createdKeyVersion.GetName())
 	if err != nil {
