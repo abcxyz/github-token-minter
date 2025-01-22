@@ -118,7 +118,7 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 		return fmt.Errorf("encountered error when querying imported key version %q: %w", createdKeyVersion.GetName(), err)
 	}
 	if importedKeyVersion.GetState() != kmspb.CryptoKeyVersion_ENABLED {
-		return fmt.Errorf("import key version is not in enabled stage")
+		return fmt.Errorf("import key version is not in enabled stage， current stage is %q", importedKeyVersion.GetState().String())
 	}
 	fmt.Printf("key version imported (%q) is ready to use\n",
 		importedKeyVersion.GetName())
