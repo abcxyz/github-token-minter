@@ -83,8 +83,6 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 		return fmt.Errorf("failed to setup kms client: %w", err)
 	}
 	closer = multicloser.Append(closer, kmsClient.Close)
-	backoff := retry.NewConstant(1 * time.Second)
-	backoff = retry.WithMaxRetries(5, backoff)
 
 	keyServer, err := privatekey.NewKeyServer(ctx, kmsClient)
 	if err != nil {
@@ -106,7 +104,7 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 	}
 	logger.DebugContext(ctx, "Got import job successfully", "import_job", gotImportJob.GetName())
 
-	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
+	if err := retry.Do(ctx, newBackoff(), func(ctx context.Context) error {
 		importedJob, err := keyServer.GetImportJob(ctx, gotImportJob.GetName())
 		if err != nil {
 			return fmt.Errorf("encountered error when checking state of import job: %w", err)
@@ -124,7 +122,7 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 	}
 	logger.DebugContext(ctx, "Got key version imported", "key_version", createdKeyVersion.GetName())
 
-	if err := retry.Do(ctx, backoff, func(ctx context.Context) error {
+	if err := retry.Do(ctx, newBackoff(), func(ctx context.Context) error {
 		importedKeyVersion, err := keyServer.GetKeyVersion(ctx, createdKeyVersion.GetName())
 		if err != nil {
 			return fmt.Errorf("encountered error when querying imported key version %q: %w", createdKeyVersion.GetName(), err)
@@ -146,4 +144,8 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 		}
 	}()
 	return nil
+}
+
+func newBackoff() retry.Backoff {
+	return retry.WithMaxRetries(5, retry.NewConstant(1*time.Second))
 }
