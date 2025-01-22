@@ -116,7 +116,7 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to check key version state to be enabled: %w", err)
+		return fmt.Errorf("failed to check import job state to be active: %w", err)
 	}
 	createdKeyVersion, err := keyServer.ImportManuallyWrappedKey(ctx, gotImportJob.GetName(), gotKey.GetName(), c.cfg.PrivateKey)
 	if err != nil {
