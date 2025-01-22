@@ -6,7 +6,7 @@ toolchain go1.23.4
 
 require (
 	cloud.google.com/go/kms v1.20.5
-	github.com/abcxyz/pkg v1.3.0
+	github.com/abcxyz/pkg v1.3.1
 	github.com/google/cel-go v0.22.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-github/v64 v64.0.0
@@ -44,7 +44,6 @@ require (
 	github.com/posener/complete/v2 v2.1.0 // indirect
 	github.com/posener/script v1.2.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
-	github.com/sethvargo/go-gcpkms v0.2.0 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
