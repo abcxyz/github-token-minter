@@ -37,13 +37,20 @@ type PrivateKeyImportCommand struct {
 }
 
 func (c *PrivateKeyImportCommand) Desc() string {
-	return ``
+	return `import the github private key to cloud KMS`
 }
 
 func (c *PrivateKeyImportCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
        Execute the Private Key Import Command 
+Import github private key to cloud KMS via file:
+
+      {{ COMMAND }} -project-id=<PROJECT_ID> -location=<LOCATION> -key-ring=<KEY_RING> -key=<KEY> -private-key=@<PRIVATE_KEY_FILE_PATH>
+
+Import github private key to cloud KMS via stdin:
+
+      {{ COMMAND }} -project-id=<PROJECT_ID> -location=<LOCATION> -key-ring=<KEY_RING> -key=<KEY> -private-key=-<STD_IN_PRIVATE_KEY_CONTENT>
 `
 }
 
