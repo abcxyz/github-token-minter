@@ -17,6 +17,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"time"
 
 	kms "cloud.google.com/go/kms/apiv1"
 	"cloud.google.com/go/kms/apiv1/kmspb"
@@ -106,13 +107,15 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 		return fmt.Errorf("encountered error when checking state of import job: %w", err)
 	}
 	if importedJob.GetState() != kmspb.ImportJob_ACTIVE {
-		return fmt.Errorf("import job is not in active stage")
+		return fmt.Errorf("import job is not in active stage, you may re-run it to retry")
 	}
 	createdKeyVersion, err := keyServer.ImportManuallyWrappedKey(ctx, gotImportJob.GetName(), gotKey.GetName(), c.cfg.PrivateKey)
 	if err != nil {
 		return fmt.Errorf("failed to import key version: %w", err)
 	}
 	logger.DebugContext(ctx, "Got key version imported", "key_version", createdKeyVersion.GetName())
+	//sleep 3 second to wait for the key version to becoming enabled.
+	time.Sleep(3 * time.Second)
 	importedKeyVersion, err := keyServer.GetKeyVersion(ctx, createdKeyVersion.GetName())
 	if err != nil {
 		return fmt.Errorf("encountered error when querying imported key version %q: %w", createdKeyVersion.GetName(), err)
