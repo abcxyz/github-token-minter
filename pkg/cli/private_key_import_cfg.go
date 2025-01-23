@@ -49,11 +49,11 @@ Usage: {{ COMMAND }} [options]
        Execute the Private Key Import Command 
 Import github private key to cloud KMS via file:
 
-      {{ COMMAND }} -project-id=<PROJECT_ID> -location=<LOCATION> -key-ring=<KEY_RING> -key=<KEY> -private-key=@<PRIVATE_KEY_FILE_PATH>
+      {{ COMMAND }} -project-id=<PROJECT_ID> -location=<LOCATION> -key-ring=<KEY_RING> -key=<KEY> -import-job-prefix=<IMPORT_JOB_PREFIX> -private-key=@<PRIVATE_KEY_FILE_PATH>
 
 Import github private key to cloud KMS via stdin:
 
-      {{ COMMAND }} -project-id=<PROJECT_ID> -location=<LOCATION> -key-ring=<KEY_RING> -key=<KEY> -private-key=-<STD_IN_PRIVATE_KEY_CONTENT>
+      {{ COMMAND }} -project-id=<PROJECT_ID> -location=<LOCATION> -key-ring=<KEY_RING> -key=<KEY> -import-job-prefix=<IMPORT_JOB_PREFIX> -private-key=-<STD_IN_PRIVATE_KEY_CONTENT>
 `
 }
 
