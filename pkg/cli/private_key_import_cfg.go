@@ -17,8 +17,11 @@ package cli
 import (
 	"context"
 	"fmt"
+	"time"
 
 	kms "cloud.google.com/go/kms/apiv1"
+	"cloud.google.com/go/kms/apiv1/kmspb"
+	"github.com/sethvargo/go-retry"
 
 	"github.com/abcxyz/github-token-minter/pkg/privatekey"
 	"github.com/abcxyz/github-token-minter/pkg/version"
@@ -96,18 +99,51 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 	if err != nil {
 		return fmt.Errorf("encountered error when creating/getting key ring: %w", err)
 	}
-	logger.InfoContext(ctx, "Got key ring successfully\n", "key_ring", gotKeyRing.GetName())
+	logger.DebugContext(ctx, "Got key ring successfully\n", "key_ring", gotKeyRing.GetName())
 	gotKey, err := keyServer.GetOrCreateKey(ctx, c.cfg.ProjectID, c.cfg.Location, c.cfg.KeyRing, c.cfg.Key)
 	if err != nil {
 		return fmt.Errorf("encountered error when creating/getting key: %w", err)
 	}
-	logger.InfoContext(ctx, "Got key successfully\n", "key_ring", gotKey.GetName())
+	logger.DebugContext(ctx, "Got key successfully", "key_ring", gotKey.GetName())
 	gotImportJob, err := keyServer.GetOrCreateImportJob(ctx, c.cfg.ProjectID, c.cfg.Location, c.cfg.KeyRing, c.cfg.ImportJobPrefix)
 	if err != nil {
 		return fmt.Errorf("encountered error when creating/getting import job: %w", err)
 	}
-	logger.InfoContext(ctx, "Got import job successfully\n", "import_job", gotImportJob.GetName())
-	// TODO import key version
+	logger.DebugContext(ctx, "Got import job successfully", "import_job", gotImportJob.GetName())
+
+	if err := retry.Do(ctx, newBackoff(), func(ctx context.Context) error {
+		importedJob, err := keyServer.GetImportJob(ctx, gotImportJob.GetName())
+		if err != nil {
+			return fmt.Errorf("encountered error when checking state of import job: %w", err)
+		}
+		if importedJob.GetState() != kmspb.ImportJob_ACTIVE {
+			return retry.RetryableError(fmt.Errorf("import job is not in active stage"))
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to check import job state to be active: %w", err)
+	}
+	createdKeyVersion, err := keyServer.ImportManuallyWrappedKey(ctx, gotImportJob.GetName(), gotKey.GetName(), c.cfg.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("failed to import key version: %w", err)
+	}
+	logger.DebugContext(ctx, "Got key version imported", "key_version", createdKeyVersion.GetName())
+
+	if err := retry.Do(ctx, newBackoff(), func(ctx context.Context) error {
+		importedKeyVersion, err := keyServer.GetKeyVersion(ctx, createdKeyVersion.GetName())
+		if err != nil {
+			return fmt.Errorf("encountered error when querying imported key version %q: %w", createdKeyVersion.GetName(), err)
+		}
+		if importedKeyVersion.GetState() != kmspb.CryptoKeyVersion_ENABLED {
+			return retry.RetryableError(fmt.Errorf("import key version is not in enabled stage"))
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to check key version state to be enabled: %w", err)
+	}
+
+	fmt.Printf("key version imported (%q) is ready to use\n",
+		createdKeyVersion.GetName())
 
 	defer func() {
 		if err := closer.Close(); err != nil {
@@ -115,4 +151,8 @@ func (c *PrivateKeyImportCommand) Run(ctx context.Context, args []string) error 
 		}
 	}()
 	return nil
+}
+
+func newBackoff() retry.Backoff {
+	return retry.WithMaxRetries(5, retry.NewConstant(1*time.Second))
 }

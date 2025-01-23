@@ -102,9 +102,11 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "private-key",
-		Target: &cfg.PrivateKey,
-		Usage:  `The private key to import. By default accept a filepath, and if input is exactly "-", read the value from stdin instead`,
+		Name:            "private-key",
+		Target:          &cfg.PrivateKey,
+		AllowFromFile:   true,
+		AllowFromPrompt: true,
+		Usage:           `The private key to import. By default accept a filepath, and if input is exactly "-", read the value from stdin instead`,
 	})
 
 	return set
