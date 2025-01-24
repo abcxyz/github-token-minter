@@ -83,7 +83,7 @@ func Run(ctx context.Context, cfg *Config) error {
 	// if a scope and a token were provided, run evaluation against them to
 	// determine if there is a scope match and then output the scope contents
 	if cfg.Scope != "" && cfg.Token != "" {
-		var token map[string]interface{}
+		var token map[string]any
 		if err := json.Unmarshal([]byte(cfg.Token), &token); err != nil {
 			return fmt.Errorf("error unmarshalling token content: %w", err)
 		}
