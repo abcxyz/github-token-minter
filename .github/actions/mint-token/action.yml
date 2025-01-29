@@ -47,7 +47,7 @@ runs:
       with:
         script: |
           try {
-            core.warning('This GitHub action is being deprecated. Please migrate to github.com/abcxyz/github-token-minter/actions/minty.')
+            core.warning('This GitHub action is being deprecated. Please migrate to github.com/abcxyz/github-token-minter/.github/actions/minty.')
 
             const { TOKEN, SERVICE_URL, REQUESTED_PERMISSIONS } = process.env;
             const idToken = await core.getIDToken('github-token-minter');
