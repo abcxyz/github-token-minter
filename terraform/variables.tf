@@ -87,3 +87,9 @@ variable "alerts" {
     }
   }
 }
+
+variable "envvars" {
+  type        = map(string)
+  default     = {}
+  description = "Environment variables for the Cloud Run service (plain text)."
+}
