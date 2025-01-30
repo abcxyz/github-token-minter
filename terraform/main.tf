@@ -65,6 +65,8 @@ module "cloud_run" {
     invokers   = toset(concat(var.service_iam.invokers, [google_service_account.wif_service_account.member]))
   }
 
+  envvars = var.envvars
+
   secret_envvars = {
     "GITHUB_APP_ID" : {
       name : "github-application-id",
