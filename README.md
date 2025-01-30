@@ -2,9 +2,9 @@
 
 GitHub Token Minter (Minty) is a service that acts as a GitHub App that can generate tokens with elevated privileges to allow a GitHub workflow to act upon other private repositories in an organization or on organization level resources such GitHub teams.
 
-This documents the current state of `github-token-minter` as of v2.x. For details on legacy deployments check the document at [docs/legacy/README.md](./docs/legacy/README.md).
+This documents the current state of `github-token-minter` as of v2.x. For details on legacy deployments check the document at [docs/guides/LEGACY.md](./docs/guides/LEGACY.md).
 
-If you are looking to migrate to v2.x from a v0.x release please see the migration guide at [docs/migration/README.md](./docs/migration/README.md).
+If you are looking to migrate to v2.x from a v0.x release please see the migration guide at [docs/migration/README.md](./docs/guides/MIGRATION_V2.md).
 
 ## Architecture
 

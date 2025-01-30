@@ -102,7 +102,13 @@ An existing workflow job definition like:
           wif_service_account: '${{ vars.WIF_SERVICE_ACCOUNT }}'
           service_audience: '${{ env.INTEGRATION_SERVICE_AUDIENCE }}'
           service_url: '${{ env.INTEGRATION_SERVICE_URL }}'
-          requested_permissions: '{"repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
+          requested_permissions: |-
+            {
+              "repositories": ["github-token-minter"],
+              "permissions": {
+                "issues": "read"
+              }
+            }
 ```
 
 would become
@@ -115,5 +121,12 @@ would become
           wif_service_account: '${{ vars.WIF_SERVICE_ACCOUNT }}'
           service_audience: '${{ env.INTEGRATION_SERVICE_AUDIENCE }}'
           service_url: '${{ env.INTEGRATION_SERVICE_URL }}'
-          requested_permissions: '{"scope":"integ","repositories":["github-token-minter"],"permissions":{"issues":"read"}}'
+          requested_permissions: |-
+            {
+              "scope": "read-issues",
+              "repositories": ["github-token-minter"],
+              "permissions": {
+                "issues": "read"
+              }
+            }
 ```
