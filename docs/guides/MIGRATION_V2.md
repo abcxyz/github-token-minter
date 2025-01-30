@@ -6,7 +6,7 @@ If you deploy version 2.0+ in the same way that you deploy legacy versions v0.x 
 
 ## Deploy v2.0
 
-The first step to get the new container deployed into your environment with no other changes. Use the same container build process used in v0.x deployments with the same configuration files. This ensures that you can get the container itself running and you aren't changing multiple variables simultaneously.
+The first step is to get the new container deployed into your environment with no other changes. Use the same container build process used in v0.x deployments with the same configuration files. This ensures that you can get the container itself running and you aren't changing multiple variables simultaneously.
 
 ## Configuration Files
 
