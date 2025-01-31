@@ -55,7 +55,7 @@ func (cfg *Config) Validate() error {
 	}
 
 	if cfg.OrgConfigRepo == "" {
-		cfg.OrgConfigRepo = ".google-github"
+		cfg.OrgConfigRepo = ".minty"
 	}
 	if cfg.OrgConfigPath == "" {
 		cfg.OrgConfigPath = "minty.yaml"
