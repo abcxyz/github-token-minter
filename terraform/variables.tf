@@ -81,7 +81,7 @@ variable "alerts" {
     channels_non_paging = {
       email = {
         labels = {
-          email_address = "replace@email.com"
+          email_address = ""
         }
       }
     }
