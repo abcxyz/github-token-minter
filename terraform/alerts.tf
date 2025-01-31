@@ -28,7 +28,9 @@ locals {
 }
 
 resource "google_monitoring_notification_channel" "non_paging" {
-  for_each = var.alerts.channels_non_paging
+  for_each = {
+    for k, v in var.alerts.channels_non_paging : k => v if v.labels.email_address != "" && var.alerts.enabled != false
+  }
 
   project = var.project_id
 
@@ -37,9 +39,8 @@ resource "google_monitoring_notification_channel" "non_paging" {
   labels       = each.value.labels
 }
 
-
 module "cloud_run_alerts" {
-  count = var.alerts.enabled ? 1 : 0
+  count = var.alerts.enabled && var.alerts.channels_non_paging.email.labels.email_address != "" ? 1 : 0
 
   source = "git::https://github.com/abcxyz/terraform-modules.git//modules/alerts_cloud_run?ref=597217bd226277c83de53fb426144f60d4708625"
 
