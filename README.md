@@ -67,7 +67,7 @@ CONFIGS_DIR                        | Location of local configuration files on th
 ISSUER_ALLOWLIST                   | The list of OIDC token issuers that GitHub Token Minter will accept. Defaults to accepting GitHub and Google tokens.
 JWKS_CACHE_DURATION                | The duration for which to cache the JWKS for an OIDC token issuer.
 REPO_CONFIG_PATH                   | The location within a repository to look for configuration files. Defaults to .github/minty.yaml
-ORG_CONFIG_REPO                    | The respository that contains the configuration file for an organization. Defaults to .google-github
+ORG_CONFIG_REPO                    | The respository that contains the configuration file for an organization. Defaults to .minty
 ORG_CONFIG_PATH                    | The location within an organization to look for configuration files. Defaults to minty.yaml
 REF                                | The ref (sha, branch, etc.) to look for configuration files at. Defaults to main
 
