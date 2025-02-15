@@ -44,7 +44,7 @@ import (
 func TestTokenMintServer_ProcessRequest(t *testing.T) {
 	t.Parallel()
 
-	ctx := logging.WithLogger(context.Background(), logging.TestLogger(t))
+	ctx := logging.WithLogger(t.Context(), logging.TestLogger(t))
 
 	jwksServer, signer := testJwksServer(t)
 
