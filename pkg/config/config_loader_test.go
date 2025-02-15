@@ -172,7 +172,7 @@ rule:
 		},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	for _, tc := range cases {
 		mux := http.NewServeMux()
 		mux.Handle("/api/v3/repos/test_org/test_repo/contents/minty.yaml", tc.handler)
