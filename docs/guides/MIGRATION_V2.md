@@ -2,11 +2,31 @@
 
 The changes made in version 2.0 to the configuration file structure force users to modify their existing configurations and move them into the new deployment locations. This guide will help to outline that process.
 
-If you deploy version 2.0+ in the same way that you deploy legacy versions v0.x they will work out of the box. The v2.0 server supports reading legacy configuration files and can be used without the direct scope targetting. However, this negates some of the benefits of decentralized configuration including requiring the deployer to rebuild the container with all configuration files stored locally.
+At the same time that you deploy version 2.0+, you must ensure that all of the workflows that reference Minty are up to date. [Ratchet](https://github.com/sethvargo/ratchet) is recommended to do this. The v2.0 server supports reading legacy configuration files and can be used without the direct scope targetting. However, this negates some of the benefits of decentralized configuration including requiring the deployer to rebuild the container with all configuration files stored locally.
 
 ## Deploy v2.0
 
-The first step is to get the new container deployed into your environment with no other changes. Use the same container build process used in v0.x deployments with the same configuration files. This ensures that you can get the container itself running and you aren't changing multiple variables simultaneously.
+The first step is to get the new container deployed into your environment with no other changes. Use the same container build process used in v0.x deployments with the same configuration files. This ensures that you can get the container itself running and you aren't changing other variables simultaneously.
+
+Example (in [abcxyz-services/github-token-minter/deployments/deploy.sh](https://github.com/abcxyz/abcxyz-services/blob/main/github-token-minter/deployments/deploy.sh)):
+```
+(before)
+GITHUB_TOKEN_MINTER_VERSION='v0.0.24'
+
+(after)
+GITHUB_TOKEN_MINTER_VERSION='v2.1.1'
+```
+
+**At the same time or immediately after this deployment**, workflow references to Minty need to change as well to ensure compatible headers.
+
+Example (in GitHub workflows):
+```
+(before)
+uses: 'abcxyz/github-token-minter/.github/actions/mint-token@268f5db75d6ce3da57eb82ee513aa0fe7231d89b' # ratchet:abcxyz/github-token-minter@v0.0.24
+
+(after)
+uses: 'abcxyz/github-token-minter/.github/actions/mint-token@3d06f6c61a3a3b28fc241a5105ee484c3c529f5f' # ratchet:abcxyz/github-token-minter/.github/actions/mint-token@v2.1.1
+```
 
 ## Configuration Files
 
