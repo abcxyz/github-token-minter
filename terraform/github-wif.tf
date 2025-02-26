@@ -19,7 +19,7 @@ locals {
     "attribute.aud" : "assertion.aud"
     "attribute.repository_owner_id" : "assertion.repository_owner_id"
   }
-  wif_attribute_condition = "attribute.repository_owner_id == \"${var.github_owner_id}\""
+  wif_attribute_condition = var.github_owner_id != "" ? "attribute.repository_owner_id == \"${var.github_owner_id}\"" : ""
 }
 
 resource "google_iam_workload_identity_pool" "default" {

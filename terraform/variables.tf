@@ -66,8 +66,9 @@ variable "ci_service_account_member" {
 }
 
 variable "github_owner_id" {
-  description = "The ID of the GitHub organization."
+  description = "The ID of the GitHub organization. If specified, the WIF pool will limit traffic to a single GitHub organization."
   type        = string
+  default     = ""
 }
 
 variable "alerts" {
