@@ -42,6 +42,36 @@ Previously, configuration files were stored in a centralized repository and adde
 
 Let's say you have a configuration file for a repository under the `foo` org called `bar.yaml`. This file would have been stored in a repository somewhere in a directory structure like `ghtm/configs/foo/bar.yaml`. This file should now live in the repository `foo/bar/.github/minty.yaml`.
 
+Before:
+```
+.
+└── foo (org)
+    ├── bar (repo)
+    ├── baz (repo)
+    └── abcxyz-services (repo)
+        └── github-token-minter
+            └── deployments
+                └── configs
+                    └── foo
+                        ├── bar.yaml
+                        └── baz.yaml
+```
+After:
+```
+.
+└── foo (org)
+    ├── bar (repo)
+    │   └── .github
+    │       └── minty.yaml (formerly bar.yaml)
+    ├── baz (repo)
+    │   └── .github
+    │       └── minty.yaml (formerly baz.yaml)
+    └── abcxyz-services (repo)
+        └── github-token-minter
+            └── deployments
+                └── c̶o̶n̶f̶i̶g̶s̶ (removed)
+```
+
 ### Migration
 
 Let's start with a typical v0.x configuration file to use as an example:
