@@ -18,8 +18,11 @@ locals {
     "attribute.actor" : "assertion.actor"
     "attribute.aud" : "assertion.aud"
     "attribute.repository_owner_id" : "assertion.repository_owner_id"
+    "attribute.enterprise_id" : "assertion.enterprise_id"
   }
-  wif_attribute_condition = "attribute.repository_owner_id == \"${var.github_owner_id}\""
+  wif_attr_org_id        = var.github_owner_id != "" ? "attribute.repository_owner_id == \"${var.github_owner_id}\"" : ""
+  wif_attr_enterprise_id = var.github_enterprise_id != "" ? "attribute.enterprise_id == \"${var.github_enterprise_id}\"" : ""
+
 }
 
 resource "google_iam_workload_identity_pool" "default" {
@@ -43,7 +46,7 @@ resource "google_iam_workload_identity_pool_provider" "default" {
   description                        = "${var.name} OIDC identity provider"
 
   attribute_mapping   = local.wif_attribute_mapping
-  attribute_condition = local.wif_attribute_condition
+  attribute_condition = join(" && ", compact([local.wif_attr_enterprise_id, local.wif_attr_org_id]))
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
