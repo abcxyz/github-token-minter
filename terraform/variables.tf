@@ -71,6 +71,12 @@ variable "github_owner_id" {
   default     = ""
 }
 
+variable "github_enterprise_id" {
+  description = "The ID of the GitHub enterprise. If specified, the WIF pool will limit traffic to a single GitHub enterprise."
+  type        = string
+  default     = ""
+}
+
 variable "alerts" {
   description = "The configuration block for token minter service alerts and notifications"
   type = object({

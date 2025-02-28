@@ -63,6 +63,8 @@ type oidcClaims struct {
 	JobWorkflowSha    string `json:"job_workflow_sha"`
 	ParsedOrgName     string `json:"parsed_org_name"`
 	ParsedRepoName    string `json:"parsed_repo_name"`
+	EnterpriseName    string `json:"enterprise"`
+	EnterpriseID      string `json:"enterprise_id"`
 
 	// Google claims
 	Email string `json:"email"`
@@ -95,6 +97,8 @@ func (c *oidcClaims) asMap() map[string]interface{} {
 		"parsed_org_name":     c.ParsedOrgName,
 		"parsed_repo_name":    c.ParsedRepoName,
 		"email":               c.Email,
+		"enterprise":          c.EnterpriseName,
+		"enterprise_id":       c.EnterpriseID,
 	}
 }
 
@@ -161,6 +165,8 @@ func parsePrivateClaims(oidcToken jwt.Token) (*oidcClaims, error) {
 	claims.WorkflowSha = optionalClaim[string](oidcToken, "workflow_sha")
 	claims.JobWorkflowRef = optionalClaim[string](oidcToken, "job_workflow_ref")
 	claims.JobWorkflowSha = optionalClaim[string](oidcToken, "job_workflow_sha")
+	claims.EnterpriseName = optionalClaim[string](oidcToken, "enterprise")
+	claims.EnterpriseID = optionalClaim[string](oidcToken, "enterprise_id")
 
 	emailVerified := optionalClaim[bool](oidcToken, "email_verified")
 	if emailVerified {
