@@ -37,7 +37,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/abcxyz/github-token-minter/pkg/config"
-	"github.com/abcxyz/pkg/githubauth"
+	"github.com/abcxyz/github-token-minter/pkg/server/source"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 )
@@ -303,16 +303,22 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			githubApp, err := githubauth.NewApp("app-id", rsaPrivateKey, githubauth.WithBaseURL(fakeGitHub.URL))
-			if err != nil {
-				t.Fatal(err)
+			ghAppCfg := &source.GitHubAppConfig{
+				AppID:  "app-id",
+				Signer: rsaPrivateKey,
 			}
-			configStore, err := config.NewConfigEvaluator(1*time.Hour, "../../testdata/configs", ".github/minty.yaml", ".minty", "minty.yaml", "main", githubApp)
+
+			sourceSystem, err := source.NewGitHubSourceSystem(ctx, []*source.GitHubAppConfig{ghAppCfg}, fakeGitHub.URL)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			server, err := NewRouter(ctx, githubApp, configStore, &JWTParser{ParseOptions: jwtParseOptions, jwkResolver: &tc.resolver})
+			configStore, err := config.NewConfigEvaluator(1*time.Hour, "../../testdata/configs", ".github/minty.yaml", ".minty", "minty.yaml", "main", sourceSystem)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			server, err := NewRouter(ctx, sourceSystem, configStore, &JWTParser{ParseOptions: jwtParseOptions, jwkResolver: &tc.resolver})
 			if err != nil {
 				t.Fatal(err)
 			}

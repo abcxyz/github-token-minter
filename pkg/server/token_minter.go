@@ -28,23 +28,23 @@ import (
 	"strings"
 
 	"github.com/abcxyz/github-token-minter/pkg/config"
+	"github.com/abcxyz/github-token-minter/pkg/server/source"
 	"github.com/abcxyz/github-token-minter/pkg/version"
 	"github.com/abcxyz/pkg/gcputil"
-	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
 )
 
 const (
 	AuthHeader  = "X-OIDC-Token"
-	JWTCacheKey = "github-app-jwt"
+	JWTCacheKey = "jwt-cache-key"
 )
 
 // TokenMinterServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMinterServer struct {
-	githubApp   *githubauth.App
-	configStore config.ConfigEvaluator
-	parser      *JWTParser
+	sourceSystem source.System
+	configStore  config.ConfigEvaluator
+	parser       *JWTParser
 }
 
 // tokenRequest is a struct that contains the list of repositories and the
@@ -67,11 +67,11 @@ type apiResponse struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, githubApp *githubauth.App, configStore config.ConfigEvaluator, parser *JWTParser) (*TokenMinterServer, error) {
+func NewRouter(ctx context.Context, sourceSystem source.System, configStore config.ConfigEvaluator, parser *JWTParser) (*TokenMinterServer, error) {
 	return &TokenMinterServer{
-		githubApp:   githubApp,
-		configStore: configStore,
-		parser:      parser,
+		sourceSystem: sourceSystem,
+		configStore:  configStore,
+		parser:       parser,
 	}, nil
 }
 
@@ -178,26 +178,20 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 		return &apiResponse{http.StatusForbidden, "requested permissions are not authorized for this repository", err}
 	}
 
-	// Lookup the App installation for the GitHub owner/repo
-	installation, err := s.githubApp.InstallationForRepo(ctx, claims.ParsedOrgName, claims.ParsedRepoName)
-	if err != nil {
-		return &apiResponse{http.StatusInternalServerError, "Failed to find GitHub app installation for repository. Please ensure the app is properly installed.", fmt.Errorf("error retrieving GitHub installation: %w", err)}
-	}
-
 	// If all repositories are allowed and all were requested,
-	// request access token for all allowed repositories for the GitHub app
+	// request access token for all allowed repositories
 	if allowRequestAllRepos(scope.Repositories, request.Repositories) {
-		allRepoRequest := &githubauth.TokenRequestAllRepos{Permissions: request.Permissions}
 		logger.InfoContext(ctx, "generating token for all repos",
 			"claims", claims,
-			"request", allRepoRequest,
+			"request_repositories", "all",
+			"request_permissions", request.Permissions,
 			"scope", scope,
 			"config_source", source,
 		)
 
-		accessToken, err := installation.AccessTokenAllRepos(ctx, allRepoRequest)
+		accessToken, err := s.sourceSystem.MintAccessToken(ctx, claims.ParsedOrgName, claims.ParsedRepoName, nil, request.Permissions)
 		if err != nil {
-			return &apiResponse{http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)}
+			return &apiResponse{http.StatusInternalServerError, "error generating access token", fmt.Errorf("error generating access token: %w", err)}
 		}
 		return &apiResponse{http.StatusOK, accessToken, nil}
 	}
@@ -209,21 +203,17 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	if err != nil {
 		return &apiResponse{http.StatusForbidden, "one or more of the requested repositories is not authorized", err}
 	}
-
-	tokenRequest := githubauth.TokenRequest{
-		Repositories: repos,
-		Permissions:  request.Permissions,
-	}
 	logger.InfoContext(ctx, "generating token",
 		"claims", claims,
-		"request", tokenRequest,
+		"request_repositories", repos,
+		"request_permissions", request.Permissions,
 		"scope", scope,
 		"config_source", source,
 	)
 
-	accessToken, err := installation.AccessToken(ctx, &tokenRequest)
+	accessToken, err := s.sourceSystem.MintAccessToken(ctx, claims.ParsedOrgName, claims.ParsedRepoName, repos, request.Permissions)
 	if err != nil {
-		return &apiResponse{http.StatusInternalServerError, "error generating GitHub access token", fmt.Errorf("error generating GitHub access token: %w", err)}
+		return &apiResponse{http.StatusInternalServerError, "error generating access token", fmt.Errorf("error generating access token: %w", err)}
 	}
 	return &apiResponse{http.StatusOK, accessToken, nil}
 }
