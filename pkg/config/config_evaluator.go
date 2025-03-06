@@ -22,7 +22,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/go-github/v64/github"
 
-	"github.com/abcxyz/pkg/githubauth"
+	"github.com/abcxyz/github-token-minter/pkg/server/source"
 )
 
 const (
@@ -48,7 +48,7 @@ type configEvaluator struct {
 	loaders []ConfigFileLoader
 }
 
-func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, orgConfigRepo, orgConfigPath, ref string, app *githubauth.App) (*configEvaluator, error) {
+func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, orgConfigRepo, orgConfigPath, ref string, sourceSystem source.System) (*configEvaluator, error) {
 	// create an environment to compile any cel expressions
 	env, err := cel.NewEnv(
 		cel.Variable(AssertionKey, cel.DynType),
@@ -61,18 +61,18 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 	localLoader := newCachingConfigLoader(expireAt,
 		NewCompilingConfigLoader(env, &localConfigFileLoader{configDir: localConfigDir}))
 	inRepoLoader := newCachingConfigLoader(expireAt,
-		NewCompilingConfigLoader(env, &ghInRepoConfigFileLoader{
-			provider:   makeGitHubClientProvider(app),
-			configPath: repoConfigPath,
-			ref:        ref,
+		NewCompilingConfigLoader(env, &inRepoConfigFileLoader{
+			sourceSystem: sourceSystem,
+			configPath:   repoConfigPath,
+			ref:          ref,
 		}))
 	orgLoader := newCachingConfigLoader(expireAt,
 		NewCompilingConfigLoader(env, &fixedRepoConfigFileLoader{
 			repo: orgConfigRepo,
-			loader: &ghInRepoConfigFileLoader{
-				provider:   makeGitHubClientProvider(app),
-				configPath: orgConfigPath,
-				ref:        ref,
+			loader: &inRepoConfigFileLoader{
+				sourceSystem: sourceSystem,
+				configPath:   orgConfigPath,
+				ref:          ref,
 			},
 		}))
 	return &configEvaluator{
@@ -102,26 +102,4 @@ func (l *configEvaluator) Eval(ctx context.Context, org, repo, scope string, tok
 		}
 	}
 	return nil, fmt.Sprintf("%s/%s", org, repo), fmt.Errorf("error reading configuration, exhausted all possible source locations, failed to locate scope [%s] for repository [%s/%s]", scope, org, repo)
-}
-
-func makeGitHubClientProvider(app *githubauth.App) GitHubClientProvider {
-	return func(ctx context.Context, org, repo string) (*github.Client, error) {
-		installation, err := app.InstallationForRepo(ctx, org, repo)
-		if err != nil {
-			return nil, fmt.Errorf("error getting installation for [%s/%s]: %w", org, repo, err)
-		}
-		token, err := installation.AccessToken(ctx, &githubauth.TokenRequest{
-			Repositories: []string{
-				repo,
-			},
-			Permissions: map[string]string{
-				"contents": "read",
-			},
-		})
-		if err != nil {
-			return nil, fmt.Errorf("error getting access token for [%s/%s]: %w", org, repo, err)
-		}
-		client := github.NewClient(nil).WithAuthToken(token)
-		return client, nil
-	}
 }
