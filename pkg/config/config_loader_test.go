@@ -16,6 +16,8 @@ package config
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -25,6 +27,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-github/v64/github"
 
+	"github.com/abcxyz/github-token-minter/pkg/server/source"
 	"github.com/abcxyz/pkg/testutil"
 )
 
@@ -58,7 +61,7 @@ func TestGitHubInRepoConfigFileLoader(t *testing.T) {
 				w.WriteHeader(200)
 				fmt.Fprint(w, string(raw))
 			},
-			want:      &Config{},
+			want:      nil,
 			expErr:    false,
 			expErrMsg: "",
 		},
@@ -175,21 +178,39 @@ rule:
 	ctx := t.Context()
 	for _, tc := range cases {
 		mux := http.NewServeMux()
+		mux.Handle("GET /repos/test_org/test_repo/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, `{"access_tokens_url": "http://%s/app/installations/123/access_tokens"}`, r.Host)
+		}))
+		mux.Handle("POST /app/installations/123/access_tokens", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(201)
+			fmt.Fprintf(w, `{"token": "this-is-the-token-from-github"}`)
+		}))
 		mux.Handle("/api/v3/repos/test_org/test_repo/contents/minty.yaml", tc.handler)
-		srv := httptest.NewServer(mux)
-		t.Cleanup(srv.Close)
+		fakeGitHub := httptest.NewServer(mux)
+		t.Cleanup(fakeGitHub.Close)
 
-		client, _ := github.NewClient(nil).WithEnterpriseURLs(srv.URL, srv.URL)
+		rsaPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ghAppCfg := source.GitHubAppConfig{
+			AppID:  "app-id",
+			Signer: rsaPrivateKey,
+		}
+
+		sourceSystem, err := source.NewGitHubSourceSystem(ctx, []*source.GitHubAppConfig{&ghAppCfg}, fakeGitHub.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			loader := ghInRepoConfigFileLoader{
-				configPath: tc.path,
-				ref:        tc.ref,
-				provider: func(ctx context.Context, org, repo string) (*github.Client, error) {
-					return client, nil
-				},
+			loader := &inRepoConfigFileLoader{
+				configPath:   tc.path,
+				ref:          tc.ref,
+				sourceSystem: sourceSystem,
 			}
 
 			got, err := loader.Load(ctx, tc.org, tc.repo)
@@ -319,17 +340,23 @@ func TestConfigFileLoaderSource(t *testing.T) {
 		},
 		{
 			name:   "in repo config loader",
-			loader: &ghInRepoConfigFileLoader{configPath: ".test/minty.yaml"},
+			loader: &inRepoConfigFileLoader{configPath: ".test/minty.yaml", sourceSystem: &testSourceSystem{}},
 			org:    "test_org",
 			repo:   "test_repo",
-			want:   "https://github.com/test_org/test_repo/.test/minty.yaml",
+			want:   "https://test.com/test_org/test_repo/.test/minty.yaml",
 		},
 		{
-			name:   "fixed repo config loader",
-			loader: &fixedRepoConfigFileLoader{repo: "not_test_repo", loader: &ghInRepoConfigFileLoader{configPath: "minty.yaml"}},
-			org:    "test_org",
-			repo:   "test_repo",
-			want:   "https://github.com/test_org/not_test_repo/minty.yaml",
+			name: "fixed repo config loader",
+			loader: &fixedRepoConfigFileLoader{
+				repo: "not_test_repo",
+				loader: &inRepoConfigFileLoader{
+					configPath:   "minty.yaml",
+					sourceSystem: &testSourceSystem{},
+				},
+			},
+			org:  "test_org",
+			repo: "test_repo",
+			want: "https://test.com/test_org/not_test_repo/minty.yaml",
 		},
 	}
 
@@ -343,4 +370,18 @@ func TestConfigFileLoaderSource(t *testing.T) {
 			}
 		})
 	}
+}
+
+type testSourceSystem struct{}
+
+func (s *testSourceSystem) MintAccessToken(ctx context.Context, org, repo string, repositories []string, permissions map[string]string) (string, error) {
+	return "token", nil
+}
+
+func (s *testSourceSystem) RetrieveFileContents(ctx context.Context, org, repo, filePath, ref string) ([]byte, error) {
+	return []byte{}, nil
+}
+
+func (s *testSourceSystem) BaseURL() string {
+	return "https://test.com"
 }
