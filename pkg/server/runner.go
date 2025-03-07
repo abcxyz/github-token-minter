@@ -23,26 +23,25 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/abcxyz/github-token-minter/pkg/config"
+	"github.com/abcxyz/github-token-minter/pkg/server/source"
 	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/serving"
 )
 
 func Run(ctx context.Context, cfg *Config) error {
-	// Set the access token url pattern if it is provided.
-	var options []githubauth.Option
-	if cfg.GitHubAPIBaseURL != "" {
-		options = append(options, githubauth.WithBaseURL(cfg.GitHubAPIBaseURL))
-	}
-
 	signer, err := githubauth.NewPrivateKeySigner(cfg.PrivateKey)
 	if err != nil {
 		return fmt.Errorf("failed to create private key signer: %w", err)
 	}
 
-	// Setup the GitHub App.
-	app, err := githubauth.NewApp(cfg.AppID, signer, options...)
+	ghAppCfg := source.GitHubAppConfig{
+		AppID:  cfg.AppID,
+		Signer: signer,
+	}
+
+	sourceSystem, err := source.NewGitHubSourceSystem(ctx, []*source.GitHubAppConfig{&ghAppCfg}, cfg.SourceSystemAPIBaseURL)
 	if err != nil {
-		return fmt.Errorf("failed to create github app: %w", err)
+		return fmt.Errorf("failed to initialize source system: %w", err)
 	}
 
 	cacheSeconds, err := strconv.Atoi(cfg.ConfigCacheSeconds)
@@ -61,7 +60,7 @@ func Run(ctx context.Context, cfg *Config) error {
 		cfg.OrgConfigRepo,
 		cfg.OrgConfigPath,
 		cfg.Ref,
-		app,
+		sourceSystem,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create config evaluator: %w", err)
@@ -74,7 +73,7 @@ func Run(ctx context.Context, cfg *Config) error {
 	jwkResolver := NewOIDCResolver(ctx, cfg.IssuerAllowlist, cfg.JWKSCacheDuration)
 
 	// Create the Router for the token minting server.
-	tokenServer, err := NewRouter(ctx, app, store, &JWTParser{ParseOptions: jwtParseOptions, jwkResolver: jwkResolver})
+	tokenServer, err := NewRouter(ctx, sourceSystem, store, &JWTParser{ParseOptions: jwtParseOptions, jwkResolver: jwkResolver})
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}

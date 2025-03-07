@@ -27,9 +27,9 @@ type Config struct {
 	AppID      string
 	PrivateKey string
 
-	// GitHubAPIBaseURL is the base URL for the GitHub installation. It should
+	// SourceSystemAPIBaseURL is the base URL for the Git[Hub|Lab] installation. It should
 	// include the protocol (https://) and no trailing slashes.
-	GitHubAPIBaseURL string
+	SourceSystemAPIBaseURL string
 
 	ConfigDir          string
 	RepoConfigPath     string
@@ -96,10 +96,10 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "github-api-base-url",
-		Target: &cfg.GitHubAPIBaseURL,
-		EnvVar: "GITHUB_API_BASE_URL",
-		Usage:  `The base URL for the GitHub installation. It should include the protocol (https://) and no trailing slashes.`,
+		Name:   "source-system-api-base-url",
+		Target: &cfg.SourceSystemAPIBaseURL,
+		EnvVar: "SOURCE_SYSTEM_API_BASE_URL",
+		Usage:  `The base URL for the Git[Hub|Lab] installation. It should include the protocol (https://) and no trailing slashes.`,
 	})
 
 	f.StringVar(&cli.StringVar{
