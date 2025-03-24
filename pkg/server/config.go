@@ -16,6 +16,7 @@ package server
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/abcxyz/github-token-minter/pkg/config"
@@ -27,9 +28,11 @@ type Config struct {
 	AppID      string
 	PrivateKey string
 
-	// GitHubAPIBaseURL is the base URL for the GitHub installation. It should
+	// SourceSystemAPIBaseURL is the base URL for the Git[Hub|Lab] installation. It should
 	// include the protocol (https://) and no trailing slashes.
-	GitHubAPIBaseURL string
+	SourceSystemAPIBaseURL string
+
+	SourceSystemAuth []string
 
 	ConfigDir          string
 	RepoConfigPath     string
@@ -42,14 +45,12 @@ type Config struct {
 	IssuerAllowlist   []string
 }
 
+const (
+	SourceSystemAuthConfigRegex = `gha\:\/\/(\d+)\?(private_key|kms_id)=(.*)`
+)
+
 // Validate validates the artifacts config after load.
 func (cfg *Config) Validate() error {
-	if cfg.AppID == "" {
-		return fmt.Errorf("GITHUB_APP_ID is required")
-	}
-	if cfg.PrivateKey == "" {
-		return fmt.Errorf("GITHUB_PRIVATE_KEY is required")
-	}
 	if cfg.ConfigCacheSeconds == "" {
 		cfg.ConfigCacheSeconds = "900"
 	}
@@ -67,12 +68,40 @@ func (cfg *Config) Validate() error {
 		cfg.Ref = "main"
 	}
 
+	// Shim the old style config values into the new uri configuration style
+	if cfg.AppID != "" && cfg.PrivateKey != "" {
+		cfg.SourceSystemAuth = append(cfg.SourceSystemAuth, fmt.Sprintf("gha://%s?private_key=%s", cfg.AppID, cfg.PrivateKey))
+	}
+
+	if len(cfg.SourceSystemAuth) == 0 {
+		return fmt.Errorf("SOURCE_SYSTEM_AUTH is required")
+	}
+
+	re, err := regexp.Compile(SourceSystemAuthConfigRegex)
+	if err != nil {
+		return fmt.Errorf("failed to compile source system regular expression: %w", err)
+	}
+	for _, auth := range cfg.SourceSystemAuth {
+		if !re.MatchString(auth) {
+			return fmt.Errorf("incorrect source system authentication uri: %s - should match expression %s", auth, SourceSystemAuthConfigRegex)
+		}
+	}
+
 	return nil
 }
 
 // ToFlags binds the config to the [cli.FlagSet] and returns it.
 func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 	f := set.NewSection("COMMON JOB OPTIONS")
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:   "source-system-auth",
+		Target: &cfg.SourceSystemAuth,
+		EnvVar: "SOURCE_SYSTEM_AUTH",
+		Usage: `The uri for authenticating with a source system. 
+		This matches a custom uri like gha://<app_id>?private_key=<private_key> or gha://<app_id>?kms_id=<kms_id> 
+		and supports comma separation for configuring multiple source systems`,
+	})
 
 	f.StringVar(&cli.StringVar{
 		Name:   "port",
@@ -85,21 +114,21 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		Name:   "github-app-id",
 		Target: &cfg.AppID,
 		EnvVar: "GITHUB_APP_ID",
-		Usage:  `The ID of the GitHub App that this server runs as.`,
+		Usage:  `DEPRECATED: Please use SOURCE_SYSTEM_AUTH instead. The ID of the GitHub App that this server runs as.`,
 	})
 
 	f.StringVar(&cli.StringVar{
 		Name:   "github-private-key",
 		Target: &cfg.PrivateKey,
 		EnvVar: "GITHUB_PRIVATE_KEY",
-		Usage:  `The private key of the GitHub App that this server runs as.`,
+		Usage:  `DEPRECATED: Please use SOURCE_SYSTEM_AUTH instead. The private key of the GitHub App that this server runs as.`,
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "github-api-base-url",
-		Target: &cfg.GitHubAPIBaseURL,
-		EnvVar: "GITHUB_API_BASE_URL",
-		Usage:  `The base URL for the GitHub installation. It should include the protocol (https://) and no trailing slashes.`,
+		Name:   "source-system-api-base-url",
+		Target: &cfg.SourceSystemAPIBaseURL,
+		EnvVar: "SOURCE_SYSTEM_API_BASE_URL",
+		Usage:  `The base URL for the Git[Hub|Lab] installation. It should include the protocol (https://) and no trailing slashes.`,
 	})
 
 	f.StringVar(&cli.StringVar{
