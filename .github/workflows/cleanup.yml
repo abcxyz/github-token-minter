@@ -53,16 +53,17 @@ jobs:
           # List all revisions that were deployed 5 hours ago or later, excluding the latest revision
           # There must be at least one revisions running at all times
           REVISIONS=$(gcloud run revisions list \
-            --project="$INTEGRATION_PROJECT_ID" \
-            --region="$INTEGRATION_REGION" \
-            --service="$INTEGRATION_SERVICE_NAME" \
+            --project="${INTEGRATION_PROJECT_ID}" \
+            --region="${INTEGRATION_REGION}" \
+            --service="${INTEGRATION_SERVICE_NAME}" \
             --format="value(name)" \
             --sort-by="~metadata.creationTimestamp" \
             --filter="metadata.creationTimestamp < '-p5h'" | sed 1d)
 
-          IFS=$'\n'; for NAME in $REVISIONS; do
+          # shellcheck disable=SC2086
+          IFS=$'\n'; for NAME in ${REVISIONS}; do
             echo "Deleting ${NAME}..."
-            gcloud run revisions delete ${NAME} --project="$INTEGRATION_PROJECT_ID" --region="$INTEGRATION_REGION" --quiet --async
+            gcloud run revisions delete ${NAME} --project="${INTEGRATION_PROJECT_ID}" --region="${INTEGRATION_REGION}" --quiet --async
           done
 
   # cleanup_container_images deletes all untagged container images that are more
