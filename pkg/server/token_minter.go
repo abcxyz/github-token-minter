@@ -149,7 +149,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 		return apiError
 	}
 
-	logger.InfoContext(ctx, "token request",
+	logger.InfoContext(ctx, "received token request",
 		"claims", claims,
 		"request", request,
 	)
@@ -168,6 +168,11 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 		return &apiResponse{http.StatusForbidden, fmt.Sprintf("no permissions available for scope %q in repository %q", request.Scope, claims.Repository), err}
 	}
 
+	// If there are no permissions in the request, use the set defined for the scope.
+	if len(request.Permissions) == 0 {
+		request.Permissions = scope.Permissions
+	}
+
 	// Validate the permissions that were requested are within what is allowed for the repository
 	if err = validatePermissions(scope.Permissions, request.Permissions); err != nil {
 		return &apiResponse{http.StatusForbidden, "requested permissions are not authorized for this repository", err}
@@ -183,6 +188,12 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	// request access token for all allowed repositories for the GitHub app
 	if allowRequestAllRepos(scope.Repositories, request.Repositories) {
 		allRepoRequest := &githubauth.TokenRequestAllRepos{Permissions: request.Permissions}
+		logger.InfoContext(ctx, "generating token for all repos",
+			"claims", claims,
+			"request", allRepoRequest,
+			"scope", scope,
+			"config_source", source,
+		)
 
 		accessToken, err := installation.AccessTokenAllRepos(ctx, allRepoRequest)
 		if err != nil {
