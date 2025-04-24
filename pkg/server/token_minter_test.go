@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -40,6 +41,26 @@ import (
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
 )
+
+func handleAccessTokenRequest(w http.ResponseWriter, r *http.Request) {
+	// Parse the request information
+	defer r.Body.Close()
+
+	var request tokenRequest
+	dec := json.NewDecoder(io.LimitReader(r.Body, 4_194_304)) // 4 MiB
+	if err := dec.Decode(&request); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "error parsing request information - invalid JSON: %s", err)
+		return
+	}
+	perms := make([]string, 0, len(request.Permissions))
+	for k, v := range request.Permissions {
+		perms = append(perms, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	w.WriteHeader(201)
+	fmt.Fprintf(w, `{"token": "%s"}`, perms)
+}
 
 func TestTokenMintServer_ProcessRequest(t *testing.T) {
 	t.Parallel()
@@ -63,10 +84,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 		mux.Handle("GET /repos/abcxyz/pkg/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, `{"access_tokens_url": "http://%s/app/installations/123/access_tokens"}`, r.Host)
 		}))
-		mux.Handle("POST /app/installations/123/access_tokens", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(201)
-			fmt.Fprintf(w, `{"token": "this-is-the-token-from-github"}`)
-		}))
+		mux.Handle("POST /app/installations/123/access_tokens", http.HandlerFunc(handleAccessTokenRequest))
 
 		return httptest.NewServer(mux)
 	}()
@@ -191,7 +209,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				keySet: jwkCachedSet,
 			},
 			expCode: 200,
-			expResp: "this-is-the-token-from-github",
+			expResp: "[issues=read]",
 		},
 		{
 			name: "happy_path_non_github",
@@ -212,7 +230,67 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				keySet: jwkCachedSet,
 			},
 			expCode: 200,
-			expResp: "this-is-the-token-from-github",
+			expResp: "[issues=read]",
+		},
+		{
+			name: "request_with_permissions",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test-perms","permissions":{"contents":"write"}}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "[contents=write]",
+		},
+		{
+			name: "request_with_no_permissions",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test-perms"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "[contents=write issues=read]",
+		},
+		{
+			name: "request_with_matching_permissions",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test-perms","permissions":{"contents":"write","issues":"read"}}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "[contents=write issues=read]",
 		},
 	}
 
