@@ -64,6 +64,10 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 		installation, err = app.InstallationForRepo(ctx, org, repo)
 		if err != nil {
 			errs = append(errs, err)
+		} else {
+			// Accept the first installation that provides a token
+			// @TODO(bradegler) - resolve how to handle multiple GitHub apps
+			break
 		}
 	}
 	if len(errs) != 0 {

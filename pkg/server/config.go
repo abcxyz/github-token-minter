@@ -81,6 +81,13 @@ func (cfg *Config) Validate() error {
 	if err != nil {
 		return fmt.Errorf("failed to compile source system regular expression: %w", err)
 	}
+	if len(cfg.SourceSystemAuth) != 1 {
+		// Limit this to a single source system for now.
+		// @TODO(bradegler) - remove this constraint in the future when it is understood how to target
+		// specific systems.
+		return fmt.Errorf("incorrect number of authentication sources specified - SOURCE_SYSTEM_AUTH should only contain 1 value.")
+	}
+
 	for _, auth := range cfg.SourceSystemAuth {
 		if !re.MatchString(auth) {
 			return fmt.Errorf("incorrect source system authentication uri: %s - should match expression %s", auth, SourceSystemAuthConfigRegex)
