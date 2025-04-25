@@ -46,7 +46,7 @@ type Config struct {
 }
 
 const (
-	SourceSystemAuthConfigRegex = `gha\:\/\/(\d+)\?(private_key|kms_id)=(.*)`
+	SourceSystemAuthConfigRegex = `gha\:\/\/(\d+)\?(private_key|kms_id)=([\s\S]*)`
 )
 
 // Validate validates the artifacts config after load.
@@ -84,8 +84,8 @@ func (cfg *Config) Validate() error {
 	if len(cfg.SourceSystemAuth) != 1 {
 		// Limit this to a single source system for now.
 		// @TODO(bradegler) - remove this constraint in the future when it is understood how to target
-		// specific systems.
-		return fmt.Errorf("incorrect number of authentication sources specified - SOURCE_SYSTEM_AUTH should only contain 1 value.")
+		// specific systems
+		return fmt.Errorf("incorrect number of authentication sources specified - SOURCE_SYSTEM_AUTH should only contain 1 value")
 	}
 
 	for _, auth := range cfg.SourceSystemAuth {
