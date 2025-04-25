@@ -26,6 +26,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -57,6 +58,7 @@ func handleAccessTokenRequest(w http.ResponseWriter, r *http.Request) {
 	for k, v := range request.Permissions {
 		perms = append(perms, fmt.Sprintf("%s=%s", k, v))
 	}
+	sort.Strings(perms)
 
 	w.WriteHeader(201)
 	fmt.Fprintf(w, `{"token": "%s"}`, perms)

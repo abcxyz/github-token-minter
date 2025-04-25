@@ -116,8 +116,6 @@ func createAppConfigs(ctx context.Context, cfg *Config) ([]*source.GitHubAppConf
 		keyType := uri[2]
 		keyMaterial := uri[3]
 
-		fmt.Printf("appID=%s keyType=%s keyMaterial=%s\n", appID, keyType, keyMaterial)
-
 		var signer crypto.Signer
 		if keyType == KeyTypePrivateKey {
 			signer, err = githubauth.NewPrivateKeySigner(keyMaterial)
@@ -133,11 +131,10 @@ func createAppConfigs(ctx context.Context, cfg *Config) ([]*source.GitHubAppConf
 			return nil, fmt.Errorf("invalid key type: %s", keyType)
 		}
 
-		ghAppCfg := source.GitHubAppConfig{
+		appConfigs = append(appConfigs, &source.GitHubAppConfig{
 			AppID:  appID,
 			Signer: signer,
-		}
-		appConfigs = append(appConfigs, &ghAppCfg)
+		})
 	}
 	return appConfigs, nil
 }
