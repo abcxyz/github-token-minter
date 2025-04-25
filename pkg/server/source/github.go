@@ -26,16 +26,22 @@ import (
 	"github.com/abcxyz/pkg/githubauth"
 )
 
+// GitHubAppConfig is a struct that contains the identifier for a GitHub App
+// and a Signer that can be used to sign requests.
 type GitHubAppConfig struct {
 	AppID  string
 	Signer crypto.Signer
 }
 
+// gitHubSourceSystem is a SourceSystem implementation that is backed by GitHub.
 type gitHubSourceSystem struct {
 	apps    []*githubauth.App
 	baseURL string
 }
 
+// NewGitHubSourceSystem creates a representation of a GitHub system. This includes
+// information about what the base url and any of the Apps that can be used by the
+// system.
 func NewGitHubSourceSystem(ctx context.Context, configs []*GitHubAppConfig, systemURL string) (System, error) {
 	// Set the access token url pattern if it is provided.
 	var options []githubauth.Option
