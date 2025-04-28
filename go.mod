@@ -12,6 +12,7 @@ require (
 	github.com/google/go-github/v64 v64.0.0
 	github.com/google/tink/go v1.7.0
 	github.com/lestrrat-go/jwx/v2 v2.1.3
+	github.com/sethvargo/go-gcpkms v0.3.0
 	github.com/sethvargo/go-retry v0.3.0
 	google.golang.org/api v0.221.0
 	google.golang.org/grpc v1.70.0

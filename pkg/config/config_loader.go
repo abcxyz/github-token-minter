@@ -19,14 +19,13 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"net/http"
 	"os"
 	"time"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/go-github/v64/github"
 	"gopkg.in/yaml.v3"
 
+	"github.com/abcxyz/github-token-minter/pkg/server/source"
 	"github.com/abcxyz/pkg/cache"
 )
 
@@ -130,45 +129,34 @@ func (l *localConfigFileLoader) Source(org, repo string) string {
 	return fmt.Sprintf("file://%s/%s/%s.yaml", l.configDir, org, repo)
 }
 
-// ghInRepoConfigFileLoader reads a configuration file from a specific
+// inRepoConfigFileLoader reads a configuration file from a specific
 // path within the requested repository.
-type ghInRepoConfigFileLoader struct {
-	provider   GitHubClientProvider
-	configPath string
-	ref        string
+type inRepoConfigFileLoader struct {
+	sourceSystem source.System
+	configPath   string
+	ref          string
 }
 
 // Load is a configFileLoader implementation that reads the configuration file
 // contents from within a GitHub repository.
-func (l *ghInRepoConfigFileLoader) Load(ctx context.Context, org, repo string) (*Config, error) {
-	client, err := l.provider(ctx, org, repo)
+func (l *inRepoConfigFileLoader) Load(ctx context.Context, org, repo string) (*Config, error) {
+	fileContents, err := l.sourceSystem.RetrieveFileContents(ctx, org, repo, l.configPath, l.ref)
 	if err != nil {
-		return nil, fmt.Errorf("error creating GitHub client for %s/%s: %w", org, repo, err)
+		return nil, fmt.Errorf("error reading configuration file contents @ %s/%s/%s: %w", org, repo, l.configPath, err)
 	}
-	fileContents, _, resp, err := client.Repositories.GetContents(ctx, org, repo, l.configPath, &github.RepositoryContentGetOptions{Ref: l.ref})
+	// File not found
+	if len(fileContents) == 0 {
+		return nil, nil
+	}
+	config, err := Read(fileContents)
 	if err != nil {
-		if resp.StatusCode == http.StatusNotFound {
-			return nil, nil
-		} else {
-			return nil, fmt.Errorf("error reading configuration file @ %s/%s/%s: %w", org, repo, l.configPath, err)
-		}
+		return nil, fmt.Errorf("error converting raw config bytes into struct: %w", err)
 	}
-	if fileContents != nil {
-		contents, err := fileContents.GetContent()
-		if err != nil {
-			return nil, fmt.Errorf("error reading configuration file contents @ %s/%s/%s: %w", org, repo, l.configPath, err)
-		}
-		config, err := Read([]byte(contents))
-		if err != nil {
-			return nil, fmt.Errorf("error converting raw config bytes into struct: %w", err)
-		}
-		return config, nil
-	}
-	return nil, nil
+	return config, nil
 }
 
-func (l *ghInRepoConfigFileLoader) Source(org, repo string) string {
-	return fmt.Sprintf("https://github.com/%s/%s/%s", org, repo, l.configPath)
+func (l *inRepoConfigFileLoader) Source(org, repo string) string {
+	return fmt.Sprintf("%s/%s/%s/%s", l.sourceSystem.BaseURL(), org, repo, l.configPath)
 }
 
 // fixedRepoConfigFileLoader reads the contents of a configuration file from
