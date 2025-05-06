@@ -71,11 +71,7 @@ func (c *ServerCommand) Run(ctx context.Context, args []string) error {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	// Avoid logging the private key
-	saveKey := c.cfg.PrivateKey
-	c.cfg.PrivateKey = ""
 	logger.InfoContext(ctx, "loaded configuration", "config", c.cfg)
-	c.cfg.PrivateKey = saveKey
 
 	if err := server.Run(ctx, c.cfg); err != nil {
 		return fmt.Errorf("failed to start server: %w", err)

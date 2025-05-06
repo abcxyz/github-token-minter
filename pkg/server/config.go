@@ -16,7 +16,9 @@ package server
 
 import (
 	"fmt"
+	"log/slog"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/abcxyz/github-token-minter/pkg/config"
@@ -45,6 +47,32 @@ type Config struct {
 	IssuerAllowlist   []string
 }
 
+// LogValue implements slog.LogValuer and returns a grouped value
+// with fields redacted. See https://pkg.go.dev/log/slog#LogValuer
+func (cfg Config) LogValue() slog.Value {
+	ssas := make([]string, len(cfg.SourceSystemAuth))
+	for idx, ssa := range cfg.SourceSystemAuth {
+		// if the uri contains a private key remove it
+		parts := strings.Split(ssa, "?private_key=")
+		ssas[idx] = parts[0]
+	}
+	return slog.GroupValue(
+		slog.String("port", cfg.Port),
+		slog.String("app_id", cfg.AppID),
+		slog.String("private_key", "*****"),
+		slog.String("source_system_api_base_url", cfg.SourceSystemAPIBaseURL),
+		slog.String("config_dir", cfg.ConfigDir),
+		slog.String("repo_config_path", cfg.RepoConfigPath),
+		slog.String("org_config_repo", cfg.OrgConfigRepo),
+		slog.String("org_config_path", cfg.OrgConfigPath),
+		slog.String("ref", cfg.Ref),
+		slog.String("config_cache_seconds", cfg.ConfigCacheSeconds),
+		slog.Any("jwks_cache_duration", cfg.JWKSCacheDuration),
+		slog.Any("issuer_allowlist", cfg.IssuerAllowlist),
+		slog.Any("source_system_auth", ssas),
+	)
+}
+
 const (
 	SourceSystemAuthConfigRegex = `gha\:\/\/(\d+)\?(private_key|kms_id)=([\s\S]*)`
 )
@@ -68,9 +96,12 @@ func (cfg *Config) Validate() error {
 		cfg.Ref = "main"
 	}
 
-	// Shim the old style config values into the new uri configuration style
-	if cfg.AppID != "" && cfg.PrivateKey != "" {
+	// Shim the old style config values into the new uri configuration style if
+	// the new configuration isn't specified
+	if cfg.AppID != "" && cfg.PrivateKey != "" && len(cfg.SourceSystemAuth) == 0 {
 		cfg.SourceSystemAuth = append(cfg.SourceSystemAuth, fmt.Sprintf("gha://%s?private_key=%s", cfg.AppID, cfg.PrivateKey))
+		cfg.AppID = ""
+		cfg.PrivateKey = ""
 	}
 
 	if len(cfg.SourceSystemAuth) == 0 {
