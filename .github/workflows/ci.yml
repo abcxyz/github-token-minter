@@ -85,7 +85,7 @@ jobs:
     needs:
       - 'init'
     if: |
-      needs.init.outputs.packagejson-dirs != '' && needs.init.outputs.packagejson-dirs != '[]' && github.repository == 'abcxyz/actions'
+      needs.init.outputs.packagejson-dirs != '' && needs.init.outputs.packagejson-dirs != '[]'
     permissions:
       contents: 'read'
     strategy:
