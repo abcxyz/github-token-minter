@@ -73,10 +73,10 @@ jobs:
           # Typescript linting handled separtely from the rest of linting in order to
           # shard linting across each package.json file.
           PACKAGEJSON_DIRS="$(find_dirs '(package.json$)')"
-          echo "::debug::Found package.json directories: ${PACKAGEJSON_DIRS}"
+          echo "::notice::Found package.json directories: ${PACKAGEJSON_DIRS}"
           if [[ -n "${PACKAGEJSON_DIRS}" ]]; then
             PACKAGEJSON_DIRS_JSON="$(to_json "${PACKAGEJSON_DIRS}")"
-            echo "::debug::Found package.json directories json: ${PACKAGEJSON_DIRS_JSON}"
+            echo "::notice::Found package.json directories json: ${PACKAGEJSON_DIRS_JSON}"
             echo "packagejson-dirs=${PACKAGEJSON_DIRS_JSON}" >> "${GITHUB_OUTPUT}"
           fi
 
