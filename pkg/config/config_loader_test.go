@@ -35,15 +35,17 @@ func TestGitHubInRepoConfigFileLoader(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name      string
-		handler   http.HandlerFunc
-		org       string
-		repo      string
-		path      string
-		ref       string
-		want      *Config
-		expErr    bool
-		expErrMsg string
+		name         string
+		handler      http.HandlerFunc
+		org          string
+		repo         string
+		path         string
+		ref          string
+		want         *Config
+		expErr       bool
+		expErrMsg    string
+		authRespCode int
+		authRespBody string
 	}{
 		{
 			name: "empty content",
@@ -61,9 +63,11 @@ func TestGitHubInRepoConfigFileLoader(t *testing.T) {
 				w.WriteHeader(200)
 				fmt.Fprint(w, string(raw))
 			},
-			want:      nil,
-			expErr:    false,
-			expErrMsg: "",
+			want:         nil,
+			expErr:       false,
+			expErrMsg:    "",
+			authRespCode: 201,
+			authRespBody: `{"token": "this-is-the-token-from-github"}`,
 		},
 		{
 			name: "valid content",
@@ -108,8 +112,10 @@ scope:
 					},
 				},
 			},
-			expErr:    false,
-			expErrMsg: "",
+			expErr:       false,
+			expErrMsg:    "",
+			authRespCode: 201,
+			authRespBody: `{"token": "this-is-the-token-from-github"}`,
 		},
 		{
 			name: "ensure ref set",
@@ -142,8 +148,10 @@ rule:
 					If: "ref == main",
 				},
 			},
-			expErr:    false,
-			expErrMsg: "",
+			expErr:       false,
+			expErrMsg:    "",
+			authRespCode: 201,
+			authRespBody: `{"token": "this-is-the-token-from-github"}`,
 		},
 		{
 			name: "api error",
@@ -155,9 +163,11 @@ rule:
 				w.WriteHeader(500)
 				fmt.Fprint(w, "I'm broke")
 			},
-			want:      nil,
-			expErr:    true,
-			expErrMsg: "error reading configuration file @ test_org/test_repo/minty.yaml",
+			want:         nil,
+			expErr:       true,
+			expErrMsg:    "error reading configuration file @ test_org/test_repo/minty.yaml",
+			authRespCode: 201,
+			authRespBody: `{"token": "this-is-the-token-from-github"}`,
 		},
 		{
 			name: "file not found",
@@ -169,9 +179,27 @@ rule:
 				w.WriteHeader(404)
 				fmt.Fprint(w, "not found")
 			},
-			want:      nil,
-			expErr:    false,
-			expErrMsg: "",
+			want:         nil,
+			expErr:       false,
+			expErrMsg:    "",
+			authRespCode: 201,
+			authRespBody: `{"token": "this-is-the-token-from-github"}`,
+		},
+		{
+			name: "auth error on repo",
+			org:  "test_org",
+			repo: "test_repo",
+			path: "minty.yaml",
+			ref:  "main",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(404)
+				fmt.Fprint(w, "not found")
+			},
+			want:         nil,
+			expErr:       true,
+			expErrMsg:    "",
+			authRespCode: 404,
+			authRespBody: `{"message":"Not Found","documentation_url":"https://docs.github.com/rest/apps/apps#get-a-repository-installation-for-the-authenticated-app","status":"404"}`,
 		},
 	}
 
@@ -182,8 +210,8 @@ rule:
 			fmt.Fprintf(w, `{"access_tokens_url": "http://%s/app/installations/123/access_tokens"}`, r.Host)
 		}))
 		mux.Handle("POST /app/installations/123/access_tokens", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(201)
-			fmt.Fprintf(w, `{"token": "this-is-the-token-from-github"}`)
+			w.WriteHeader(tc.authRespCode)
+			fmt.Fprint(w, tc.authRespBody)
 		}))
 		mux.Handle("/api/v3/repos/test_org/test_repo/contents/minty.yaml", tc.handler)
 		fakeGitHub := httptest.NewServer(mux)

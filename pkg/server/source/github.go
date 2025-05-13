@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/google/go-github/v64/github"
 
@@ -84,7 +85,10 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 
 		accessToken, err := installation.AccessTokenAllRepos(ctx, allRepoRequest)
 		if err != nil {
-			return "", fmt.Errorf("error generating GitHub access token: %w", err)
+			if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") {
+				return "", nil
+			}
+			return "", fmt.Errorf("error generating GitHub access token for all repositories: %w", err)
 		}
 		return accessToken, nil
 	}
@@ -94,7 +98,10 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 	}
 	accessToken, err := installation.AccessToken(ctx, &tokenRequest)
 	if err != nil {
-		return "", fmt.Errorf("error generating GitHub access token: %w", err)
+		if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") {
+			return "", nil
+		}
+		return "", fmt.Errorf("error generating GitHub access token for named repositories: %w", err)
 	}
 	return accessToken, nil
 }
