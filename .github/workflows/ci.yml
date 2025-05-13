@@ -30,6 +30,8 @@ jobs:
     runs-on: 'ubuntu-latest'
     outputs:
       packagejson-dirs: '${{ steps.lint-targets.outputs.packagejson-dirs }}'
+    permissions:
+      contents: 'read'
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
@@ -71,9 +73,10 @@ jobs:
           # Typescript linting handled separtely from the rest of linting in order to
           # shard linting across each package.json file.
           PACKAGEJSON_DIRS="$(find_dirs '(package.json$)')"
+          echo "::debug::Found package.json directories: ${PACKAGEJSON_DIRS}"
           if [[ -n "${PACKAGEJSON_DIRS}" ]]; then
             PACKAGEJSON_DIRS_JSON="$(to_json "${PACKAGEJSON_DIRS}")"
-            echo "::debug::Found package.json directories: ${PACKAGEJSON_DIRS_JSON}"
+            echo "::debug::Found package.json directories json: ${PACKAGEJSON_DIRS_JSON}"
             echo "packagejson-dirs=${PACKAGEJSON_DIRS_JSON}" >> "${GITHUB_OUTPUT}"
           fi
 
