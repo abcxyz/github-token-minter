@@ -26,6 +26,91 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  init:
+    runs-on: 'ubuntu-latest'
+    outputs:
+      packagejson-dirs: '${{ steps.lint-targets.outputs.packagejson-dirs }}'
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1 # shallow checkout
+          ref: '${{ github.event.pull_request.head.sha }}'
+
+      - name: 'Identify Lint Targets'
+        id: 'lint-targets'
+        env:
+          REF: '${{ github.event.pull_request.head.sha }}'
+          LC_ALL: 'C'
+        shell: 'bash'
+        run: |-
+          set -euo pipefail
+          # match_files determines if the current git repository has any files
+          # matching the given pattern. This has been performance tested
+          # against a shallow checkout of chromium (future changes should be
+          # tested in the same manner).
+          match_files() {
+            local filepattern="${1}"
+            matches="$(git ls-tree -r --name-only "${REF}" | grep -m 1 -E "${filepattern}")"
+            code="$?"
+            if [[ -n "${matches}" ]]; then
+              # Ignore exit codes because we found a match.
+              # Exit code 141 and higher may occur because we exit early.
+              return 0
+            fi
+            return "${code}"
+          }
+          find_dirs() {
+            local filepattern="${1}"
+            git ls-tree -r --name-only "${REF}" | grep -E "${filepattern}" | xargs -I {} bash -c 'echo $(dirname {})' | sort || true
+          }
+          to_json() {
+            local filepaths="${1}"
+            echo "${filepaths}" | jq -R -s -c 'split("\n")[:-1]'
+          }
+          # Typescript linting handled separtely from the rest of linting in order to
+          # shard linting across each package.json file.
+          PACKAGEJSON_DIRS="$(find_dirs '(package.json$)')"
+          if [[ -n "${PACKAGEJSON_DIRS}" ]]; then
+            PACKAGEJSON_DIRS_JSON="$(to_json "${PACKAGEJSON_DIRS}")"
+            echo "::debug::Found package.json directories: ${PACKAGEJSON_DIRS_JSON}"
+            echo "packagejson-dirs=${PACKAGEJSON_DIRS_JSON}" >> "${GITHUB_OUTPUT}"
+          fi
+
+  lint-typescript:
+    runs-on: 'ubuntu-latest'
+    needs:
+      - 'init'
+    if: |
+      needs.init.outputs.packagejson-dirs != '' && needs.init.outputs.packagejson-dirs != '[]' && github.repository == 'abcxyz/actions'
+    permissions:
+      contents: 'read'
+    strategy:
+      fail-fast: false
+      max-parallel: 100
+      matrix:
+        packagejson-dir: '${{ fromJSON(needs.init.outputs.packagejson-dirs) }}'
+
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 1 # shallow clone
+
+      - uses: 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020' # ratchet:actions/setup-node@v4
+        with:
+          node-version-file: '${{ matrix.packagejson-dir }}/package.json'
+
+      - name: 'Install npm dependencies'
+        shell: 'bash'
+        working-directory: '${{ matrix.packagejson-dir }}'
+        run: 'npm ci --install-links'
+
+      - name: '[TYPESCRIPT] Lint Typescript'
+        uses: 'abcxyz/actions/.github/actions/lint-typescript@0578143ddf07af38677832fbf2a6f88da034bdd4' # ratchet:exclude
+        with:
+          directory: '${{ matrix.packagejson-dir }}'
+
   # Linting jobs
   terraform_lint:
     uses: 'abcxyz/actions/.github/workflows/terraform-lint.yml@main' # ratchet:exclude
