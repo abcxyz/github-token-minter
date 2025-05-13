@@ -100,17 +100,8 @@ jobs:
         with:
           fetch-depth: 1 # shallow clone
 
-      - uses: 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020' # ratchet:actions/setup-node@v4
-        with:
-          node-version-file: '${{ matrix.packagejson-dir }}/package.json'
-
-      - name: 'Install npm dependencies'
-        shell: 'bash'
-        working-directory: '${{ matrix.packagejson-dir }}'
-        run: 'npm ci --install-links'
-
       - name: '[TYPESCRIPT] Lint Typescript'
-        uses: 'abcxyz/actions/.github/actions/lint-typescript@0578143ddf07af38677832fbf2a6f88da034bdd4' # ratchet:exclude
+        uses: 'abcxyz/actions/.github/actions/lint-typescript@3a82554431a5d0c2f09bef69ac8a6a69a8e61b33' # ratchet:exclude
         with:
           directory: '${{ matrix.packagejson-dir }}'
 
