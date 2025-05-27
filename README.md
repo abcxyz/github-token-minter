@@ -286,3 +286,14 @@ The final parameter is the request object itself, it contains the `scope` that i
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/abcxyz/github-token-minter/issues/events
 ```
+
+## Known Limitations
+
+Note that minting multiple tokens in the same workflow job will cause the post-job cleanup step to fail.
+
+Example:
+
+```
+Post job cleanup.
+Error: HttpError: Bad credentials - https://docs.github.com/rest
+```
