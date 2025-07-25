@@ -375,7 +375,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 
 			got, _, err := tc.reader.Eval(ctx, tc.org, tc.repo, tc.scope, tc.token)
 			if diff := cmp.Diff(tc.want, got, cmp.FilterPath(func(p cmp.Path) bool {
-				return !(p.Last().String() == "Program")
+				return p.Last().String() != "Program"
 			}, cmp.Ignore())); diff != "" {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}

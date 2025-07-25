@@ -117,17 +117,18 @@ func createAppConfigs(ctx context.Context, cfg *Config) ([]*source.GitHubAppConf
 		keyMaterial := uri[3]
 
 		var signer crypto.Signer
-		if keyType == KeyTypePrivateKey {
+		switch keyType {
+		case KeyTypePrivateKey:
 			signer, err = githubauth.NewPrivateKeySigner(keyMaterial)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create private key signer: %w", err)
 			}
-		} else if keyType == KeyTypeKMSID {
+		case KeyTypeKMSID:
 			signer, err = newKMSSigner(ctx, keyMaterial)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create kms signer: %w", err)
 			}
-		} else {
+		default:
 			return nil, fmt.Errorf("invalid key type: %s", keyType)
 		}
 
