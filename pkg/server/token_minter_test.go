@@ -294,6 +294,46 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			expCode: 200,
 			expResp: "[contents=write issues=read]",
 		},
+		{
+			name: "happy_path_no_repositories_in_request",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "[issues=read]",
+		},
+		{
+			name: "happy_path_empty_repositories_in_request",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test", "repositories":[]}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "[issues=read]",
+		},
 	}
 
 	for _, tc := range cases {
