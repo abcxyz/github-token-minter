@@ -149,6 +149,12 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 		return apiError
 	}
 
+	// If no repositories are requested, default to the repository from the
+	// OIDC token claims.
+	if len(request.Repositories) == 0 && claims.ParsedRepoName != "" {
+		request.Repositories = []string{claims.ParsedRepoName}
+	}
+
 	logger.InfoContext(ctx, "received token request",
 		"claims", claims,
 		"request", request,
