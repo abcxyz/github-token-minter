@@ -218,7 +218,7 @@ func TestParsePrivateClaims(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			got, err := parsePrivateClaims(token)
+			got, err := parsePrivateClaims(token, []string{})
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}

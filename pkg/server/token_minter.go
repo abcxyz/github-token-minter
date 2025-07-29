@@ -42,9 +42,10 @@ const (
 // TokenMinterServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMinterServer struct {
-	sourceSystem source.System
-	configStore  config.ConfigEvaluator
-	parser       *JWTParser
+	sourceSystem    source.System
+	configStore     config.ConfigEvaluator
+	parser          *JWTParser
+	issuerAllowList []string
 }
 
 // tokenRequest is a struct that contains the list of repositories and the
@@ -67,11 +68,12 @@ type apiResponse struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, sourceSystem source.System, configStore config.ConfigEvaluator, parser *JWTParser) (*TokenMinterServer, error) {
+func NewRouter(ctx context.Context, sourceSystem source.System, configStore config.ConfigEvaluator, cfg *Config, parser *JWTParser) (*TokenMinterServer, error) {
 	return &TokenMinterServer{
-		sourceSystem: sourceSystem,
-		configStore:  configStore,
-		parser:       parser,
+		sourceSystem:    sourceSystem,
+		configStore:     configStore,
+		parser:          parser,
+		issuerAllowList: cfg.IssuerAllowlist,
 	}, nil
 }
 
@@ -144,7 +146,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	}
 
 	// Parse the auth token into a set of claims
-	claims, apiError := s.parser.parseAuthToken(ctx, oidcHeader)
+	claims, apiError := s.parser.parseAuthToken(ctx, oidcHeader, s.issuerAllowList)
 	if apiError != nil {
 		return apiError
 	}

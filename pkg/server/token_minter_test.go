@@ -360,7 +360,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			server, err := NewRouter(ctx, sourceSystem, configStore, &JWTParser{ParseOptions: jwtParseOptions, jwkResolver: &tc.resolver})
+			server, err := NewRouter(ctx, sourceSystem, configStore, &Config{}, &JWTParser{ParseOptions: jwtParseOptions, jwkResolver: &tc.resolver})
 			if err != nil {
 				t.Fatal(err)
 			}

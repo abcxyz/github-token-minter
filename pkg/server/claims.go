@@ -22,8 +22,6 @@ import (
 
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-
-	"github.com/abcxyz/github-token-minter/pkg/config"
 )
 
 // JWTParser is an object that is responsible for parsing
@@ -103,7 +101,7 @@ func (c *oidcClaims) asMap() map[string]interface{} {
 }
 
 // parseAuthToken converts a JWT token into a collection of OIDC claims.
-func (p *JWTParser) parseAuthToken(ctx context.Context, oidcHeader string) (*oidcClaims, *apiResponse) {
+func (p *JWTParser) parseAuthToken(ctx context.Context, oidcHeader string, issuerAllowlist []string) (*oidcClaims, *apiResponse) {
 	keySet, err := p.jwkResolver.ResolveKeySet(ctx, oidcHeader)
 	if err != nil {
 		return nil, &apiResponse{
@@ -123,7 +121,7 @@ func (p *JWTParser) parseAuthToken(ctx context.Context, oidcHeader string) (*oid
 		}
 	}
 
-	claims, err := parsePrivateClaims(oidcToken)
+	claims, err := parsePrivateClaims(oidcToken, issuerAllowlist)
 	if err != nil {
 		return nil, &apiResponse{
 			http.StatusBadRequest,
@@ -136,14 +134,14 @@ func (p *JWTParser) parseAuthToken(ctx context.Context, oidcHeader string) (*oid
 
 // parsePrivateClaims extracts the private claims from the OIDC token into an internal
 // representation and validates that all required claims are present.
-func parsePrivateClaims(oidcToken jwt.Token) (*oidcClaims, error) {
+func parsePrivateClaims(oidcToken jwt.Token, issuerAllowlist []string) (*oidcClaims, error) {
 	var claims oidcClaims
 
 	claims.Audience = oidcToken.Audience()
 	claims.Subject = oidcToken.Subject()
 	claims.Issuer = oidcToken.Issuer()
 
-	r, err := extractRepository(oidcToken)
+	r, err := extractRepository(oidcToken, issuerAllowlist)
 	if err != nil {
 		return nil, err
 	}
@@ -177,29 +175,37 @@ func parsePrivateClaims(oidcToken jwt.Token) (*oidcClaims, error) {
 	// Use this string split instead of attempting to use this and the repository_owner claim since
 	// the repository_owner claim is optional.
 	repoParts := strings.Split(claims.Repository, "/")
-	if len(repoParts) != 2 {
-		return nil, fmt.Errorf("'repository' claim formatted incorrectly, requires <org_name>/<repo_name> format - received [%s]", claims.Repository)
+	if len(repoParts) == 2 {
+		claims.ParsedOrgName = repoParts[0]
+		claims.ParsedRepoName = repoParts[1]
+	} else {
+		claims.ParsedOrgName = ""
+		claims.ParsedRepoName = ""
 	}
-	claims.ParsedOrgName = repoParts[0]
-	claims.ParsedRepoName = repoParts[1]
 
 	return &claims, nil
 }
 
-func extractRepository(oidcToken jwt.Token) (string, error) {
-	if oidcToken.Issuer() == config.GitHubIssuer {
-		return requiredClaim[string](oidcToken, "repository")
+func extractRepository(oidcToken jwt.Token, issuerAllowlist []string) (string, error) {
+	// Iterating through the allowlist to check if it matches the token's issuer.
+	issuerAllowed := false
+	for _, allowedIssuer := range issuerAllowlist {
+		if oidcToken.Issuer() == allowedIssuer {
+			issuerAllowed = true
+			break
+		}
 	}
 
+	if issuerAllowed {
+		return optionalClaim[string](oidcToken, "repository"), nil
+	}
+
+	// Note: oidcToken.Audience() is an array
 	if len(oidcToken.Audience()) != 1 {
 		return "", fmt.Errorf("non-github OIDC token's audience field should have exactly one entry of a repository containing a minty config")
 	}
 	scopeRepository, _ := strings.CutPrefix(oidcToken.Audience()[0], "https://github.com/")
 	return scopeRepository, nil
-}
-
-func requiredClaim[T any](oidcToken jwt.Token, claim string) (T, error) {
-	return tokenClaim[T](oidcToken, claim, true)
 }
 
 func optionalClaim[T any](oidcToken jwt.Token, claim string) T {
