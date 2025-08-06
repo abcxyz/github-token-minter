@@ -143,6 +143,10 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 		// return &apiResponse{http.StatusBadRequest, "error parsing request information - missing 'scope' attribute", nil}
 	}
 
+	logger.InfoContext(ctx, "oidc header",
+		"oidcHeader", oidcHeader,
+	)
+
 	// Parse the auth token into a set of claims
 	claims, apiError := s.parser.parseAuthToken(ctx, oidcHeader)
 	if apiError != nil {
