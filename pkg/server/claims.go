@@ -187,7 +187,9 @@ func parsePrivateClaims(oidcToken jwt.Token) (*oidcClaims, error) {
 }
 
 func extractRepository(oidcToken jwt.Token) (string, error) {
-	if oidcToken.Issuer() == config.GitHubIssuer {
+	// GoogleIssuer has replaced the audience with repository information.
+	// All other token issuers as of this time will have the repository claim.
+	if oidcToken.Issuer() != config.GoogleIssuer {
 		return requiredClaim[string](oidcToken, "repository")
 	}
 
