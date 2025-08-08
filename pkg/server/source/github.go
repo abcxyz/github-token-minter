@@ -68,7 +68,7 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 	var installation *githubauth.AppInstallation
 	var err error
 	for _, app := range g.apps {
-		installation, err = app.InstallationForRepo(ctx, org, repo)
+		installation, err = app.InstallationForOrg(ctx, org)
 		if err != nil {
 			errs = append(errs, err)
 		} else {

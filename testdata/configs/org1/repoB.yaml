@@ -1,0 +1,12 @@
+version: 'minty.abcxyz.dev/v2'
+rule:
+  if: true
+
+scope:
+  cross_org_test:
+    rule:
+      if: 'assertion.workflow_ref.startsWith("abcxyz/pkg/.github/workflows/test.yml")'
+    repositories:
+      - 'repoB'
+    permissions:
+      issues: 'read'
