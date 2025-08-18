@@ -206,7 +206,7 @@ rule:
 	ctx := t.Context()
 	for _, tc := range cases {
 		mux := http.NewServeMux()
-		mux.Handle("GET /repos/test_org/test_repo/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mux.Handle("GET /orgs/test_org/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, `{"access_tokens_url": "http://%s/app/installations/123/access_tokens"}`, r.Host)
 		}))
 		mux.Handle("POST /app/installations/123/access_tokens", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

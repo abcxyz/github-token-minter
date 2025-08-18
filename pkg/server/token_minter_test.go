@@ -20,12 +20,14 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sort"
 	"strings"
 	"testing"
@@ -83,10 +85,30 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 
 	fakeGitHub := func() *httptest.Server {
 		mux := http.NewServeMux()
-		mux.Handle("GET /repos/abcxyz/pkg/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mux.Handle("GET /orgs/abcxyz/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, `{"access_tokens_url": "http://%s/app/installations/123/access_tokens"}`, r.Host)
 		}))
 		mux.Handle("POST /app/installations/123/access_tokens", http.HandlerFunc(handleAccessTokenRequest))
+
+		mux.Handle("GET /orgs/org1/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, `{"access_tokens_url": "http://%s/app/installations/456/access_tokens"}`, r.Host)
+		}))
+		mux.Handle("POST /app/installations/456/access_tokens", http.HandlerFunc(handleAccessTokenRequest))
+		mux.Handle("GET /api/v3/repos/org1/pkg/contents/.github/minty.yaml", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Page not found", http.StatusNotFound)
+		}))
+		mux.Handle("GET /api/v3/repos/org1/.minty/contents/minty.yaml", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			data, err := os.ReadFile("../../testdata/configs/org1/minty.yaml")
+			if err != nil {
+				http.Error(w, "Failed to load config file", http.StatusInternalServerError)
+				return
+			}
+			content := base64.StdEncoding.EncodeToString(data)
+			fmt.Fprintf(w, `{"encoding": "base64","type":"file","content": "%s"}`, content)
+		}))
+		// mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// 	w.WriteHeader(http.StatusForbidden)
+		// })
 
 		return httptest.NewServer(mux)
 	}()
@@ -334,6 +356,127 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			expCode: 200,
 			expResp: "[issues=read]",
 		},
+		{
+			name: "happy_path_cross_org_single_repo_in_request",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"cross_org_test", "repositories":["repoA"], "org_name":"org1"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "[issues=read]",
+		},
+		{
+			name: "happy_path_cross_org_multi_repo_in_request",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"cross_org_test", "repositories":["repoA", "repoB"], "org_name":"org1"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "[issues=read]",
+		},
+		{
+			name: "happy_path_same_org_all_repositories",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test", "repositories":["*"]}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "[issues=read]",
+		},
+		{
+			name: "happy_path_cross_org_all_repositories",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"minty_cross_org", "repositories":["*"], "org_name":"org1"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "[contents=write]",
+		},
+		{
+			name: "unhappy_path_mixing_all_and_specific_repos",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test", "repositories":["*", "pkg"]}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 403,
+			expResp: "request for '*' also contained request for specific repositories and that is not allowed",
+		},
+		{
+			name: "unhappy_path_all_repos_no_config",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test", "repositories":["*"]}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/no-config-repo")
+					b.Claim("workflow_ref", "abcxyz/no-config-repo/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 500,
+			expResp: "requested scope \"test\" is not found for repository \"abcxyz\"/\"no-config-repo\"",
+			expErr:  "error reading configuration for repository abcxyz/no-config-repo",
+		},
 	}
 
 	for _, tc := range cases {
@@ -546,7 +689,7 @@ func TestValidateRepositories(t *testing.T) {
 	}
 }
 
-func TestAllowRequestAllRepos(t *testing.T) {
+func TestIsRequestAllRepos(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -579,7 +722,7 @@ func TestAllowRequestAllRepos(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := allowRequestAllRepos(tc.allow, tc.request)
+			got := isRequestAllRepos(tc.allow, tc.request)
 			if got != tc.want {
 				t.Errorf("allowRequestAllRepos got=%t, want=%t", got, tc.want)
 			}

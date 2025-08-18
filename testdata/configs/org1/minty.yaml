@@ -1,0 +1,13 @@
+version: 'minty.abcxyz.dev/v2'
+rule:
+  if: true
+
+scope:
+  minty_cross_org:
+    rule:
+      if: 'assertion.workflow_ref.startsWith("abcxyz/pkg/.github/workflows/test.yml")'
+    repositories:
+      - 'repoA'
+      - 'repoB'
+    permissions:
+      contents: 'write'

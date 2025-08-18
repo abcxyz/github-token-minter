@@ -51,6 +51,7 @@ type TokenMinterServer struct {
 // requested permissions / scopes that are requested when generating a new
 // installation access token.
 type tokenRequest struct {
+	OrgName      string            `json:"org_name"`
 	Repositories []string          `json:"repositories"`
 	Permissions  map[string]string `json:"permissions"`
 	Scope        string            `json:"scope"`
@@ -155,47 +156,31 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 		request.Repositories = []string{claims.ParsedRepoName}
 	}
 
+	// Default the org name to the one parsed from the OIDC token
+	if request.OrgName == "" {
+		request.OrgName = claims.ParsedOrgName
+	}
+
 	logger.InfoContext(ctx, "received token request",
 		"claims", claims,
 		"request", request,
 	)
 
-	// Get the repository's configuration data and evaluate the token against the
-	// configuration to find a matching scope.
-	scope, source, err := s.configStore.Eval(ctx, claims.ParsedOrgName, claims.ParsedRepoName, request.Scope, claims.asMap())
-	if err != nil {
-		return &apiResponse{
-			http.StatusInternalServerError,
-			fmt.Sprintf("requested scope %q is not found for repository %q", request.Scope, claims.Repository),
-			fmt.Errorf("error reading configuration for repository %s from configuration store with config_source %s: %w", claims.Repository, source, err),
-		}
-	}
-	if scope == nil {
-		return &apiResponse{http.StatusForbidden, fmt.Sprintf("no permissions available for scope %q in repository %q", request.Scope, claims.Repository), err}
-	}
-
-	// If there are no permissions in the request, use the set defined for the scope.
-	if len(request.Permissions) == 0 {
-		request.Permissions = scope.Permissions
-	}
-
-	// Validate the permissions that were requested are within what is allowed for the repository
-	if err = validatePermissions(scope.Permissions, request.Permissions); err != nil {
-		return &apiResponse{http.StatusForbidden, "requested permissions are not authorized for this repository", err}
+	repoList, apiErr := s.buildRepositoryList(ctx, &request, claims)
+	if apiErr != nil {
+		return apiErr
 	}
 
 	// If all repositories are allowed and all were requested,
 	// request access token for all allowed repositories
-	if allowRequestAllRepos(scope.Repositories, request.Repositories) {
+	if isRequestAllRepos(repoList, request.Repositories) {
 		logger.InfoContext(ctx, "generating token for all repos",
 			"claims", claims,
 			"request_repositories", "all",
 			"request_permissions", request.Permissions,
-			"scope", scope,
-			"config_source", source,
 		)
 
-		accessToken, err := s.sourceSystem.MintAccessToken(ctx, claims.ParsedOrgName, claims.ParsedRepoName, nil, request.Permissions)
+		accessToken, err := s.sourceSystem.MintAccessToken(ctx, request.OrgName, claims.ParsedRepoName, nil, request.Permissions)
 		if err != nil {
 			return &apiResponse{http.StatusInternalServerError, "error generating access token", fmt.Errorf("error generating access token: %w", err)}
 		}
@@ -205,7 +190,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	// Otherwise, validate that all of the requested repositories are allowed
 	// or if all repositories are allowed and specific repositories were requested,
 	// request restricted access token
-	repos, err := validateRepositories(scope.Repositories, request.Repositories)
+	repos, err := validateRepositories(repoList, request.Repositories)
 	if err != nil {
 		return &apiResponse{http.StatusForbidden, "one or more of the requested repositories is not authorized", err}
 	}
@@ -213,20 +198,71 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 		"claims", claims,
 		"request_repositories", repos,
 		"request_permissions", request.Permissions,
-		"scope", scope,
-		"config_source", source,
 	)
 
-	accessToken, err := s.sourceSystem.MintAccessToken(ctx, claims.ParsedOrgName, claims.ParsedRepoName, repos, request.Permissions)
+	accessToken, err := s.sourceSystem.MintAccessToken(ctx, request.OrgName, claims.ParsedRepoName, repos, request.Permissions)
 	if err != nil {
 		return &apiResponse{http.StatusInternalServerError, "error generating access token", fmt.Errorf("error generating access token: %w", err)}
 	}
 	return &apiResponse{http.StatusOK, accessToken, nil}
 }
 
-// allowRequestAllRepos determines if a request is allowed to request
+// buildRepositoryList looks for configuration for each of the specified repositories
+// in the requested org, finds the matching scope that was requested and then
+// verifies that the OIDC claims match the expression attached to the scope.
+// This is done against each target repository and any failure to match causes
+// the request to fail.
+func (s *TokenMinterServer) buildRepositoryList(ctx context.Context, request *tokenRequest, claims *oidcClaims) ([]string, *apiResponse) {
+	logger := logging.FromContext(ctx)
+
+	tokenRepos := []string{}
+	for _, repo := range request.Repositories {
+		// Requests for "all repos" can't be handled by an in repo configuration,
+		// handle it by forcing the repo name to be the one in the oidc request which
+		// will either make it look in that repo OR in the global config file
+		if repo == "*" {
+			if len(request.Repositories) > 1 {
+				// This is a secenario we shouldn't support. Asking for "*" and any other repositories
+				// will lead to very strange results.
+				return nil, &apiResponse{http.StatusForbidden, "request for '*' also contained request for specific repositories and that is not allowed", nil}
+			}
+			repo = claims.ParsedRepoName
+		}
+		// Get the repository's configuration data and evaluate the token against the
+		// configuration to find a matching scope.
+		scope, source, err := s.configStore.Eval(ctx, request.OrgName, repo, request.Scope, claims.asMap())
+		if err != nil {
+			return nil, &apiResponse{
+				http.StatusInternalServerError,
+				fmt.Sprintf("requested scope %q is not found for repository %q/%q", request.Scope, request.OrgName, repo),
+				fmt.Errorf("error reading configuration for repository %s/%s from configuration store with config_source %s: %w", request.OrgName, repo, source, err),
+			}
+		}
+		if scope == nil {
+			return nil, &apiResponse{http.StatusForbidden, fmt.Sprintf("no permissions available for scope %q in repository %q", request.Scope, claims.Repository), err}
+		}
+		// If there are no permissions in the request, use the set defined for the scope.
+		if len(request.Permissions) == 0 {
+			request.Permissions = scope.Permissions
+		}
+
+		// Validate the permissions that were requested are within what is allowed for the repository
+		if err = validatePermissions(scope.Permissions, request.Permissions); err != nil {
+			return nil, &apiResponse{http.StatusForbidden, "requested permissions are not authorized for this repository", err}
+		}
+		logger.InfoContext(ctx, "adding scope to allowed set of repositories",
+			"scope", scope,
+			"config_source", source,
+		)
+		tokenRepos = append(tokenRepos, scope.Repositories...)
+	}
+
+	return tokenRepos, nil
+}
+
+// isRequestAllRepos determines if a request is allowed to request
 // a token with permissions to all repositories.
-func allowRequestAllRepos(allowed, requested []string) bool {
+func isRequestAllRepos(allowed, requested []string) bool {
 	return len(allowed) == 1 && allowed[0] == "*" &&
 		len(requested) == 1 && requested[0] == "*"
 }
