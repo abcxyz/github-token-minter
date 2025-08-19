@@ -44,7 +44,7 @@ resource "google_iam_workload_identity_pool_provider" "default" {
 
   project = var.project_id
 
-  workload_identity_pool_id          = google_iam_workload_identity_pool.default.workload_identity_pool_id
+  workload_identity_pool_id          = google_iam_workload_identity_pool.default[0].workload_identity_pool_id
   workload_identity_pool_provider_id = var.name                   # 32 characters
   display_name                       = "${var.name} WIF Provider" # 32 characters
   description                        = "${var.name} OIDC identity provider"
@@ -69,8 +69,8 @@ resource "google_service_account" "wif_service_account" {
 resource "google_service_account_iam_member" "default" {
   count = var.enable_wif ? 1 : 0
 
-  service_account_id = google_service_account.wif_service_account.id
+  service_account_id = google_service_account.wif_service_account[0].id
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.default.name}/*"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.default[0].name}/*"
 }
 
