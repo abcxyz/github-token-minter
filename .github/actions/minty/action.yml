@@ -4,7 +4,7 @@ description: 'Exchange a GitHub OIDC token for one with elevated privlidges. Pos
 inputs:
   id_token:
     description: 'GCP Identity Token'
-    required: true
+    required: false
   service_url:
     description: 'URL for the production github-token-minter service'
     required: true
