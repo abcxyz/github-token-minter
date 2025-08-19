@@ -23,14 +23,19 @@ async function main() {
     const permissions = core.getInput('requested_permissions');
 
     const oidcToken = await core.getIDToken('github-token-minter');
+    let headers = {
+      'Content-Type': 'application/json',
+      'X-OIDC-Token': oidcToken,
+    };
+    // If an identity token is provided, it pass it along
+    if (idToken) {
+      headers['Authorization'] = `Bearer ${idToken}`;
+    }
+
     const response = await fetch(`${serviceURL}/token`, {
       method: 'post',
       body: permissions,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-OIDC-Token': oidcToken,
-        Authorization: `Bearer ${idToken}`,
-      },
+      headers: headers,
     });
 
     // get the response as text so we can try to parse JSON
