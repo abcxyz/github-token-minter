@@ -49,6 +49,18 @@ module "github_token_minter" {
 }
 ```
 
+By default, the Terraform module deploys the service with Workload Identity Federation (WIF) enabled, requiring authenticated requests. You can disable this behavior by setting the `enable_wif` variable to `false`. This will make the Cloud Run service publicly accessible and remove the need for the WIF-related resources.
+
+```terraform
+module "github_token_minter" {
+  source = "git::https://github.com/abcxyz/github-token-minter.git//terraform?ref=main" # Should pin this to a SHA
+
+  enable_wif = false
+
+  # ... other variables
+}
+```
+
 ### Service Configuration
 
 The service relies on a number of environment variables. Most of them have defaults that map to the public GitHub environment and are exposed only to allow customers who use private GitHub Enterprise environments to configure them.
@@ -196,11 +208,13 @@ The `repositories` and `permissions` attributes mirror the schema defined for [r
 
 ## Using the service
 
-The service provides a GitHub action that can be used to access the service from a GitHub workflow.
+The service provides a GitHub action that can be used to access the service from a GitHub workflow. It is located in the [.github/actions/minty](.github/actions/minty) directory of this repository.
 
-It is located in the [.github/actions/minty](.github/actions/minty) directory of this repository.
+The action can be used in two ways depending on how your `github-token-minter` service is deployed.
 
-The action requires a the caller to first authenticate with Google Cloud using the [google-github-actions/auth](https://github.com/google-github-actions/auth) action like this:
+### Method 1: Authenticating with Google Cloud (WIF)
+
+If your service was deployed with Workload Identity Federation enabled (`enable_wif = true`), the caller must first authenticate with Google Cloud using the [google-github-actions/auth](https://github.com/google-github-actions/auth) action.
 
 ```yaml
       - id: 'minty-auth'
@@ -236,9 +250,28 @@ Once you have authenticated you then call the `minty` action like this:
             }
 ```
 
-As you can see, the `id_token` is passed from the `auth` action along with the url of the cloud run service where `github-token-minter` is deployed.
+The `id_token` from the `auth` action is passed to the `minty` action.
 
-The final parameter is the request object itself, it contains the `scope` that is being targeted, a optional set of repositories that the workflow is requesting access to (this defaults to the current repo) and the set of permissions that the workflow requires. The permissions map can be a subset of the permissions defined in the config file or can be omitted to request whatever permissions are defined for the scope.
+### Method 2: Authenticating with the GitHub Workflow Token
+
+If your service was deployed without Workload Identity Federation (`enable_wif = false`), you can call the `minty` action directly without the `google-github-actions/auth` step.
+
+```yaml
+      - id: 'mint-token'
+        uses: 'abcxyz/github-token-minter/.github/actions/minty@main' # ratchet:exclude
+        with:
+          service_url: '${{ vars.TOKEN_MINTER_SERVICE_URL }}'
+          requested_permissions: |-
+            {
+              "scope": "read-issues",
+              "repositories": ["some-repo-in-other-org"],
+              "permissions": {
+                "issues": "read"
+              }
+            }
+```
+
+In both methods, the final parameter is the request object itself. It contains the `scope` that is being targeted, an optional `org_name` to specify a different GitHub organization, an optional set of repositories that the workflow is requesting access to (this defaults to the current repo), and the set of permissions that the workflow requires. The permissions map can be a subset of the permissions defined in the config file or can be omitted to request whatever permissions are defined for the scope.
 
 ## Example Workflow
 
