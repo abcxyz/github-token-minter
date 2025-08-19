@@ -100,3 +100,11 @@ variable "envvars" {
   default     = {}
   description = "Environment variables for the Cloud Run service (plain text)."
 }
+
+# Enable workload identity federation and authenticated access requirements for the
+# cloud run service.
+variable "enable_wif" {
+  description = "Enable the use of workload identity federation. By default this is true"
+  type        = bool
+  default     = true
+}

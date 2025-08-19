@@ -39,7 +39,7 @@ resource "google_service_account" "run_service_account" {
 module "gclb" {
   count = var.enable_gclb ? 1 : 0
 
-  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/gclb_cloud_run_backend?ref=ebaccaa0c906e89813e3b0b71fc5fc6be9ef0cdb"
+  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/gclb_cloud_run_backend?ref=1467eaf0115f71613727212b0b51b3f99e699842"
 
   project_id = var.project_id
 
@@ -49,7 +49,7 @@ module "gclb" {
 }
 
 module "cloud_run" {
-  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/cloud_run?ref=ebaccaa0c906e89813e3b0b71fc5fc6be9ef0cdb"
+  source = "git::https://github.com/abcxyz/terraform-modules.git//modules/cloud_run?ref=1467eaf0115f71613727212b0b51b3f99e699842"
 
   project_id = var.project_id
 
@@ -62,7 +62,7 @@ module "cloud_run" {
   service_iam = {
     admins     = var.service_iam.admins
     developers = toset(concat(var.service_iam.developers, [var.ci_service_account_member]))
-    invokers   = toset(concat(var.service_iam.invokers, [google_service_account.wif_service_account.member]))
+    invokers   = toset(concat(var.service_iam.invokers, var.enable_wif ? [google_service_account.wif_service_account[0].member] : []))
   }
 
   envvars = var.envvars
@@ -77,6 +77,9 @@ module "cloud_run" {
       version : "latest",
     }
   }
+
+  additional_service_annotations  = var.enable_wif ? {} : { "run.googleapis.com/invoker-iam-disabled" : true }
+  additional_revision_annotations = var.enable_wif ? {} : { "run.googleapis.com/invoker-iam-disabled" : true }
 }
 
 # allow the ci service account to act as the cloud run service account
