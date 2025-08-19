@@ -26,6 +26,8 @@ locals {
 }
 
 resource "google_iam_workload_identity_pool" "default" {
+  count = var.enable_wif ? 1 : 0
+
   project = var.project_id
 
   workload_identity_pool_id = var.name               # 32 characters
@@ -38,6 +40,8 @@ resource "google_iam_workload_identity_pool" "default" {
 }
 
 resource "google_iam_workload_identity_pool_provider" "default" {
+  count = var.enable_wif ? 1 : 0
+
   project = var.project_id
 
   workload_identity_pool_id          = google_iam_workload_identity_pool.default.workload_identity_pool_id
@@ -54,6 +58,8 @@ resource "google_iam_workload_identity_pool_provider" "default" {
 }
 
 resource "google_service_account" "wif_service_account" {
+  count = var.enable_wif ? 1 : 0
+
   project = var.project_id
 
   account_id   = "${var.name}-wif-sa" # 30 characters
@@ -61,6 +67,8 @@ resource "google_service_account" "wif_service_account" {
 }
 
 resource "google_service_account_iam_member" "default" {
+  count = var.enable_wif ? 1 : 0
+
   service_account_id = google_service_account.wif_service_account.id
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.default.name}/*"
