@@ -53,17 +53,17 @@ output "run_service_account_name" {
 }
 
 output "wif_pool" {
-  value = google_iam_workload_identity_pool.default.name
+  value = var.enable_wif ? google_iam_workload_identity_pool.default[0].name : ""
 }
 
 output "wif_provider" {
-  value = google_iam_workload_identity_pool_provider.default.name
+  value = var.enable_wif ? google_iam_workload_identity_pool_provider.default[0].name : ""
 }
 
 output "wif_service_account_email" {
-  value = google_service_account.wif_service_account.email
+  value = var.enable_wif ? google_service_account.wif_service_account[0].email : ""
 }
 
 output "wif_service_account_member" {
-  value = google_service_account.wif_service_account.member
+  value = var.enable_wif ? google_service_account.wif_service_account[0].member : ""
 }
