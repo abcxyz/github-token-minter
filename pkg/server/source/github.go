@@ -121,7 +121,9 @@ func (g *gitHubSourceSystem) RetrieveFileContents(ctx context.Context, org, repo
 	}
 	fileContents, _, resp, err := client.Repositories.GetContents(ctx, org, repo, filePath, &github.RepositoryContentGetOptions{Ref: ref})
 	if err != nil {
-		if resp.StatusCode == http.StatusNotFound {
+		// 404 if the file doesn't exist
+		// 422 if the whole repo is missing
+		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusUnprocessableEntity {
 			return nil, nil
 		} else {
 			return nil, fmt.Errorf("error reading configuration file @ %s/%s/%s: %w", org, repo, filePath, err)
