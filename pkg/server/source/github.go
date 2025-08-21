@@ -85,7 +85,8 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 
 		accessToken, err := installation.AccessTokenAllRepos(ctx, allRepoRequest)
 		if err != nil {
-			if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") {
+			if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") ||
+				strings.Contains(err.Error(), "invalid http response status (expected 422 to be 201):") {
 				return "", nil
 			}
 			return "", fmt.Errorf("error generating GitHub access token for all repositories: %w", err)
@@ -98,7 +99,8 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 	}
 	accessToken, err := installation.AccessToken(ctx, &tokenRequest)
 	if err != nil {
-		if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") {
+		if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") ||
+			strings.Contains(err.Error(), "invalid http response status (expected 422 to be 201):") {
 			return "", nil
 		}
 		return "", fmt.Errorf("error generating GitHub access token for named repositories: %w", err)
