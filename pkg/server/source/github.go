@@ -114,6 +114,12 @@ func (g *gitHubSourceSystem) RetrieveFileContents(ctx context.Context, org, repo
 	if err != nil {
 		return nil, fmt.Errorf("error minting access token for GitHub: %w", err)
 	}
+
+	// MintAccessToken will return an empty string if the repository doesn't exist
+	// treat this the same way we handle "not found" conditions.
+	if token == "" {
+		return nil, nil
+	}
 	client := github.NewClient(nil).WithAuthToken(token)
 	if g.baseURL != "" {
 		client, err = client.WithEnterpriseURLs(g.baseURL, g.baseURL)
