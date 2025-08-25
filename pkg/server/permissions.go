@@ -45,6 +45,9 @@ var levelInheritence = map[string]Level{
 // validatePermissions validates that the requested permissions are within
 // what should be allowed based on the configuration for the repository.
 func validatePermissions(allowed, requested map[string]string) error {
+	if _, ok := allowed["*"]; ok {
+		return nil
+	}
 	for name, reqLevel := range requested {
 		allowLevel, ok := allowed[name]
 		if !ok {
