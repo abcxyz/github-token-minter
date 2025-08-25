@@ -59,6 +59,10 @@ func TestValidatePermissions(t *testing.T) {
 			allowed:   map[string]string{"issues": "read"},
 			requested: map[string]string{"issues": "write"},
 			expErrMsg: `requested permission level "write" for permission "issues" is not authorized`,
+		}, {
+			name:      "success_wildcard",
+			allowed:   map[string]string{"*": "all"},
+			requested: map[string]string{"issues": "admin", "pull_requests": "write"},
 		},
 	}
 
