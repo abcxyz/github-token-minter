@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -455,6 +456,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			},
 			expCode: 403,
 			expResp: "request for '*' also contained request for specific repositories and that is not allowed",
+			expErr:  "request for '*' also contained request for specific repositories and that is not allowed",
 		},
 		{
 			name: "unhappy_path_all_repos_no_config",
@@ -802,4 +804,396 @@ func (r *mockJwksResolver) ResolveKeySet(ctx context.Context, oidcHeader string)
 		return nil, r.err
 	}
 	return r.keySet, nil
+}
+
+func TestBuildRepositoryList(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name            string
+		request         *tokenRequest
+		claims          *oidcClaims
+		evaluator       config.ConfigEvaluator
+		wantRepos       []string
+		wantPermissions map[string]string
+		wantError       bool
+		wantErrorMsg    string
+	}{
+		{
+			name:    "empty request returns empty list of repos",
+			request: &tokenRequest{Scope: "test"},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+				},
+			},
+			wantRepos:       []string{},
+			wantPermissions: map[string]string{},
+			wantError:       false,
+			wantErrorMsg:    "",
+		},
+		{
+			name:    "request single repo match scope",
+			request: &tokenRequest{Repositories: []string{"test"}, Scope: "test"},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{"test"},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+				},
+			},
+			wantRepos:       []string{"test"},
+			wantPermissions: map[string]string{"issues": "read"},
+			wantError:       false,
+			wantErrorMsg:    "",
+		},
+		{
+			name:    "request multi repo match scope",
+			request: &tokenRequest{Repositories: []string{"test", "tset"}, Scope: "test"},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{"test"},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+					"tset": {
+						Repositories: []string{"tset"},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+				},
+			},
+			wantRepos:       []string{"test", "tset"},
+			wantPermissions: map[string]string{"issues": "read"},
+			wantError:       false,
+			wantErrorMsg:    "",
+		},
+		{
+			name:    "request all repo match scope",
+			request: &tokenRequest{Repositories: []string{"*"}, Scope: "test"},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{"test", "tset"},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+				},
+			},
+			wantRepos:       []string{"test", "tset"},
+			wantPermissions: map[string]string{"issues": "read"},
+			wantError:       false,
+			wantErrorMsg:    "",
+		},
+		{
+			name:    "request all repo + other should fail",
+			request: &tokenRequest{Repositories: []string{"*", "test"}, Scope: "test"},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{"test", "tset"},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+				},
+			},
+			wantRepos:       nil,
+			wantPermissions: map[string]string{},
+			wantError:       true,
+			wantErrorMsg:    "request for '*' also contained request for specific repositories and that is not allowed",
+		},
+		{
+			name:    "request permissions matches scope",
+			request: &tokenRequest{Permissions: map[string]string{"issues": "read"}, Scope: "test"},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+				},
+			},
+			wantRepos:       []string{},
+			wantPermissions: map[string]string{"issues": "read"},
+			wantError:       false,
+			wantErrorMsg:    "",
+		},
+		{
+			name:    "request permissions allowed by scope",
+			request: &tokenRequest{Permissions: map[string]string{"issues": "read"}, Scope: "test"},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{},
+						Permissions:  map[string]string{"issues": "write"},
+					},
+				},
+			},
+			wantRepos:       []string{},
+			wantPermissions: map[string]string{"issues": "read"},
+			wantError:       false,
+			wantErrorMsg:    "",
+		},
+		{
+			name: "request permissions and repo match scope",
+			request: &tokenRequest{
+				Repositories: []string{"test"},
+				Permissions:  map[string]string{"issues": "read"},
+				Scope:        "test",
+			},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{"test"},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+				},
+			},
+			wantRepos:       []string{"test"},
+			wantPermissions: map[string]string{"issues": "read"},
+			wantError:       false,
+			wantErrorMsg:    "",
+		},
+		{
+			name: "request permissions and all repo match scope",
+			request: &tokenRequest{
+				Repositories: []string{"*"},
+				Permissions:  map[string]string{"issues": "read"},
+				Scope:        "test",
+			},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{"test"},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+				},
+			},
+			wantRepos:       []string{"test"},
+			wantPermissions: map[string]string{"issues": "read"},
+			wantError:       false,
+			wantErrorMsg:    "",
+		},
+		{
+			name: "request all repo match scope no permissions get scope permissions",
+			request: &tokenRequest{
+				Repositories: []string{"*"},
+				Scope:        "test",
+			},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{"test"},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+				},
+			},
+			wantRepos:       []string{"test"},
+			wantPermissions: map[string]string{"issues": "read"},
+			wantError:       false,
+			wantErrorMsg:    "",
+		},
+		{
+			name: "request all repo match scope permissions == '*' want nil permissions",
+			request: &tokenRequest{
+				Repositories: []string{"*"},
+				Scope:        "test",
+			},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{"test"},
+						Permissions:  map[string]string{"*": "*"},
+					},
+				},
+			},
+			wantRepos:       []string{"test"},
+			wantPermissions: nil,
+			wantError:       false,
+			wantErrorMsg:    "",
+		},
+		{
+			name:    "request duplicate repos are de-duped",
+			request: &tokenRequest{Repositories: []string{"test", "test"}, Scope: "test"},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{"test"},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+				},
+			},
+			wantRepos:       []string{"test"},
+			wantPermissions: map[string]string{"issues": "read"},
+			wantError:       false,
+			wantErrorMsg:    "",
+		},
+		{
+			name:    "overlapping repos from multiple scopes are de-duped",
+			request: &tokenRequest{Repositories: []string{"repoA", "repoB"}, Scope: "test"},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"repoA": {
+						Repositories: []string{"repoA", "repoC"},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+					"repoB": {
+						Repositories: []string{"repoB", "repoC"},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+				},
+			},
+			wantRepos:       []string{"repoA", "repoB", "repoC"},
+			wantPermissions: map[string]string{"issues": "read"},
+			wantError:       false,
+			wantErrorMsg:    "",
+		},
+		{
+			name:    "evaluator returns an error",
+			request: &tokenRequest{Repositories: []string{"test2"}, Scope: "test"},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test2",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{"test"},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+				},
+			},
+			wantRepos:       nil,
+			wantPermissions: map[string]string{},
+			wantError:       true,
+			wantErrorMsg:    "error reading configuration for repository /test2 from configuration store with config_source : unexpected repo: test2",
+		},
+		{
+			name:    "requested permissions not allowed by scope",
+			request: &tokenRequest{Repositories: []string{"test"}, Permissions: map[string]string{"issues": "write"}, Scope: "test"},
+			claims: &oidcClaims{
+				ParsedOrgName:  "test-org",
+				ParsedRepoName: "test",
+			},
+			evaluator: &mockConfigEvaluator{
+				mockedScopes: map[string]*config.Scope{
+					"test": {
+						Repositories: []string{"test"},
+						Permissions:  map[string]string{"issues": "read"},
+					},
+				},
+			},
+			wantRepos:       nil,
+			wantPermissions: map[string]string{"issues": "write"},
+			wantError:       true,
+			wantErrorMsg:    `requested permission level "write" for permission "issues" is not authorized`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			gotRepos, gotResponse := buildRepositoryList(t.Context(), tc.request, tc.claims, tc.evaluator)
+			if diffStringSlices(gotRepos, tc.wantRepos) {
+				t.Errorf("buildRepositoryList gotRepos=%v, wantRepos=%v", gotRepos, tc.wantRepos)
+			}
+			if diffMaps(tc.request.Permissions, tc.wantPermissions) {
+				t.Errorf("buildRepositoryList gotPermissions=%v, wantPermissions=%v", tc.request.Permissions, tc.wantPermissions)
+			}
+			if tc.wantError && gotResponse == nil {
+				t.Errorf("expected to receive error but didn't")
+			}
+			if gotResponse != nil {
+				if msg := testutil.DiffErrString(gotResponse.Error, tc.wantErrorMsg); msg != "" {
+					t.Fatal(msg)
+				}
+			}
+		})
+	}
+}
+
+func diffMaps(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return true
+	}
+	for k, v := range a {
+		if b[k] != v {
+			return true
+		}
+	}
+	return false
+}
+
+func diffStringSlices(a, b []string) bool {
+	slices.Sort(a)
+	slices.Sort(b)
+	return slices.Compare(a, b) != 0
+}
+
+type mockConfigEvaluator struct {
+	mockedScopes map[string]*config.Scope
+	mockedFile   string
+	mockedError  error
+}
+
+func (m *mockConfigEvaluator) Eval(ctx context.Context, org, repo, scope string, token interface{}) (*config.Scope, string, error) {
+	s, ok := m.mockedScopes[repo]
+	if !ok {
+		return nil, "", fmt.Errorf("unexpected repo: %s", repo)
+	}
+	return s, m.mockedFile, m.mockedError
 }
