@@ -21,6 +21,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"io"
@@ -166,7 +167,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 		"request", request,
 	)
 
-	repoList, apiErr := s.buildRepositoryList(ctx, &request, claims)
+	repoList, apiErr := buildRepositoryList(ctx, &request, claims, s.configStore)
 	if apiErr != nil {
 		return apiErr
 	}
@@ -212,10 +213,10 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 // verifies that the OIDC claims match the expression attached to the scope.
 // This is done against each target repository and any failure to match causes
 // the request to fail.
-func (s *TokenMinterServer) buildRepositoryList(ctx context.Context, request *tokenRequest, claims *oidcClaims) ([]string, *apiResponse) {
+func buildRepositoryList(ctx context.Context, request *tokenRequest, claims *oidcClaims, configStore config.ConfigEvaluator) ([]string, *apiResponse) {
 	logger := logging.FromContext(ctx)
+	reposSet := make(map[string]string)
 
-	tokenRepos := []string{}
 	for _, repo := range request.Repositories {
 		// Requests for "all repos" can't be handled by an in repo configuration,
 		// handle it by forcing the repo name to be the one in the oidc request which
@@ -224,13 +225,13 @@ func (s *TokenMinterServer) buildRepositoryList(ctx context.Context, request *to
 			if len(request.Repositories) > 1 {
 				// This is a secenario we shouldn't support. Asking for "*" and any other repositories
 				// will lead to very strange results.
-				return nil, &apiResponse{http.StatusForbidden, "request for '*' also contained request for specific repositories and that is not allowed", nil}
+				return nil, &apiResponse{http.StatusForbidden, "request for '*' also contained request for specific repositories and that is not allowed", errors.New("request for '*' also contained request for specific repositories and that is not allowed")}
 			}
 			repo = claims.ParsedRepoName
 		}
 		// Get the repository's configuration data and evaluate the token against the
 		// configuration to find a matching scope.
-		scope, source, err := s.configStore.Eval(ctx, request.OrgName, repo, request.Scope, claims.asMap())
+		scope, source, err := configStore.Eval(ctx, request.OrgName, repo, request.Scope, claims.asMap())
 		if err != nil {
 			return nil, &apiResponse{
 				http.StatusInternalServerError,
@@ -241,9 +242,18 @@ func (s *TokenMinterServer) buildRepositoryList(ctx context.Context, request *to
 		if scope == nil {
 			return nil, &apiResponse{http.StatusForbidden, fmt.Sprintf("no permissions available for scope %q in repository %q", request.Scope, claims.Repository), err}
 		}
-		// If there are no permissions in the request, use the set defined for the scope.
+
+		// If there are no permissions in the request, evaluate what permissions
+		// to request based on the scope
 		if len(request.Permissions) == 0 {
-			request.Permissions = scope.Permissions
+			// If the scope is defined as "all permissions", then set the value to
+			// nil which will request all permissions assigned to the app
+			if _, ok := scope.Permissions["*"]; ok {
+				request.Permissions = nil
+			} else {
+				// Otherwise, use the permissions defined in the scope
+				request.Permissions = scope.Permissions
+			}
 		}
 
 		// Validate the permissions that were requested are within what is allowed for the repository
@@ -254,7 +264,13 @@ func (s *TokenMinterServer) buildRepositoryList(ctx context.Context, request *to
 			"scope", scope,
 			"config_source", source,
 		)
-		tokenRepos = append(tokenRepos, scope.Repositories...)
+		for _, s := range scope.Repositories {
+			reposSet[s] = s
+		}
+	}
+	tokenRepos := make([]string, 0, len(reposSet))
+	for k := range reposSet {
+		tokenRepos = append(tokenRepos, k)
 	}
 
 	return tokenRepos, nil
