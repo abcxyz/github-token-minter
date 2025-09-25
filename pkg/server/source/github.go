@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-github/v64/github"
 
 	"github.com/abcxyz/pkg/githubauth"
+	"github.com/abcxyz/pkg/logging"
 )
 
 // GitHubAppConfig is a struct that contains the identifier for a GitHub App
@@ -67,6 +68,8 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 	var errs []error
 	var installation *githubauth.AppInstallation
 	var err error
+
+	logger := logging.FromContext(ctx)
 	for _, app := range g.apps {
 		installation, err = app.InstallationForOrg(ctx, org)
 		if err != nil {
@@ -81,8 +84,12 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 		return "", fmt.Errorf("errors retrieving GitHub installation: %w", errors.Join(errs...))
 	}
 	if repositories == nil {
-		allRepoRequest := &githubauth.TokenRequestAllRepos{Permissions: permissions}
+		allRepoRequest := &githubauth.TokenRequestAllRepos{Permissions: map[string]string{}}
+		if permissions != nil {
+			allRepoRequest.Permissions = permissions
+		}
 
+		logger.InfoContext(ctx, "sending request for all repos to GitHub", "request", allRepoRequest)
 		accessToken, err := installation.AccessTokenAllRepos(ctx, allRepoRequest)
 		if err != nil {
 			if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") ||
@@ -95,8 +102,12 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 	}
 	tokenRequest := githubauth.TokenRequest{
 		Repositories: repositories,
-		Permissions:  permissions,
+		Permissions:  map[string]string{},
 	}
+	if permissions != nil {
+		tokenRequest.Permissions = permissions
+	}
+	logger.InfoContext(ctx, "sending request to GitHub", "request", tokenRequest)
 	accessToken, err := installation.AccessToken(ctx, &tokenRequest)
 	if err != nil {
 		if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") ||
