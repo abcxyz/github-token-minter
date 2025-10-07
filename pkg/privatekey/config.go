@@ -57,7 +57,8 @@ func (cfg *Config) Validate() (vErr error) {
 	if cfg.ImportJobPrefix == "" {
 		vErr = errors.Join(vErr, fmt.Errorf("IMPORT_JOB_PREFIX is required"))
 	}
-	return
+
+	return vErr
 }
 
 // ToFlags binds the config to the [cli.FlagSet] and returns it.
