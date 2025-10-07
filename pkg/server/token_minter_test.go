@@ -718,6 +718,42 @@ func TestIsRequestAllRepos(t *testing.T) {
 			request: []string{"test1"},
 			want:    false,
 		},
+		{
+			name:    "allow empty request list with empty allowed",
+			allow:   []string{},
+			request: []string{},
+			want:    true,
+		},
+		{
+			name:    "disallow empty request list with non-empty allowed",
+			allow:   []string{"test1"},
+			request: []string{},
+			want:    false,
+		},
+		{
+			name:    "disallow non-empty request list with empty allowed",
+			allow:   []string{},
+			request: []string{"test1"},
+			want:    false,
+		},
+		{
+			name:    "disallow non-empty request list with empty allowed",
+			allow:   []string{},
+			request: []string{"test1"},
+			want:    false,
+		},
+		{
+			name:    "request for specific repo not in allowed list",
+			allow:   []string{"test2"},
+			request: []string{"test1"},
+			want:    false,
+		},
+		{
+			name:    "request for specific repo in allowed list",
+			allow:   []string{"test1"},
+			request: []string{"test1"},
+			want:    false,
+		},
 	}
 
 	for _, tc := range cases {

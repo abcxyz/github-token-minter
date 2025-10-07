@@ -279,8 +279,8 @@ func buildRepositoryList(ctx context.Context, request *tokenRequest, claims *oid
 // isRequestAllRepos determines if a request is allowed to request
 // a token with permissions to all repositories.
 func isRequestAllRepos(allowed, requested []string) bool {
-	return len(allowed) == 1 && allowed[0] == "*" &&
-		len(requested) == 1 && requested[0] == "*"
+	return len(requested) == 0 && len(allowed) == 0 || (len(allowed) == 1 && allowed[0] == "*" &&
+		len(requested) == 1 && requested[0] == "*")
 }
 
 // validateRepositories checks the set of requested repositories against the allow list
