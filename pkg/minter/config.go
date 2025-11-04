@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mintycfg
+package minter
 
 import (
 	"fmt"
@@ -23,42 +23,49 @@ import (
 // Config defines the set of environment variables required
 // for running the artifact job.
 type Config struct {
-	MintyFile string
-	Scope     string
-	Token     string
+	Request  string
+	Token    string
+	MintyURL string
 }
 
 // Validate validates the artifacts config after load.
 func (cfg *Config) Validate() error {
-	if cfg.MintyFile == "" {
-		return fmt.Errorf("MINTY_FILE is required")
+	if cfg.Request == "" {
+		return fmt.Errorf("REQUEST is required")
 	}
+	if cfg.Token == "" {
+		return fmt.Errorf("TOKEN is required")
+	}
+	if cfg.MintyURL == "" {
+		return fmt.Errorf("MINTY_URL is required")
+	}
+
 	return nil
 }
 
 // ToFlags binds the config to the [cli.FlagSet] and returns it.
 func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
-	f := set.NewSection("VALIDATE-CFG JOB OPTIONS")
+	f := set.NewSection("MINT JOB OPTIONS")
 
 	f.StringVar(&cli.StringVar{
-		Name:   "minty-file",
-		Target: &cfg.MintyFile,
-		EnvVar: "MINTY_FILE",
-		Usage:  `The minty config file to inspect.`,
-	})
-
-	f.StringVar(&cli.StringVar{
-		Name:   "scope",
-		Target: &cfg.Scope,
-		EnvVar: "SCOPE",
-		Usage:  `The scope to test.`,
+		Name:   "request",
+		Target: &cfg.Request,
+		EnvVar: "REQUEST",
+		Usage:  `The token request to mint a token for.`,
 	})
 
 	f.StringVar(&cli.StringVar{
 		Name:   "token",
 		Target: &cfg.Token,
-		EnvVar: "token",
-		Usage:  `The token to test with.`,
+		EnvVar: "TOKEN",
+		Usage:  `The OIDC token to exchange. This could be a GCP service account or GitHub token.`,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:   "mintyURL",
+		Target: &cfg.MintyURL,
+		EnvVar: "MINTY_URL",
+		Usage:  `The URL of the minty server.`,
 	})
 
 	return set

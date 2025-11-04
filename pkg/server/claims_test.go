@@ -130,6 +130,16 @@ func TestParsePrivateClaims(t *testing.T) {
 			},
 		},
 		{
+			name: "bad-repo-claim-github",
+			tokenBuilder: jwt.NewBuilder().
+				Audience([]string{"https://github.com/abcxyz"}).
+				Subject("repo:abcxyz/test:ref:refs/heads/main").
+				Issuer("https://token.actions.githubusercontent.com").
+				Claim("repository", "test"),
+			want:      nil,
+			expErrMsg: "'repository' claim formatted incorrectly, requires <org_name>/<repo_name> format - received [test]",
+		},
+		{
 			name: "success-google",
 			tokenBuilder: jwt.NewBuilder().
 				Audience([]string{"https://github.com/abcxyz/test"}).
@@ -138,13 +148,10 @@ func TestParsePrivateClaims(t *testing.T) {
 				Claim("email_verified", true).
 				Claim("email", "service-account@project-id.iam.gserviceaccount.com"),
 			want: &oidcClaims{
-				Audience:       []string{"https://github.com/abcxyz/test"},
-				Issuer:         "https://accounts.google.com",
-				Subject:        "12571298569128659",
-				Repository:     "abcxyz/test",
-				ParsedOrgName:  "abcxyz",
-				ParsedRepoName: "test",
-				Email:          "service-account@project-id.iam.gserviceaccount.com",
+				Audience: []string{"https://github.com/abcxyz/test"},
+				Issuer:   "https://accounts.google.com",
+				Subject:  "12571298569128659",
+				Email:    "service-account@project-id.iam.gserviceaccount.com",
 			},
 		},
 		{
@@ -156,12 +163,9 @@ func TestParsePrivateClaims(t *testing.T) {
 				Claim("email_verified", false).
 				Claim("email", "service-account@project-id.iam.gserviceaccount.com"),
 			want: &oidcClaims{
-				Audience:       []string{"https://github.com/abcxyz/test"},
-				Issuer:         "https://accounts.google.com",
-				Subject:        "12571298569128659",
-				Repository:     "abcxyz/test",
-				ParsedOrgName:  "abcxyz",
-				ParsedRepoName: "test",
+				Audience: []string{"https://github.com/abcxyz/test"},
+				Issuer:   "https://accounts.google.com",
+				Subject:  "12571298569128659",
 			},
 		},
 		{
@@ -172,40 +176,10 @@ func TestParsePrivateClaims(t *testing.T) {
 				Issuer("https://accounts.google.com").
 				Claim("email", "service-account@project-id.iam.gserviceaccount.com"),
 			want: &oidcClaims{
-				Audience:       []string{"https://github.com/abcxyz/test"},
-				Issuer:         "https://accounts.google.com",
-				Subject:        "12571298569128659",
-				Repository:     "abcxyz/test",
-				ParsedOrgName:  "abcxyz",
-				ParsedRepoName: "test",
+				Audience: []string{"https://github.com/abcxyz/test"},
+				Issuer:   "https://accounts.google.com",
+				Subject:  "12571298569128659",
 			},
-		},
-		{
-			name: "google-bad-audience-repo",
-			tokenBuilder: jwt.NewBuilder().
-				Audience([]string{"https://github.com/abcxyz"}).
-				Subject("12571298569128659").
-				Issuer("https://accounts.google.com").
-				Claim("email", "service-account@project-id.iam.gserviceaccount.com").
-				Claim("email_verified", true),
-			expErrMsg: "'repository' claim formatted incorrectly, requires <org_name>/<repo_name> format",
-		},
-		{
-			name: "github-bad-repo",
-			tokenBuilder: jwt.NewBuilder().
-				Audience([]string{"https://github.com/abcxyz"}).
-				Subject("repo:abcxyz/test:ref:refs/heads/main").
-				Issuer("https://token.actions.githubusercontent.com").
-				Claim("repository", "abcxyz"),
-			expErrMsg: "'repository' claim formatted incorrectly, requires <org_name>/<repo_name> format",
-		},
-		{
-			name: "github-missing-repo",
-			tokenBuilder: jwt.NewBuilder().
-				Audience([]string{"https://github.com/abcxyz"}).
-				Subject("repo:abcxyz/test:ref:refs/heads/main").
-				Issuer("https://token.actions.githubusercontent.com"),
-			expErrMsg: `claim "repository" not found`,
 		},
 	}
 

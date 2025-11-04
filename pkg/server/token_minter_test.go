@@ -50,7 +50,7 @@ func handleAccessTokenRequest(w http.ResponseWriter, r *http.Request) {
 	// Parse the request information
 	defer r.Body.Close()
 
-	var request tokenRequest
+	var request TokenRequest
 	dec := json.NewDecoder(io.LimitReader(r.Body, 4_194_304)) // 4 MiB
 	if err := dec.Decode(&request); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -179,7 +179,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 		{
 			name: "missing_repository_non_github",
 			req: func() *http.Request {
-				body := strings.NewReader(`{"scope":"test"}`)
+				body := strings.NewReader(`{"scope":"test","org_name":"abcxyz"}`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
 
 				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
@@ -193,7 +193,27 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			},
 			expCode: 400,
 			expResp: "request does not contain required information",
-			expErr:  `non-github OIDC token's audience field should have exactly one entry of a repository containing a minty config`,
+			expErr:  `claim "repository" not found and no "repositories" sent as part of the request`,
+		},
+		{
+			name: "request_missing_org_name_non_github",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test-perms","permissions":{"contents":"write"}}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GoogleIssuer)
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 400,
+			expResp: "request did not contain an organization name [] and one could not be determined from the OIDC token []",
+			expErr:  `request did not contain an organization name [] and one could not be determined from the OIDC token []`,
 		},
 		{
 			name: "failed_to_resolve_keyset",
@@ -239,7 +259,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 		{
 			name: "happy_path_non_github",
 			req: func() *http.Request {
-				body := strings.NewReader(`{"scope":"test"}`)
+				body := strings.NewReader(`{"scope":"test","org_name":"abcxyz","repositories":["pkg"]}`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
 
 				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
@@ -260,7 +280,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 		{
 			name: "request_with_permissions",
 			req: func() *http.Request {
-				body := strings.NewReader(`{"scope":"test-perms","permissions":{"contents":"write"}}`)
+				body := strings.NewReader(`{"scope":"test-perms","permissions":{"contents":"write"},"org_name":"abcxyz"}`)
 				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
 
 				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
@@ -505,7 +525,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			server, err := NewRouter(ctx, sourceSystem, configStore, &JWTParser{ParseOptions: jwtParseOptions, jwkResolver: &tc.resolver})
+			server, err := NewRouter(ctx, sourceSystem, configStore, &JWTParser{ParseOptions: jwtParseOptions, JWKResolver: &tc.resolver})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -847,7 +867,7 @@ func TestBuildRepositoryList(t *testing.T) {
 
 	cases := []struct {
 		name            string
-		request         *tokenRequest
+		request         *TokenRequest
 		claims          *oidcClaims
 		evaluator       config.ConfigEvaluator
 		wantRepos       []string
@@ -857,7 +877,7 @@ func TestBuildRepositoryList(t *testing.T) {
 	}{
 		{
 			name:    "empty request returns empty list of repos",
-			request: &tokenRequest{Scope: "test"},
+			request: &TokenRequest{Scope: "test"},
 			claims: &oidcClaims{
 				ParsedOrgName:  "test-org",
 				ParsedRepoName: "test",
@@ -877,7 +897,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name:    "request single repo match scope",
-			request: &tokenRequest{Repositories: []string{"test"}, Scope: "test"},
+			request: &TokenRequest{Repositories: []string{"test"}, Scope: "test"},
 			claims: &oidcClaims{
 				ParsedOrgName:  "test-org",
 				ParsedRepoName: "test",
@@ -897,7 +917,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name:    "request multi repo match scope",
-			request: &tokenRequest{Repositories: []string{"test", "tset"}, Scope: "test"},
+			request: &TokenRequest{Repositories: []string{"test", "tset"}, Scope: "test"},
 			claims: &oidcClaims{
 				ParsedOrgName:  "test-org",
 				ParsedRepoName: "test",
@@ -921,7 +941,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name:    "request all repo match scope",
-			request: &tokenRequest{Repositories: []string{"*"}, Scope: "test"},
+			request: &TokenRequest{Repositories: []string{"*"}, Scope: "test"},
 			claims: &oidcClaims{
 				ParsedOrgName:  "test-org",
 				ParsedRepoName: "test",
@@ -941,7 +961,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name:    "request all repo + other should fail",
-			request: &tokenRequest{Repositories: []string{"*", "test"}, Scope: "test"},
+			request: &TokenRequest{Repositories: []string{"*", "test"}, Scope: "test"},
 			claims: &oidcClaims{
 				ParsedOrgName:  "test-org",
 				ParsedRepoName: "test",
@@ -961,7 +981,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name:    "request permissions matches scope",
-			request: &tokenRequest{Permissions: map[string]string{"issues": "read"}, Scope: "test"},
+			request: &TokenRequest{Permissions: map[string]string{"issues": "read"}, Scope: "test"},
 			claims: &oidcClaims{
 				ParsedOrgName:  "test-org",
 				ParsedRepoName: "test",
@@ -981,7 +1001,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name:    "request permissions allowed by scope",
-			request: &tokenRequest{Permissions: map[string]string{"issues": "read"}, Scope: "test"},
+			request: &TokenRequest{Permissions: map[string]string{"issues": "read"}, Scope: "test"},
 			claims: &oidcClaims{
 				ParsedOrgName:  "test-org",
 				ParsedRepoName: "test",
@@ -1001,7 +1021,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name: "request permissions and repo match scope",
-			request: &tokenRequest{
+			request: &TokenRequest{
 				Repositories: []string{"test"},
 				Permissions:  map[string]string{"issues": "read"},
 				Scope:        "test",
@@ -1025,7 +1045,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name: "request permissions and all repo match scope",
-			request: &tokenRequest{
+			request: &TokenRequest{
 				Repositories: []string{"*"},
 				Permissions:  map[string]string{"issues": "read"},
 				Scope:        "test",
@@ -1049,7 +1069,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name: "request all repo match scope no permissions get scope permissions",
-			request: &tokenRequest{
+			request: &TokenRequest{
 				Repositories: []string{"*"},
 				Scope:        "test",
 			},
@@ -1072,7 +1092,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name: "request all repo match scope permissions == '*' want nil permissions",
-			request: &tokenRequest{
+			request: &TokenRequest{
 				Repositories: []string{"*"},
 				Scope:        "test",
 			},
@@ -1095,7 +1115,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name:    "request duplicate repos are de-duped",
-			request: &tokenRequest{Repositories: []string{"test", "test"}, Scope: "test"},
+			request: &TokenRequest{Repositories: []string{"test", "test"}, Scope: "test"},
 			claims: &oidcClaims{
 				ParsedOrgName:  "test-org",
 				ParsedRepoName: "test",
@@ -1115,7 +1135,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name:    "overlapping repos from multiple scopes are de-duped",
-			request: &tokenRequest{Repositories: []string{"repoA", "repoB"}, Scope: "test"},
+			request: &TokenRequest{Repositories: []string{"repoA", "repoB"}, Scope: "test"},
 			claims: &oidcClaims{
 				ParsedOrgName:  "test-org",
 				ParsedRepoName: "test",
@@ -1139,7 +1159,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name:    "evaluator returns an error",
-			request: &tokenRequest{Repositories: []string{"test2"}, Scope: "test"},
+			request: &TokenRequest{Repositories: []string{"test2"}, Scope: "test"},
 			claims: &oidcClaims{
 				ParsedOrgName:  "test-org",
 				ParsedRepoName: "test2",
@@ -1159,7 +1179,7 @@ func TestBuildRepositoryList(t *testing.T) {
 		},
 		{
 			name:    "requested permissions not allowed by scope",
-			request: &tokenRequest{Repositories: []string{"test"}, Permissions: map[string]string{"issues": "write"}, Scope: "test"},
+			request: &TokenRequest{Repositories: []string{"test"}, Permissions: map[string]string{"issues": "write"}, Scope: "test"},
 			claims: &oidcClaims{
 				ParsedOrgName:  "test-org",
 				ParsedRepoName: "test",

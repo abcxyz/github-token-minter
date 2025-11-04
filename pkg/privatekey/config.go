@@ -63,7 +63,7 @@ func (cfg *Config) Validate() (vErr error) {
 
 // ToFlags binds the config to the [cli.FlagSet] and returns it.
 func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
-	f := set.NewSection("COMMON JOB OPTIONS")
+	f := set.NewSection("IMPORT-PK JOB OPTIONS")
 
 	f.StringVar(&cli.StringVar{
 		Name:   "project-id",

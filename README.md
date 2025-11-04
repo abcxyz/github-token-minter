@@ -83,6 +83,72 @@ ORG_CONFIG_REPO                    | The respository that contains the configura
 ORG_CONFIG_PATH                    | The location within an organization to look for configuration files. Defaults to minty.yaml
 REF                                | The ref (sha, branch, etc.) to look for configuration files at. Defaults to main
 
+### CLI Usage
+
+The `minty` CLI provides several commands to manage the server and perform related tasks.
+
+#### `minty server run`
+
+This command starts the GitHub Token Minter server.
+
+| Flag | Environment Variable | Description |
+|---|---|---|
+| `--source-system-auth` | `SOURCE_SYSTEM_AUTH` | The URI for authenticating with a source system. This matches a custom URI like `gha://<app_id>?private_key=<private_key>` or `gha://<app_id>?kms_id=<kms_id>` and supports comma separation for configuring multiple source systems. |
+| `--port` | `PORT` | The port that this server runs as. |
+| `--github-app-id` | `GITHUB_APP_ID` | DEPRECATED: Please use SOURCE_SYSTEM_AUTH instead. The ID of the GitHub App that this server runs as. |
+| `--github-private-key` | `GITHUB_PRIVATE_KEY` | DEPRECATED: Please use SOURCE_SYSTEM_AUTH instead. The private key of the GitHub App that this server runs as. |
+| `--source-system-api-base-url` | `SOURCE_SYSTEM_API_BASE_URL` | The base URL for the Git[Hub|Lab] installation. It should include the protocol (https://) and no trailing slashes. |
+| `--config-dir` | `CONFIGS_DIR` | The directory containing local configuration files. |
+| `--repo-config-path` | `REPO_CONFIG_PATH` | The path to the minty configuration file in a repository. |
+| `--org-config-path` | `ORG_CONFIG_PATH` | The path to the minty configuration file for an organization. |
+| `--org-config-repo` | `ORG_CONFIG_REPO` | The repository that contains the configuration file for an organization. |
+| `--ref` | `REF` | The ref (sha, branch, etc.) to look for configuration files at. |
+| `--config-cache-minutes` | `CONFIG_CACHE_MINUTES` | The number of minutes to cache configuration files before retrieving fresh ones. Defaults to 15 minutes. |
+| `--jwks-cache-duration` | `JWKS_CACHE_DURATION` | The duration for which to cache the JWKS for an OIDC token issuer. |
+| `--issuer-allowlist` | `ISSUER_ALLOWLIST` | The list of OIDC token issuers that GitHub Token Minter will accept. Format is a comma-separated list of URLs or the flag can be specified multiple times. |
+
+#### `minty tools validate-cfg`
+
+This command validates a minty configuration file.
+
+| Flag | Environment Variable | Description |
+|---|---|---|
+| `--minty-file` | `MINTY_FILE` | The minty config file to inspect. |
+| `--scope` | `SCOPE` | The scope to test. |
+| `--token` | `TOKEN` | The token to test with. |
+
+#### `minty tools mint`
+
+This command mints a token.
+
+| Flag | Environment Variable | Description |
+|---|---|---|
+| `--request` | `REQUEST` | The token request to mint a token for. |
+| `--token` | `TOKEN` | The OIDC token to exchange. This could be a GCP service account or GitHub token. |
+| `--mintyURL` | `MINTY_URL` | The URL of the minty server. |
+
+Usage:
+
+```bash
+minty tools mint \
+  --token=$(gcloud auth print-identity-token --impersonate-service-account=my_service_account@iam.gserviceaccount.com --audiences='https://<token minter cloud run service url>' --include-email) \
+  --mintyURL=https://minty.url
+  --request='{"scope": "read-issues", "org_name": "some-org", "repositories": ["some-repo"], "permissions": {"issues": "read"}}'
+```
+
+#### `minty tools import-pk`
+
+This command imports a private key to Google Cloud KMS.
+
+| Flag | Environment Variable | Description |
+|---|---|---|
+| `--project-id` | `PROJECT_ID` | The GCP project ID. |
+| `--location` | `LOCATION` | The Cloud KMS location of the key ring. |
+| `--key-ring` | `KEY_RING` | The name of the key ring that contains the key. |
+| `--key` | `KEY` | The name of the key. |
+| `--import-job-prefix` | `IMPORT_JOB_PREFIX` | The prefix of the import job name. |
+| `--private-key` | | The private key to import. By default accept a filepath, and if input is exactly "-", read the value from stdin instead. |
+
 ### Configuring Repository Access
 
 **NOTE**: We recommend that configuration for single repository access is stored within that repository and configuration that spans multiple repositories is stored in a protected organization repository, typically named `.google-github`.

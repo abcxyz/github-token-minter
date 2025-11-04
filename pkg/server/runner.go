@@ -77,7 +77,7 @@ func Run(ctx context.Context, cfg *Config) error {
 	jwkResolver := NewOIDCResolver(ctx, cfg.IssuerAllowlist, cfg.JWKSCacheDuration)
 
 	// Create the Router for the token minting server.
-	tokenServer, err := NewRouter(ctx, sourceSystem, store, &JWTParser{ParseOptions: jwtParseOptions, jwkResolver: jwkResolver})
+	tokenServer, err := NewRouter(ctx, sourceSystem, store, &JWTParser{ParseOptions: jwtParseOptions, JWKResolver: jwkResolver})
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}

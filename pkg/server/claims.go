@@ -30,7 +30,7 @@ import (
 // a JWT auth token into a set of OIDC claims.
 type JWTParser struct {
 	ParseOptions []jwt.ParseOption
-	jwkResolver  JWKResolver
+	JWKResolver  JWKResolver
 }
 
 // oidcClaims is an object that contains all of the expected
@@ -102,9 +102,9 @@ func (c *oidcClaims) asMap() map[string]interface{} {
 	}
 }
 
-// parseAuthToken converts a JWT token into a collection of OIDC claims.
-func (p *JWTParser) parseAuthToken(ctx context.Context, oidcHeader string) (*oidcClaims, *apiResponse) {
-	keySet, err := p.jwkResolver.ResolveKeySet(ctx, oidcHeader)
+// ParseAuthToken converts a JWT token into a collection of OIDC claims.
+func (p *JWTParser) ParseAuthToken(ctx context.Context, oidcHeader string) (*oidcClaims, *apiResponse) {
+	keySet, err := p.JWKResolver.ResolveKeySet(ctx, oidcHeader)
 	if err != nil {
 		return nil, &apiResponse{
 			http.StatusUnauthorized,
@@ -173,31 +173,32 @@ func parsePrivateClaims(oidcToken jwt.Token) (*oidcClaims, error) {
 		claims.Email = optionalClaim[string](oidcToken, "email")
 	}
 
-	// The repository claim is of the form <org_name>/<repo_name>.
+	// The repository claim from GitHub is of the form <org_name>/<repo_name>.
 	// Use this string split instead of attempting to use this and the repository_owner claim since
 	// the repository_owner claim is optional.
+	// For GCP SA claims, this will be "". We will require that those be set on the request
+	// itself for SA access.
+
 	repoParts := strings.Split(claims.Repository, "/")
-	if len(repoParts) != 2 {
+	if len(repoParts) != 2 && claims.Issuer == config.GitHubIssuer {
 		return nil, fmt.Errorf("'repository' claim formatted incorrectly, requires <org_name>/<repo_name> format - received [%s]", claims.Repository)
 	}
-	claims.ParsedOrgName = repoParts[0]
-	claims.ParsedRepoName = repoParts[1]
+
+	if len(repoParts) == 2 {
+		claims.ParsedOrgName = repoParts[0]
+		claims.ParsedRepoName = repoParts[1]
+	}
 
 	return &claims, nil
 }
 
 func extractRepository(oidcToken jwt.Token) (string, error) {
-	// GoogleIssuer has replaced the audience with repository information.
+	// GoogleIssuer does not have a repository claim
 	// All other token issuers as of this time will have the repository claim.
 	if oidcToken.Issuer() != config.GoogleIssuer {
 		return requiredClaim[string](oidcToken, "repository")
 	}
-
-	if len(oidcToken.Audience()) != 1 {
-		return "", fmt.Errorf("non-github OIDC token's audience field should have exactly one entry of a repository containing a minty config")
-	}
-	scopeRepository, _ := strings.CutPrefix(oidcToken.Audience()[0], "https://github.com/")
-	return scopeRepository, nil
+	return "", nil
 }
 
 func requiredClaim[T any](oidcToken jwt.Token, claim string) (T, error) {

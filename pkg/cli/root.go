@@ -38,23 +38,18 @@ var rootCmd = func() cli.Command {
 					},
 				}
 			},
-			"config": func() cli.Command {
+			"tools": func() cli.Command {
 				return &cli.RootCommand{
-					Name:        "config",
-					Description: "Configuration operations",
+					Name:        "tools",
+					Description: "Minty tools",
 					Commands: map[string]cli.CommandFactory{
-						"validate": func() cli.Command {
+						"validate-cfg": func() cli.Command {
 							return &MintyCfgCommand{}
 						},
-					},
-				}
-			},
-			"private-key": func() cli.Command {
-				return &cli.RootCommand{
-					Name:        "private-key",
-					Description: "Private-key operations",
-					Commands: map[string]cli.CommandFactory{
-						"import": func() cli.Command {
+						"mint": func() cli.Command {
+							return &MinterCommand{}
+						},
+						"import-pk": func() cli.Command {
 							return &PrivateKeyImportCommand{}
 						},
 					},
