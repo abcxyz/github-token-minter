@@ -48,10 +48,10 @@ type TokenMinterServer struct {
 	parser       *JWTParser
 }
 
-// tokenRequest is a struct that contains the list of repositories and the
+// TokenRequest is a struct that contains the list of repositories and the
 // requested permissions / scopes that are requested when generating a new
 // installation access token.
-type tokenRequest struct {
+type TokenRequest struct {
 	OrgName      string            `json:"org_name"`
 	Repositories []string          `json:"repositories"`
 	Permissions  map[string]string `json:"permissions"`
@@ -131,7 +131,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	// Parse the request information
 	defer r.Body.Close()
 
-	var request tokenRequest
+	var request TokenRequest
 	dec := json.NewDecoder(io.LimitReader(r.Body, 4_194_304)) // 4 MiB
 	if err := dec.Decode(&request); err != nil {
 		return &apiResponse{http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err)}
@@ -146,20 +146,30 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	}
 
 	// Parse the auth token into a set of claims
-	claims, apiError := s.parser.parseAuthToken(ctx, oidcHeader)
+	claims, apiError := s.parser.ParseAuthToken(ctx, oidcHeader)
 	if apiError != nil {
 		return apiError
 	}
 
-	// If no repositories are requested, default to the repository from the
-	// OIDC token claims.
-	if len(request.Repositories) == 0 && claims.ParsedRepoName != "" {
-		request.Repositories = []string{claims.ParsedRepoName}
+	// Determine the org name to be used for the request
+	requestOrgName, apiError := validateOrgName(request.OrgName, claims.ParsedOrgName)
+	if apiError != nil {
+		return apiError
 	}
+	request.OrgName = requestOrgName
 
-	// Default the org name to the one parsed from the OIDC token
-	if request.OrgName == "" {
-		request.OrgName = claims.ParsedOrgName
+	// If no repositories are requested, default to the repository from the
+	// OIDC token claims. If neither exist then throw an error.
+	if len(request.Repositories) == 0 {
+		if claims.ParsedRepoName == "" {
+			return &apiResponse{
+				http.StatusBadRequest,
+				"request does not contain required information",
+				errors.New(`claim "repository" not found and no "repositories" sent as part of the request`),
+			}
+		} else {
+			request.Repositories = []string{claims.ParsedRepoName}
+		}
 	}
 
 	logger.InfoContext(ctx, "received token request",
@@ -201,11 +211,30 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 		"request_permissions", request.Permissions,
 	)
 
-	accessToken, err := s.sourceSystem.MintAccessToken(ctx, request.OrgName, claims.ParsedRepoName, repos, request.Permissions)
+	accessToken, err := s.sourceSystem.MintAccessToken(ctx, requestOrgName, claims.ParsedRepoName, repos, request.Permissions)
 	if err != nil {
 		return &apiResponse{http.StatusInternalServerError, "error generating access token", fmt.Errorf("error generating access token: %w", err)}
 	}
 	return &apiResponse{http.StatusOK, accessToken, nil}
+}
+
+func validateOrgName(requestOrgName, claimsOrgName string) (string, *apiResponse) {
+	orgName := requestOrgName
+	// Default the org name to the one parsed from the OIDC token if there is one
+	if orgName == "" {
+		orgName = claimsOrgName
+	}
+
+	// If the request has no org name, and one wasn't found in the OIDC
+	// token claims, then throw an error.
+	if orgName == "" {
+		return "", &apiResponse{
+			http.StatusBadRequest,
+			fmt.Sprintf("request did not contain an organization name [%s] and one could not be determined from the OIDC token [%s]", requestOrgName, claimsOrgName),
+			fmt.Errorf("request did not contain an organization name [%s] and one could not be determined from the OIDC token [%s]", requestOrgName, claimsOrgName),
+		}
+	}
+	return orgName, nil
 }
 
 // buildRepositoryList looks for configuration for each of the specified repositories
@@ -213,7 +242,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 // verifies that the OIDC claims match the expression attached to the scope.
 // This is done against each target repository and any failure to match causes
 // the request to fail.
-func buildRepositoryList(ctx context.Context, request *tokenRequest, claims *oidcClaims, configStore config.ConfigEvaluator) ([]string, *apiResponse) {
+func buildRepositoryList(ctx context.Context, request *TokenRequest, claims *oidcClaims, configStore config.ConfigEvaluator) ([]string, *apiResponse) {
 	logger := logging.FromContext(ctx)
 	reposSet := make(map[string]string)
 
