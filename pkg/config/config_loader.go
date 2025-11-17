@@ -22,11 +22,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/cel-go/cel"
-	"gopkg.in/yaml.v3"
-
 	"github.com/abcxyz/github-token-minter/pkg/server/source"
 	"github.com/abcxyz/pkg/cache"
+	"github.com/google/cel-go/cel"
+	"gopkg.in/yaml.v3"
 )
 
 // ConfigFileLoader represents an object that is capable of

@@ -26,11 +26,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v2/jwt"
-
 	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/abcxyz/github-token-minter/pkg/server"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 // Run is the main entry point for the minter command.

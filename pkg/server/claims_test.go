@@ -17,10 +17,9 @@ package server
 import (
 	"testing"
 
+	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-
-	"github.com/abcxyz/pkg/testutil"
 )
 
 func TestTokenClaim(t *testing.T) {

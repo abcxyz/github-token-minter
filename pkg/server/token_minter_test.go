@@ -34,16 +34,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/abcxyz/github-token-minter/pkg/config"
+	"github.com/abcxyz/github-token-minter/pkg/server/source"
+	"github.com/abcxyz/pkg/logging"
+	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-
-	"github.com/abcxyz/github-token-minter/pkg/config"
-	"github.com/abcxyz/github-token-minter/pkg/server/source"
-	"github.com/abcxyz/pkg/logging"
-	"github.com/abcxyz/pkg/testutil"
 )
 
 func handleAccessTokenRequest(w http.ResponseWriter, r *http.Request) {
