@@ -22,10 +22,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/go-github/v64/github"
-
 	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
+	"github.com/google/go-github/v64/github"
 )
 
 // GitHubAppConfig is a struct that contains the identifier for a GitHub App

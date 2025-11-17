@@ -23,13 +23,12 @@ import (
 	"time"
 
 	kms "cloud.google.com/go/kms/apiv1"
-	"github.com/lestrrat-go/jwx/v2/jwt"
-	"github.com/sethvargo/go-gcpkms/pkg/gcpkms"
-
 	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/abcxyz/github-token-minter/pkg/server/source"
 	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/serving"
+	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/sethvargo/go-gcpkms/pkg/gcpkms"
 )
 
 const (

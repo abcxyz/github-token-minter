@@ -34,7 +34,7 @@ const (
 	GoogleIssuer = "https://accounts.google.com"
 )
 
-var issuersMap = map[string]string{
+var IssuersMap = map[string]string{
 	"github": GitHubIssuer,
 	"google": GoogleIssuer,
 }
@@ -115,7 +115,7 @@ func (r *Rule) eval(token interface{}) (bool, error) {
 	}
 	out, _, err := r.Program.Eval(map[string]any{
 		AssertionKey: token,
-		IssuersKey:   issuersMap,
+		IssuersKey:   IssuersMap,
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to evaluate CEL expression: %w", err)

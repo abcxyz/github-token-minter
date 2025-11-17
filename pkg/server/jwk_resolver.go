@@ -23,10 +23,9 @@ import (
 	"slices"
 	"time"
 
+	"github.com/abcxyz/pkg/cache"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-
-	"github.com/abcxyz/pkg/cache"
 )
 
 type JWKResolver interface {

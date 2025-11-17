@@ -21,13 +21,12 @@ import (
 
 	kms "cloud.google.com/go/kms/apiv1"
 	"cloud.google.com/go/kms/apiv1/kmspb"
-	"github.com/sethvargo/go-retry"
-
 	"github.com/abcxyz/github-token-minter/pkg/privatekey"
 	"github.com/abcxyz/github-token-minter/pkg/version"
 	"github.com/abcxyz/pkg/cli"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/multicloser"
+	"github.com/sethvargo/go-retry"
 )
 
 var _ cli.Command = (*PrivateKeyImportCommand)(nil)
