@@ -22,9 +22,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types/ref"
+
+	"github.com/abcxyz/github-token-minter/pkg/config"
 )
 
 type singleFileConfigLoader struct {

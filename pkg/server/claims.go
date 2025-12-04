@@ -20,9 +20,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+
+	"github.com/abcxyz/github-token-minter/pkg/config"
 )
 
 // JWTParser is an object that is responsible for parsing

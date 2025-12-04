@@ -20,10 +20,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lestrrat-go/jwx/v2/jwt"
+
 	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/testutil"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 func TestJWKResolver(t *testing.T) {

@@ -19,9 +19,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/abcxyz/github-token-minter/pkg/server/source"
 	"github.com/google/cel-go/cel"
 	"github.com/google/go-github/v64/github"
+
+	"github.com/abcxyz/github-token-minter/pkg/server/source"
 )
 
 const (
