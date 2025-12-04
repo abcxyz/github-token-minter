@@ -22,9 +22,10 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/go-github/v64/github"
+
 	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
-	"github.com/google/go-github/v64/github"
 )
 
 // GitHubAppConfig is a struct that contains the identifier for a GitHub App
@@ -93,6 +94,7 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 		if err != nil {
 			if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") ||
 				strings.Contains(err.Error(), "invalid http response status (expected 422 to be 201):") {
+				logger.WarnContext(ctx, "error generating GitHub access token for all repositories", "error", err)
 				return "", nil
 			}
 			return "", fmt.Errorf("error generating GitHub access token for all repositories: %w", err)
@@ -111,6 +113,7 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 	if err != nil {
 		if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") ||
 			strings.Contains(err.Error(), "invalid http response status (expected 422 to be 201):") {
+			logger.WarnContext(ctx, "error generating GitHub access token for named repositories", "error", err)
 			return "", nil
 		}
 		return "", fmt.Errorf("error generating GitHub access token for named repositories: %w", err)

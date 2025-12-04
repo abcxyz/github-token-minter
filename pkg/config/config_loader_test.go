@@ -24,10 +24,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/abcxyz/github-token-minter/pkg/server/source"
-	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-github/v64/github"
+
+	"github.com/abcxyz/github-token-minter/pkg/server/source"
+	"github.com/abcxyz/pkg/testutil"
 )
 
 func TestGitHubInRepoConfigFileLoader(t *testing.T) {

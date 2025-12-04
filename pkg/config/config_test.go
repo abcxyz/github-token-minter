@@ -17,9 +17,10 @@ package config
 import (
 	"testing"
 
-	"github.com/abcxyz/pkg/testutil"
 	"github.com/google/cel-go/cel"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/abcxyz/pkg/testutil"
 )
 
 func TestCompileExpression(t *testing.T) {
