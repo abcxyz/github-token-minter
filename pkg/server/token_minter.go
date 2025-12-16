@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"io"
 	"net/http"
 	"strings"
@@ -58,14 +57,7 @@ type TokenRequest struct {
 	Scope        string            `json:"scope"`
 }
 
-// apiResponse is a structure that contains a http status code,
-// a string response message and any error that might have occurred
-// in the processing of a request.
-type apiResponse struct {
-	Code    int
-	Message string
-	Error   error
-}
+// Old apiResponse struct removed, defined in errors.go
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
@@ -81,18 +73,9 @@ func NewRouter(ctx context.Context, sourceSystem source.System, configStore conf
 func (s *TokenMinterServer) handleToken() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		logger := logging.FromContext(ctx)
 
 		resp := s.processRequest(r)
-		if resp.Error != nil {
-			logger.ErrorContext(ctx, "error processing request",
-				"error", resp.Error,
-				"code", resp.Code,
-				"body", resp.Message)
-		}
-
-		w.WriteHeader(resp.Code)
-		fmt.Fprint(w, html.EscapeString(resp.Message))
+		writeAPIResponse(ctx, w, resp)
 	})
 }
 
@@ -126,7 +109,11 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	oidcHeader := r.Header.Get(AuthHeader)
 	// Ensure the token is in the header
 	if oidcHeader == "" {
-		return &apiResponse{http.StatusBadRequest, fmt.Sprintf("request not authorized: %q header is missing", AuthHeader), nil}
+		return &apiResponse{
+			Code:    http.StatusBadRequest,
+			ErrCode: ErrCodeMissingHeader,
+			Message: fmt.Sprintf("request not authorized: %q header is missing", AuthHeader),
+		}
 	}
 	// Parse the request information
 	defer r.Body.Close()
@@ -134,7 +121,12 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	var request TokenRequest
 	dec := json.NewDecoder(io.LimitReader(r.Body, 4_194_304)) // 4 MiB
 	if err := dec.Decode(&request); err != nil {
-		return &apiResponse{http.StatusBadRequest, "error parsing request information - invalid JSON", fmt.Errorf("error parsing request: %w", err)}
+		return &apiResponse{
+			Code:     http.StatusBadRequest,
+			ErrCode:  ErrCodeInvalidBody,
+			Message:  "error parsing request information - invalid JSON",
+			Internal: fmt.Errorf("error parsing request: %w", err),
+		}
 	}
 
 	// In the future we'll reject requests that do not contain a scope but until all
@@ -163,9 +155,10 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	if len(request.Repositories) == 0 {
 		if claims.ParsedRepoName == "" {
 			return &apiResponse{
-				http.StatusBadRequest,
-				"request does not contain required information",
-				errors.New(`claim "repository" not found and no "repositories" sent as part of the request`),
+				Code:     http.StatusBadRequest,
+				ErrCode:  ErrCodeInvalidRequest,
+				Message:  "request does not contain required information: claim \"repository\" not found and no \"repositories\" sent as part of the request",
+				Internal: errors.New(`claim "repository" not found and no "repositories" sent as part of the request`),
 			}
 		} else {
 			request.Repositories = []string{claims.ParsedRepoName}
@@ -193,9 +186,14 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 
 		accessToken, err := s.sourceSystem.MintAccessToken(ctx, request.OrgName, claims.ParsedRepoName, nil, request.Permissions)
 		if err != nil {
-			return &apiResponse{http.StatusInternalServerError, "error generating access token", fmt.Errorf("error generating access token: %w", err)}
+			return &apiResponse{
+				Code:     http.StatusInternalServerError,
+				ErrCode:  ErrCodeInternal,
+				Message:  "error generating access token",
+				Internal: fmt.Errorf("error generating access token: %w", err),
+			}
 		}
-		return &apiResponse{http.StatusOK, accessToken, nil}
+		return &apiResponse{Code: http.StatusOK, Result: accessToken}
 	}
 
 	// Otherwise, validate that all of the requested repositories are allowed
@@ -203,7 +201,12 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	// request restricted access token
 	repos, err := validateRepositories(repoList, request.Repositories)
 	if err != nil {
-		return &apiResponse{http.StatusForbidden, "one or more of the requested repositories is not authorized", err}
+		return &apiResponse{
+			Code:     http.StatusForbidden,
+			ErrCode:  ErrCodeForbidden,
+			Message:  fmt.Sprintf("authorization failed: %v", err),
+			Internal: err,
+		}
 	}
 	logger.InfoContext(ctx, "generating token",
 		"claims", claims,
@@ -213,9 +216,14 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 
 	accessToken, err := s.sourceSystem.MintAccessToken(ctx, requestOrgName, claims.ParsedRepoName, repos, request.Permissions)
 	if err != nil {
-		return &apiResponse{http.StatusInternalServerError, "error generating access token", fmt.Errorf("error generating access token: %w", err)}
+		return &apiResponse{
+			Code:     http.StatusInternalServerError,
+			ErrCode:  ErrCodeInternal,
+			Message:  "error generating access token",
+			Internal: fmt.Errorf("error generating access token: %w", err),
+		}
 	}
-	return &apiResponse{http.StatusOK, accessToken, nil}
+	return &apiResponse{Code: http.StatusOK, Result: accessToken}
 }
 
 func validateOrgName(requestOrgName, claimsOrgName string) (string, *apiResponse) {
@@ -229,9 +237,10 @@ func validateOrgName(requestOrgName, claimsOrgName string) (string, *apiResponse
 	// token claims, then throw an error.
 	if orgName == "" {
 		return "", &apiResponse{
-			http.StatusBadRequest,
-			fmt.Sprintf("request did not contain an organization name [%s] and one could not be determined from the OIDC token [%s]", requestOrgName, claimsOrgName),
-			fmt.Errorf("request did not contain an organization name [%s] and one could not be determined from the OIDC token [%s]", requestOrgName, claimsOrgName),
+			Code:     http.StatusBadRequest,
+			ErrCode:  ErrCodeInvalidRequest,
+			Message:  fmt.Sprintf("request did not contain an organization name [%s] and one could not be determined from the OIDC token [%s]", requestOrgName, claimsOrgName),
+			Internal: fmt.Errorf("request did not contain an organization name [%s] and one could not be determined from the OIDC token [%s]", requestOrgName, claimsOrgName),
 		}
 	}
 	return orgName, nil
@@ -254,7 +263,12 @@ func buildRepositoryList(ctx context.Context, request *TokenRequest, claims *oid
 			if len(request.Repositories) > 1 {
 				// This is a secenario we shouldn't support. Asking for "*" and any other repositories
 				// will lead to very strange results.
-				return nil, &apiResponse{http.StatusForbidden, "request for '*' also contained request for specific repositories and that is not allowed", errors.New("request for '*' also contained request for specific repositories and that is not allowed")}
+				return nil, &apiResponse{
+					Code:     http.StatusForbidden,
+					ErrCode:  ErrCodeForbidden,
+					Message:  "request for '*' also contained request for specific repositories and that is not allowed",
+					Internal: errors.New("request for '*' also contained request for specific repositories and that is not allowed"),
+				}
 			}
 			repo = claims.ParsedRepoName
 		}
@@ -263,13 +277,19 @@ func buildRepositoryList(ctx context.Context, request *TokenRequest, claims *oid
 		scope, source, err := configStore.Eval(ctx, request.OrgName, repo, request.Scope, claims.asMap())
 		if err != nil {
 			return nil, &apiResponse{
-				http.StatusInternalServerError,
-				fmt.Sprintf("requested scope %q is not found for repository %q/%q", request.Scope, request.OrgName, repo),
-				fmt.Errorf("error reading configuration for repository %s/%s from configuration store with config_source %s: %w", request.OrgName, repo, source, err),
+				Code:     http.StatusInternalServerError,
+				ErrCode:  ErrCodeInternal,
+				Message:  fmt.Sprintf("requested scope %q is not found for repository %q/%q", request.Scope, request.OrgName, repo),
+				Internal: fmt.Errorf("error reading configuration for repository %s/%s from configuration store with config_source %s: %w", request.OrgName, repo, source, err),
 			}
 		}
 		if scope == nil {
-			return nil, &apiResponse{http.StatusForbidden, fmt.Sprintf("no permissions available for scope %q in repository %q", request.Scope, claims.Repository), err}
+			return nil, &apiResponse{
+				Code:     http.StatusForbidden,
+				ErrCode:  ErrCodeForbidden,
+				Message:  fmt.Sprintf("no permissions available for scope %q in repository %q", request.Scope, claims.Repository),
+				Internal: err,
+			}
 		}
 
 		// If there are no permissions in the request, evaluate what permissions
@@ -287,7 +307,12 @@ func buildRepositoryList(ctx context.Context, request *TokenRequest, claims *oid
 
 		// Validate the permissions that were requested are within what is allowed for the repository
 		if err = validatePermissions(scope.Permissions, request.Permissions); err != nil {
-			return nil, &apiResponse{http.StatusForbidden, "requested permissions are not authorized for this repository", err}
+			return nil, &apiResponse{
+				Code:     http.StatusForbidden,
+				ErrCode:  ErrCodeForbidden,
+				Message:  "requested permissions are not authorized for this repository",
+				Internal: err,
+			}
 		}
 		logger.InfoContext(ctx, "adding scope to allowed set of repositories",
 			"scope", scope,

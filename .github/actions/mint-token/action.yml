@@ -66,20 +66,35 @@ runs:
 
             if (response.ok) {
               try {
-                // try to parse response as JSON for older versions of github-token-minter
-                // expecting `{ "token": "TOKEN" }` format
-
+                // Parse response as JSON
+                // Format: { "ok": true, "result": "TOKEN" } (New)
+                // Format: { "token": "TOKEN" } (Old)
                 const resp = JSON.parse(responseText);
-                core.setOutput('token', resp.token);
+                if (resp.ok && resp.result) {
+                   core.setOutput("token", resp.result);
+                } else if (resp.token) {
+                   core.setOutput("token", resp.token);
+                } else {
+                   // Fallback for unexpected JSON structure
+                   core.warning("Parsed JSON response but did not find token or result field.");
+                }
               } catch (err) {
-                // we didnt get a JSON response, response body contains the token
-                // so just use the response text
-
+                // Not JSON, assume response text is the token (Legacy-Legacy)
                 const token = responseText;
-                core.setOutput('token', token);
+                core.setOutput("token", token);
               }
             } else {
-              core.error(`Error response from server ${responseText}`)
+              // Handle Error Responses
+              try {
+                 const resp = JSON.parse(responseText);
+                 if (resp.ok === false && resp.message) {
+                    core.error(`Server Error [${resp.code || "UNKNOWN"}]: ${resp.message}`);
+                 } else {
+                    core.error(`Error response from server: ${responseText}`);
+                 }
+              } catch (e) {
+                 core.error(`Error response from server: ${responseText}`);
+              }
               throw new Error(`HTTP Error Response: ${response.status} ${response.statusText}`);
             }
           }

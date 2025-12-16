@@ -51,7 +51,7 @@ func Run(ctx context.Context, cfg *Config) error {
 	// Validate that the token is usable before sending it to minty
 	claims, apiError := jwtParser.ParseAuthToken(ctx, cfg.Token)
 	if apiError != nil {
-		return apiError.Error
+		return apiError.Internal
 	}
 
 	var request server.TokenRequest

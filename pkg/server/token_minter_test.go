@@ -173,7 +173,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				keySet: jwkCachedSet,
 			},
 			expCode: 400,
-			expResp: "request does not contain required information",
+			expResp: `request does not contain required information: claim "repository" not found`,
 			expErr:  `claim "repository" not found`,
 		},
 		{
@@ -192,7 +192,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				keySet: jwkCachedSet,
 			},
 			expCode: 400,
-			expResp: "request does not contain required information",
+			expResp: `request does not contain required information: claim "repository" not found and no "repositories" sent as part of the request`,
 			expErr:  `claim "repository" not found and no "repositories" sent as part of the request`,
 		},
 		{
@@ -534,10 +534,17 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			if got, want := resp.Code, tc.expCode; got != want {
 				t.Errorf("expected status code %d to be %d", got, want)
 			}
-			if got, want := resp.Message, tc.expResp; !strings.Contains(got, want) {
+			var gotBody string
+			if resp.Message != "" {
+				gotBody = resp.Message
+			} else if resp.Result != nil {
+				gotBody = fmt.Sprintf("%v", resp.Result)
+			}
+
+			if got, want := gotBody, tc.expResp; !strings.Contains(got, want) {
 				t.Errorf("expected body\n\n%s\n\nto contain\n\n%s\n\n", got, want)
 			}
-			if diff := testutil.DiffErrString(resp.Error, tc.expErr); diff != "" {
+			if diff := testutil.DiffErrString(resp.Internal, tc.expErr); diff != "" {
 				t.Error(diff)
 			}
 		})
@@ -1214,7 +1221,7 @@ func TestBuildRepositoryList(t *testing.T) {
 				t.Errorf("expected to receive error but didn't")
 			}
 			if gotResponse != nil {
-				if msg := testutil.DiffErrString(gotResponse.Error, tc.wantErrorMsg); msg != "" {
+				if msg := testutil.DiffErrString(gotResponse.Internal, tc.wantErrorMsg); msg != "" {
 					t.Fatal(msg)
 				}
 			}

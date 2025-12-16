@@ -43,27 +43,45 @@ async function main() {
 
     if (response.ok) {
       try {
-        // try to parse response as JSON for older versions of github-token-minter
-        // expecting `{ "token": "TOKEN" }` format
-
-        const resp = JSON.parse(responseText);
-        core.setSecret(resp.token);
-        core.setOutput('token', resp.token);
-      } catch (err) {
-        // we didnt get a JSON response, response body contains the token
-        // so just use the response text
-
-        const token = responseText;
-        core.setSecret(token);
-        core.setOutput('token', token);
-        core.exportVariable('MINTY_TOKEN', token);
-      }
-    } else {
-      core.error(`Error response from server ${responseText}`);
-      throw new Error(
-        `HTTP Error Response: ${response.status} ${response.statusText}`
-      );
-    }
+         // try to parse response as JSON for older versions of github-token-minter
+         // expecting `{ "token": "TOKEN" }` format
+ 
+         const resp = JSON.parse(responseText);
+         if (resp.ok && resp.result) {
+            core.setSecret(resp.result);
+            core.setOutput('token', resp.result);
+            core.exportVariable('MINTY_TOKEN', resp.result);
+         } else if (resp.token) {
+            core.setSecret(resp.token);
+            core.setOutput('token', resp.token);
+            core.exportVariable('MINTY_TOKEN', resp.token);
+         } else {
+            core.warning('Parsed JSON response but did not find token or result field.');
+         }
+       } catch (err) {
+         // we didnt get a JSON response, response body contains the token
+         // so just use the response text
+ 
+         const token = responseText;
+         core.setSecret(token);
+         core.setOutput('token', token);
+         core.exportVariable('MINTY_TOKEN', token);
+       }
+     } else {
+        try {
+           const resp = JSON.parse(responseText);
+           if (resp.ok === false && resp.message) {
+              core.error(`Server Error [${resp.code || 'UNKNOWN'}]: ${resp.message}`);
+           } else {
+              core.error(`Error response from server: ${responseText}`);
+           }
+        } catch (e) {
+           core.error(`Error response from server: ${responseText}`);
+        }
+       throw new Error(
+         `HTTP Error Response: ${response.status} ${response.statusText}`
+       );
+     }
   } catch (err) {
     core.setFailed(err);
   }

@@ -107,9 +107,10 @@ func (p *JWTParser) ParseAuthToken(ctx context.Context, oidcHeader string) (*oid
 	keySet, err := p.JWKResolver.ResolveKeySet(ctx, oidcHeader)
 	if err != nil {
 		return nil, &apiResponse{
-			http.StatusUnauthorized,
-			"request not authorized: could not resolve JWK keys",
-			fmt.Errorf("failed to validate jwt: %w", err),
+			Code:     http.StatusUnauthorized,
+			ErrCode:  ErrCodeUnauthorized,
+			Message:  "request not authorized: could not resolve JWK keys",
+			Internal: fmt.Errorf("failed to validate jwt: %w", err),
 		}
 	}
 	// Parse the token data into a JWT
@@ -117,18 +118,20 @@ func (p *JWTParser) ParseAuthToken(ctx context.Context, oidcHeader string) (*oid
 	oidcToken, err := jwt.Parse([]byte(oidcHeader), parseOpts...)
 	if err != nil {
 		return nil, &apiResponse{
-			http.StatusUnauthorized,
-			fmt.Sprintf("request not authorized: %q header is invalid", AuthHeader),
-			fmt.Errorf("failed to validate jwt: %w", err),
+			Code:     http.StatusUnauthorized,
+			ErrCode:  ErrCodeUnauthorized,
+			Message:  fmt.Sprintf("request not authorized: %q header is invalid", AuthHeader),
+			Internal: fmt.Errorf("failed to validate jwt: %w", err),
 		}
 	}
 
 	claims, err := parsePrivateClaims(oidcToken)
 	if err != nil {
 		return nil, &apiResponse{
-			http.StatusBadRequest,
-			"request does not contain required information",
-			err,
+			Code:     http.StatusBadRequest,
+			ErrCode:  ErrCodeInvalidRequest,
+			Message:  fmt.Sprintf("request does not contain required information: %v", err),
+			Internal: err,
 		}
 	}
 	return claims, nil
