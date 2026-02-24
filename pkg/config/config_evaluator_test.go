@@ -244,7 +244,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 			token:     map[string]string{},
 			want:      nil,
 			expErr:    true,
-			expErrMsg: "error reading configuration, exhausted all possible source locations",
+			expErrMsg: "error reading configuration, exhausted all possible source locations, failed to locate scope [test_scope] for repository [test_org/test_repo].\nEvaluation results:\n[mem://test_org/test_repo]: config not found\n[mem://test_org/test_repo]: config not found",
 		},
 		{
 			name: "v1 config match first",
@@ -330,7 +330,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 			token:     map[string]string{"target": "9999"},
 			want:      nil,
 			expErr:    true,
-			expErrMsg: "error reading configuration, exhausted all possible source locations",
+			expErrMsg: "error reading configuration, exhausted all possible source locations, failed to locate scope [test_scope] for repository [test_org/test_repo].\nEvaluation results:\n[mem://test_org/test_repo]: no matching scope found in v1 config",
 		},
 		{
 			name: "multiple children with scopes, result in second",

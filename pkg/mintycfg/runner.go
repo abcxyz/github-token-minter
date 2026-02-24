@@ -23,7 +23,6 @@ import (
 	"os"
 
 	"github.com/google/cel-go/cel"
-	"github.com/google/cel-go/common/types/ref"
 
 	"github.com/abcxyz/github-token-minter/pkg/config"
 )
@@ -99,22 +98,9 @@ func Run(ctx context.Context, cfg *Config) error {
 		fmt.Printf("\n#################\n\n")
 
 		fmt.Printf("Evaluating token against scope: %s\n", cfg.Scope)
-		scope, err := mintyConfig.Eval(cfg.Scope, token)
-		if err != nil || scope == nil {
-			// Check global rule first
-			if err := evalToken("global", mintyConfig.Rule.If, env, token); err != nil {
-				return err
-			}
-			// Check for existence of named scope
-			val, ok := mintyConfig.Scopes[cfg.Scope]
-			if !ok {
-				fmt.Printf("named scope not found: %q", cfg.Scope)
-				return nil
-			}
-			// Check scope rule next
-			if err := evalToken("scope", val.Rule.If, env, token); err != nil {
-				return err
-			}
+		scope, decision, err := mintyConfig.Eval(cfg.Scope, token)
+		if err != nil || scope == nil || !decision.Allowed {
+			fmt.Printf("\nEval decision: \n%v\n\n", decision.Details)
 			fmt.Printf("Requested scope was not found or did not match the criteria based on the provided token: %v\n", cfg.Scope)
 		} else {
 			fmt.Printf("Found match for scope: %s\n", cfg.Scope)
@@ -127,46 +113,4 @@ func Run(ctx context.Context, cfg *Config) error {
 	fmt.Println("Configuration parsed and loaded successfully")
 
 	return nil
-}
-
-func evalToken(ruleType, ruleIf string, env *cel.Env, token map[string]any) error {
-	prg, err := compileExpression(env, ruleIf)
-	if err != nil {
-		return fmt.Errorf("failed to compile %s CEL expression: %w", ruleType, err)
-	}
-	out, details, err := prg.Eval(map[string]any{
-		config.AssertionKey: token,
-		config.IssuersKey:   config.IssuersMap,
-	})
-	fmt.Printf("%s CEL Details - State:\n%v\n", ruleType, details.State())
-	fmt.Printf("%s CEL Result: %v\n\n", ruleType, out)
-	if !matched(out) {
-		fmt.Printf("failed to match %s CEL expression", ruleType)
-		fmt.Printf("rule: %q", ruleIf)
-	}
-	if err != nil {
-		return fmt.Errorf("failed %s CEL expression: %w", ruleType, err)
-	}
-	return nil
-}
-
-func compileExpression(env *cel.Env, expr string) (cel.Program, error) {
-	ast, iss := env.Compile(expr)
-	if iss.Err() != nil {
-		return nil, fmt.Errorf("failed to compile CEL expression: %w", iss.Err())
-	}
-
-	prg, err := env.Program(ast, cel.EvalOptions(cel.OptExhaustiveEval))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create CEL program: %w", err)
-	}
-
-	return prg, nil
-}
-
-func matched(out ref.Val) bool {
-	if v, ok := (out.Value()).(bool); v && ok {
-		return true
-	}
-	return false
 }

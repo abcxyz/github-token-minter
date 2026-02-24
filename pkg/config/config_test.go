@@ -49,7 +49,7 @@ func TestCompileExpression(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			pgm, err := compileExpression(env, tc.expr)
+			pgm, _, err := compileExpression(env, tc.expr)
 			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
 				t.Fatal(msg)
 			}
@@ -225,7 +225,7 @@ func TestRuleEval(t *testing.T) {
 		name      string
 		rule      *Rule
 		token     map[string]interface{}
-		want      bool
+		want      *PolicyDecision
 		expErr    bool
 		expErrMsg string
 	}{
@@ -235,7 +235,7 @@ func TestRuleEval(t *testing.T) {
 				If: "assertion.workflow == 'Test'",
 			},
 			token:     token,
-			want:      true,
+			want:      &PolicyDecision{Allowed: true, Reason: "rule matched: assertion.workflow == 'Test'", Details: "[+] EQUALS -> true\n├── [v] Select 'assertion.workflow' -> Test\n└── [v] Lit 'Test' -> Test\n"},
 			expErr:    false,
 			expErrMsg: "",
 		},
@@ -245,7 +245,7 @@ func TestRuleEval(t *testing.T) {
 				If: "assertion.iss == issuers.github",
 			},
 			token:     token,
-			want:      true,
+			want:      &PolicyDecision{Allowed: true, Reason: "rule matched: assertion.iss == issuers.github", Details: "[+] EQUALS -> true\n├── [v] Select 'assertion.iss' -> https://token.actions.githubusercontent.com\n└── [v] Select 'issuers.github' -> https://token.actions.githubusercontent.com\n"},
 			expErr:    false,
 			expErrMsg: "",
 		},
@@ -255,7 +255,7 @@ func TestRuleEval(t *testing.T) {
 				If: "assertion.iss == issuers.unknown",
 			},
 			token:     token,
-			want:      false,
+			want:      nil,
 			expErr:    true,
 			expErrMsg: "failed to evaluate CEL expression: no such key: unknown",
 		},
@@ -265,7 +265,7 @@ func TestRuleEval(t *testing.T) {
 				If: "assertion.workflow == 'not valid'",
 			},
 			token:     token,
-			want:      false,
+			want:      &PolicyDecision{Allowed: false, Reason: "rule failed: assertion.workflow == 'not valid'", Details: "[x] EQUALS -> false\n├── [v] Select 'assertion.workflow' -> Test\n└── [v] Lit 'not valid' -> not valid\n"},
 			expErr:    false,
 			expErrMsg: "",
 		},
@@ -275,7 +275,7 @@ func TestRuleEval(t *testing.T) {
 				If: "assertion.doesntexist == 'not valid'",
 			},
 			token:     token,
-			want:      false,
+			want:      nil,
 			expErr:    true,
 			expErrMsg: "failed to evaluate CEL expression: no such key: doesntexist",
 		},

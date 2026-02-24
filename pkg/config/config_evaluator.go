@@ -17,6 +17,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/cel-go/cel"
@@ -85,6 +86,7 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 }
 
 func (l *configEvaluator) Eval(ctx context.Context, org, repo, scope string, token interface{}) (*Scope, string, error) {
+	var failureReasons []string
 	for _, loader := range l.loaders {
 		source := loader.Source(org, repo)
 		contents, err := loader.Load(ctx, org, repo)
@@ -92,14 +94,19 @@ func (l *configEvaluator) Eval(ctx context.Context, org, repo, scope string, tok
 			return nil, source, fmt.Errorf("error reading configuration, child reader threw error: %w", err)
 		}
 		if contents != nil {
-			s, err := contents.Eval(scope, token)
+			s, decision, err := contents.Eval(scope, token)
 			if err != nil {
 				return nil, source, fmt.Errorf("error evaluating scope: %w", err)
 			}
 			if s != nil {
 				return s, source, nil
 			}
+			if decision != nil {
+				failureReasons = append(failureReasons, fmt.Sprintf("[%s]: %s", source, decision.Reason))
+			}
+		} else {
+			failureReasons = append(failureReasons, fmt.Sprintf("[%s]: config not found", source))
 		}
 	}
-	return nil, fmt.Sprintf("%s/%s", org, repo), fmt.Errorf("error reading configuration, exhausted all possible source locations, failed to locate scope [%s] for repository [%s/%s]", scope, org, repo)
+	return nil, fmt.Sprintf("%s/%s", org, repo), fmt.Errorf("error reading configuration, exhausted all possible source locations, failed to locate scope [%s] for repository [%s/%s].\nEvaluation results:\n%s", scope, org, repo, strings.Join(failureReasons, "\n"))
 }

@@ -44,6 +44,15 @@ var IssuersMap = map[string]string{
 type Rule struct {
 	If      string      `yaml:"if" json:"if"`
 	Program cel.Program `yaml:"-" json:"-"`
+	Ast     *cel.Ast    `yaml:"-" json:"-"`
+}
+
+// PolicyDecision contains the result of a policy evaluation
+// including whether it was allowed and the reason for the decision.
+type PolicyDecision struct {
+	Allowed bool
+	Reason  string
+	Details string
 }
 
 // Scope is a struct that contains a series of permissions that
@@ -71,11 +80,12 @@ func (r *Rule) compile(env *cel.Env) error {
 	if r == nil {
 		return nil
 	}
-	prg, err := compileExpression(env, r.If)
+	prg, ast, err := compileExpression(env, r.If)
 	if err != nil {
 		return fmt.Errorf("failed to compile ruleset: %w", err)
 	}
 	r.Program = prg
+	r.Ast = ast
 	return nil
 }
 
@@ -95,81 +105,91 @@ func (c *Config) compile(env *cel.Env) error {
 	return nil
 }
 
-func compileExpression(env *cel.Env, expr string) (cel.Program, error) {
+func compileExpression(env *cel.Env, expr string) (cel.Program, *cel.Ast, error) {
 	ast, iss := env.Compile(expr)
 	if iss.Err() != nil {
-		return nil, fmt.Errorf("failed to compile CEL expression: %w", iss.Err())
+		return nil, nil, fmt.Errorf("failed to compile CEL expression: %w", iss.Err())
 	}
 
-	prg, err := env.Program(ast)
+	prg, err := env.Program(ast, cel.EvalOptions(cel.OptExhaustiveEval, cel.OptTrackState))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create CEL program: %w", err)
+		return nil, nil, fmt.Errorf("failed to create CEL program: %w", err)
 	}
 
-	return prg, nil
+	return prg, ast, nil
 }
 
-func (r *Rule) eval(token interface{}) (bool, error) {
+func (r *Rule) eval(token interface{}) (*PolicyDecision, error) {
 	if r == nil {
-		return true, nil
+		return &PolicyDecision{Allowed: true, Reason: "no rule defined, allowed by default"}, nil
 	}
-	out, _, err := r.Program.Eval(map[string]any{
+	out, details, err := r.Program.Eval(map[string]any{
 		AssertionKey: token,
 		IssuersKey:   IssuersMap,
 	})
 	if err != nil {
-		return false, fmt.Errorf("failed to evaluate CEL expression: %w", err)
+		return nil, fmt.Errorf("failed to evaluate CEL expression: %w", err)
 	}
 
 	if v, ok := (out.Value()).(bool); v && ok {
-		return true, nil
+		return &PolicyDecision{Allowed: true, Reason: fmt.Sprintf("rule matched: %s", r.If), Details: formatEvalDetails(r.Ast, details)}, nil
 	}
-	return false, nil
+	return &PolicyDecision{Allowed: false, Details: formatEvalDetails(r.Ast, details), Reason: fmt.Sprintf("rule failed: %s", r.If)}, nil
 }
 
-func (c *Config) Eval(scope string, token interface{}) (*Scope, error) {
-	ok, err := c.Rule.eval(token)
+func (c *Config) Eval(scope string, token interface{}) (*Scope, *PolicyDecision, error) {
+	// First check the global rule for this configuration
+	decision, err := c.Rule.eval(token)
 	if err != nil {
-		return nil, fmt.Errorf("global rule evaluation failed: %w", err)
+		return nil, nil, fmt.Errorf("global rule evaluation failed: %w", err)
 	}
-	if !ok {
-		return nil, nil
+	if !decision.Allowed {
+		return nil, decision, nil
 	}
 
 	if c.Version == configVersionV1 {
-		// Version 1 didn't have the concept of a "scope" and mapping based on
-		// name. In situations where we are processing this old style configuration
-		// we just walk through the map and look for a match. Matches were ordered
-		// top to bottom and are inserted into the scopes map keyed as "default_xxxxxxxx"
-		// to help maintain that ordering.
-		keys := make([]string, 0, len(c.Scopes))
-		for k := range c.Scopes {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-
-		for _, k := range keys {
-			val := c.Scopes[k]
-			ok, err = val.Rule.eval(token)
-			if err != nil {
-				return nil, fmt.Errorf("scope rule evaluation failed: %w", err)
-			}
-			if ok {
-				return val, nil
-			}
-		}
-		return nil, nil
+		return c.evalV1(token)
 	}
+	return c.evalV2(scope, token)
+}
 
-	val, ok := c.Scopes[scope]
-	if ok {
-		ok, err = val.Rule.eval(token)
+func (c *Config) evalV1(token interface{}) (*Scope, *PolicyDecision, error) {
+	// Version 1 didn't have the concept of a "scope" and mapping based on
+	// name. In situations where we are processing this old style configuration
+	// we just walk through the map and look for a match. Matches were ordered
+	// top to bottom and are inserted into the scopes map keyed as "default_xxxxxxxx"
+	// to help maintain that ordering.
+	keys := make([]string, 0, len(c.Scopes))
+	for k := range c.Scopes {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		val := c.Scopes[k]
+		decision, err := val.Rule.eval(token)
 		if err != nil {
-			return nil, fmt.Errorf("scope rule evaluation failed: %w", err)
+			return nil, nil, fmt.Errorf("scope rule evaluation failed: %w", err)
 		}
-		if ok {
-			return val, nil
+		if decision.Allowed {
+			return val, decision, nil
 		}
 	}
-	return nil, nil
+	return nil, &PolicyDecision{Allowed: false, Reason: "no matching scope found in v1 config"}, nil
+}
+
+func (c *Config) evalV2(scope string, token interface{}) (*Scope, *PolicyDecision, error) {
+	val, ok := c.Scopes[scope]
+	if !ok {
+		return nil, &PolicyDecision{Allowed: false, Reason: fmt.Sprintf("scope %q not found in config", scope)}, nil
+	}
+
+	decision, err := val.Rule.eval(token)
+	if err != nil {
+		return nil, nil, fmt.Errorf("scope rule evaluation failed: %w", err)
+	}
+	if decision.Allowed {
+		return val, decision, nil
+	}
+	return nil, decision, nil
 }
