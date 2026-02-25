@@ -87,6 +87,7 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 
 func (l *configEvaluator) Eval(ctx context.Context, org, repo, scope string, token interface{}) (*Scope, string, error) {
 	var failureReasons []string
+	var notfounds []string
 	for _, loader := range l.loaders {
 		source := loader.Source(org, repo)
 		contents, err := loader.Load(ctx, org, repo)
@@ -105,8 +106,13 @@ func (l *configEvaluator) Eval(ctx context.Context, org, repo, scope string, tok
 				failureReasons = append(failureReasons, fmt.Sprintf("[%s]: %s", source, decision.Reason))
 			}
 		} else {
-			failureReasons = append(failureReasons, fmt.Sprintf("[%s]: config not found", source))
+			notfounds = append(notfounds, fmt.Sprintf("[%s]: config not found", source))
 		}
+	}
+	// Isolate the not found errors from the failure reasons. We only want to report
+	// not found errors if there were no other errors.
+	if len(notfounds) > 0 && len(failureReasons) == 0 {
+		return nil, fmt.Sprintf("%s/%s", org, repo), fmt.Errorf("error reading configuration, exhausted all possible source locations, failed to locate scope [%s] for repository [%s/%s].\nEvaluation results:\n%s", scope, org, repo, strings.Join(notfounds, "\n"))
 	}
 	return nil, fmt.Sprintf("%s/%s", org, repo), fmt.Errorf("error reading configuration, exhausted all possible source locations, failed to locate scope [%s] for repository [%s/%s].\nEvaluation results:\n%s", scope, org, repo, strings.Join(failureReasons, "\n"))
 }
