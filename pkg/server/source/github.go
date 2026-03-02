@@ -19,6 +19,7 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -92,8 +93,7 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 		logger.InfoContext(ctx, "sending request for all repos to GitHub", "request", allRepoRequest)
 		accessToken, err := installation.AccessTokenAllRepos(ctx, allRepoRequest)
 		if err != nil {
-			if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") ||
-				strings.Contains(err.Error(), "invalid http response status (expected 422 to be 201):") {
+			if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") {
 				logger.WarnContext(ctx, "error generating GitHub access token for all repositories", "error", err)
 				return "", nil
 			}
@@ -111,8 +111,7 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 	logger.InfoContext(ctx, "sending request to GitHub", "request", tokenRequest)
 	accessToken, err := installation.AccessToken(ctx, &tokenRequest)
 	if err != nil {
-		if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") ||
-			strings.Contains(err.Error(), "invalid http response status (expected 422 to be 201):") {
+		if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") {
 			logger.WarnContext(ctx, "error generating GitHub access token for named repositories", "error", err)
 			return "", nil
 		}
@@ -123,6 +122,7 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 
 // RetrieveFileContents implements SourceSystem.
 func (g *gitHubSourceSystem) RetrieveFileContents(ctx context.Context, org, repo, filePath, ref string) ([]byte, error) {
+	logger := logging.FromContext(ctx)
 	token, err := g.MintAccessToken(ctx, org, repo, []string{repo}, map[string]string{"contents": "read"})
 	if err != nil {
 		return nil, fmt.Errorf("error minting access token for GitHub: %w", err)
@@ -142,9 +142,23 @@ func (g *gitHubSourceSystem) RetrieveFileContents(ctx context.Context, org, repo
 	}
 	fileContents, _, resp, err := client.Repositories.GetContents(ctx, org, repo, filePath, &github.RepositoryContentGetOptions{Ref: ref})
 	if err != nil {
+		var body []byte
+		if resp != nil && resp.Body != nil {
+			reader := io.LimitReader(resp.Body, 4_194_304)
+			body, err = io.ReadAll(reader)
+			if err != nil {
+				logger.WarnContext(ctx, "error reading response body", "error", err)
+				body = []byte(err.Error())
+			}
+		}
+		logger.WarnContext(ctx, "failed to retrieve file contents",
+			"error", err,
+			"org", org,
+			"repo", repo,
+			"filePath", filePath,
+			"resp", string(body))
 		// 404 if the file doesn't exist
-		// 422 if the whole repo is missing
-		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusUnprocessableEntity {
+		if resp.StatusCode == http.StatusNotFound {
 			return nil, nil
 		} else {
 			return nil, fmt.Errorf("error reading configuration file @ %s/%s/%s: %w", org, repo, filePath, err)
