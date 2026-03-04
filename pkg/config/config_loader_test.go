@@ -227,7 +227,7 @@ rule:
 			Signer: rsaPrivateKey,
 		}
 
-		sourceSystem, err := source.NewGitHubSourceSystem(ctx, []*source.GitHubAppConfig{&ghAppCfg}, fakeGitHub.URL)
+		sourceSystem, err := source.NewGitHubSourceSystem(ctx, []*source.GitHubAppConfig{&ghAppCfg}, fakeGitHub.URL, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
