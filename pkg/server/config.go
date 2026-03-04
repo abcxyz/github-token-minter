@@ -45,6 +45,12 @@ type Config struct {
 
 	JWKSCacheDuration time.Duration
 	IssuerAllowlist   []string
+
+	GitHubRequestMaxRetries     uint64
+	GitHubRequestInitialBackoff time.Duration
+	GitHubRequestMaxBackoff     time.Duration
+	GitHubRequestMultiplier     float64
+	GitHubRequestRetry404       bool
 }
 
 // LogValue implements slog.LogValuer and returns a grouped value
@@ -70,6 +76,11 @@ func (cfg Config) LogValue() slog.Value {
 		slog.Any("jwks_cache_duration", cfg.JWKSCacheDuration),
 		slog.Any("issuer_allowlist", cfg.IssuerAllowlist),
 		slog.Any("source_system_auth", ssas),
+		slog.Uint64("github_request_max_retries", cfg.GitHubRequestMaxRetries),
+		slog.Duration("github_request_initial_backoff", cfg.GitHubRequestInitialBackoff),
+		slog.Duration("github_request_max_backoff", cfg.GitHubRequestMaxBackoff),
+		slog.Float64("github_request_multiplier", cfg.GitHubRequestMultiplier),
+		slog.Bool("github_request_retry_404", cfg.GitHubRequestRetry404),
 	)
 }
 
@@ -225,6 +236,46 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		EnvVar:  "ISSUER_ALLOWLIST",
 		Usage:   `The list of OIDC token issuers that GitHub Token Minter will accept. Format is a comma-separated list of URLs or the flag can be specified multiple times.`,
 		Default: []string{config.GitHubIssuer, config.GoogleIssuer},
+	})
+
+	f.Uint64Var(&cli.Uint64Var{
+		Name:    "github-request-max-retries",
+		Target:  &cfg.GitHubRequestMaxRetries,
+		EnvVar:  "GITHUB_REQUEST_MAX_RETRIES",
+		Default: 3,
+		Usage:   `The maximum number of retries for GitHub API requests.`,
+	})
+
+	f.DurationVar(&cli.DurationVar{
+		Name:    "github-request-initial-backoff",
+		Target:  &cfg.GitHubRequestInitialBackoff,
+		EnvVar:  "GITHUB_REQUEST_INITIAL_BACKOFF",
+		Default: 150 * time.Millisecond,
+		Usage:   `The initial backoff duration for GitHub API requests.`,
+	})
+
+	f.DurationVar(&cli.DurationVar{
+		Name:    "github-request-max-backoff",
+		Target:  &cfg.GitHubRequestMaxBackoff,
+		EnvVar:  "GITHUB_REQUEST_MAX_BACKOFF",
+		Default: 1500 * time.Millisecond,
+		Usage:   `The maximum backoff duration for GitHub API requests.`,
+	})
+
+	f.Float64Var(&cli.Float64Var{
+		Name:    "github-request-multiplier",
+		Target:  &cfg.GitHubRequestMultiplier,
+		EnvVar:  "GITHUB_REQUEST_MULTIPLIER",
+		Default: 2.0,
+		Usage:   `The backoff multiplier for GitHub API requests.`,
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "github-request-retry-404",
+		Target:  &cfg.GitHubRequestRetry404,
+		EnvVar:  "GITHUB_REQUEST_RETRY_404",
+		Default: false,
+		Usage:   `Whether to retry GitHub API requests that return a 404 Not Found status.`,
 	})
 
 	return set

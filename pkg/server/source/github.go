@@ -22,8 +22,10 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/v64/github"
+	"github.com/sethvargo/go-retry"
 
 	"github.com/abcxyz/pkg/githubauth"
 	"github.com/abcxyz/pkg/logging"
@@ -36,16 +38,26 @@ type GitHubAppConfig struct {
 	Signer crypto.Signer
 }
 
+// GitHubRetryConfig is a struct that contains configuration for retrying GitHub requests.
+type GitHubRetryConfig struct {
+	MaxRetries     uint64
+	InitialBackoff time.Duration
+	MaxBackoff     time.Duration
+	Multiplier     float64
+	Retry404       bool
+}
+
 // gitHubSourceSystem is a SourceSystem implementation that is backed by GitHub.
 type gitHubSourceSystem struct {
-	apps    []*githubauth.App
-	baseURL string
+	apps        []*githubauth.App
+	baseURL     string
+	retryConfig *GitHubRetryConfig
 }
 
 // NewGitHubSourceSystem creates a representation of a GitHub system. This includes
 // information about what the base url and any of the Apps that can be used by the
 // system.
-func NewGitHubSourceSystem(ctx context.Context, configs []*GitHubAppConfig, systemURL string) (System, error) {
+func NewGitHubSourceSystem(ctx context.Context, configs []*GitHubAppConfig, systemURL string, retryConfig *GitHubRetryConfig) (System, error) {
 	// Set the access token url pattern if it is provided.
 	var options []githubauth.Option
 	if systemURL != "" {
@@ -61,7 +73,11 @@ func NewGitHubSourceSystem(ctx context.Context, configs []*GitHubAppConfig, syst
 		}
 		apps[ix] = app
 	}
-	return &gitHubSourceSystem{apps, systemURL}, nil
+	return &gitHubSourceSystem{
+		apps:        apps,
+		baseURL:     systemURL,
+		retryConfig: retryConfig,
+	}, nil
 }
 
 // MintAccessToken implements SourceSystem.
@@ -133,7 +149,21 @@ func (g *gitHubSourceSystem) RetrieveFileContents(ctx context.Context, org, repo
 	if token == "" {
 		return nil, nil
 	}
-	client := github.NewClient(nil).WithAuthToken(token)
+
+	httpClient := http.DefaultClient
+	if g.retryConfig != nil {
+		// Use a custom transport that retries on 5xx and configured 404s.
+		// We wrap the default transport (or a basic one if nil).
+		baseTransport := http.DefaultTransport
+		httpClient = &http.Client{
+			Transport: &RetryRoundTripper{
+				Transport:   baseTransport,
+				RetryConfig: g.retryConfig,
+			},
+		}
+	}
+
+	client := github.NewClient(httpClient).WithAuthToken(token)
 	if g.baseURL != "" {
 		client, err = client.WithEnterpriseURLs(g.baseURL, g.baseURL)
 		if err != nil {
@@ -177,4 +207,53 @@ func (g *gitHubSourceSystem) RetrieveFileContents(ctx context.Context, org, repo
 // BaseURL implements SourceSystem.
 func (g *gitHubSourceSystem) BaseURL() string {
 	return "https://github.com"
+}
+
+// RetryRoundTripper implements http.RoundTripper and retries requests based on configuration.
+type RetryRoundTripper struct {
+	Transport   http.RoundTripper
+	RetryConfig *GitHubRetryConfig
+}
+
+// RoundTrip executes a single HTTP transaction, returning a Response for the provided Request.
+func (r *RetryRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	var resp *http.Response
+	var err error
+
+	backoff := retry.NewFibonacci(r.RetryConfig.InitialBackoff)
+	backoff = retry.WithMaxRetries(r.RetryConfig.MaxRetries, backoff)
+	backoff = retry.WithCappedDuration(r.RetryConfig.MaxBackoff, backoff)
+
+	err = retry.Do(req.Context(), backoff, func(ctx context.Context) error {
+		t := r.Transport
+		if t == nil {
+			t = http.DefaultTransport
+		}
+		resp, err = t.RoundTrip(req) //nolint:bodyclose // Body is closed by the caller, or by us if we retry.
+		if err != nil {
+			// Network error, retry.
+			return retry.RetryableError(err)
+		}
+
+		if resp.StatusCode >= 500 {
+			// Server error, retry.
+			if resp.Body != nil {
+				resp.Body.Close() // Close previous response body
+			}
+			return retry.RetryableError(fmt.Errorf("server error: %d", resp.StatusCode))
+		}
+
+		if resp.StatusCode == http.StatusNotFound && r.RetryConfig.Retry404 {
+			// 404 and retry is enabled.
+			if resp.Body != nil {
+				resp.Body.Close() // Close previous response body
+			}
+			return retry.RetryableError(fmt.Errorf("not found error: %d", resp.StatusCode))
+		}
+
+		return nil
+	})
+
+	//nolint:wrapcheck
+	return resp, err
 }

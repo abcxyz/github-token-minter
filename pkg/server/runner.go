@@ -43,7 +43,15 @@ func Run(ctx context.Context, cfg *Config) error {
 		return fmt.Errorf("failed to generate app configs: %w", err)
 	}
 
-	sourceSystem, err := source.NewGitHubSourceSystem(ctx, appConfigs, cfg.SourceSystemAPIBaseURL)
+	retryConfig := &source.GitHubRetryConfig{
+		MaxRetries:     cfg.GitHubRequestMaxRetries,
+		InitialBackoff: cfg.GitHubRequestInitialBackoff,
+		MaxBackoff:     cfg.GitHubRequestMaxBackoff,
+		Multiplier:     cfg.GitHubRequestMultiplier,
+		Retry404:       cfg.GitHubRequestRetry404,
+	}
+
+	sourceSystem, err := source.NewGitHubSourceSystem(ctx, appConfigs, cfg.SourceSystemAPIBaseURL, retryConfig)
 	if err != nil {
 		return fmt.Errorf("failed to initialize source system: %w", err)
 	}
