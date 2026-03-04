@@ -50,6 +50,26 @@ go run github.com/abcxyz/github-token-minter/cmd/minty@main tools validate-cfg \
   --token '{"iss": "..."}'
 ```
 
+### Fetching Config from GitHub
+
+If a log entry is provided, you can also fetch the configuration file directly from GitHub using the `repository` and `ref` claims.
+
+1.  **Extract Repo and Ref**:
+    -   `repository`: from `jsonPayload.claims.repository` (e.g., `owner/repo`).
+    -   `ref`: from `jsonPayload.claims.ref` (e.g., `refs/heads/main` or `refs/tags/v1`).
+
+2.  **Download Config**:
+    Use `gh api` to download the file to a temporary location. Valid paths are typically `.github/minty.yaml` or `.github/minty.yml`.
+
+    ```bash
+    # Example for ref 'refs/heads/main'
+    gh api repos/<owner>/<repo>/contents/.github/minty.yaml?ref=<ref> \
+      -H "Accept: application/vnd.github.raw" > minty.yaml
+    ```
+
+3.  **Run Validation**:
+    Use the downloaded `minty.yaml` as the `--minty-file`.
+
 ### Example
 
 ```bash
