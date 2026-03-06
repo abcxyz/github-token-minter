@@ -51,6 +51,7 @@ type Config struct {
 	GitHubRequestMaxBackoff     time.Duration
 	GitHubRequestMultiplier     float64
 	GitHubRequestRetry404       bool
+	EnforceReadOnly             bool
 }
 
 // LogValue implements slog.LogValuer and returns a grouped value
@@ -81,6 +82,7 @@ func (cfg Config) LogValue() slog.Value {
 		slog.Duration("github_request_max_backoff", cfg.GitHubRequestMaxBackoff),
 		slog.Float64("github_request_multiplier", cfg.GitHubRequestMultiplier),
 		slog.Bool("github_request_retry_404", cfg.GitHubRequestRetry404),
+		slog.Bool("enforce_read_only", cfg.EnforceReadOnly),
 	)
 }
 
@@ -276,6 +278,14 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		EnvVar:  "GITHUB_REQUEST_RETRY_404",
 		Default: false,
 		Usage:   `Whether to retry GitHub API requests that return a 404 Not Found status.`,
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "enforce-read-only",
+		Target:  &cfg.EnforceReadOnly,
+		EnvVar:  "ENFORCE_READ_ONLY",
+		Default: false,
+		Usage:   `Whether to enforce read-only permissions for all minted tokens.`,
 	})
 
 	return set
