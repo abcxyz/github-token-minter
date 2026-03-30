@@ -11,3 +11,12 @@ scope:
       - 'repoB'
     permissions:
       contents: 'write'
+
+  minty_error_test:
+    rule:
+      if: 'assertion.workflow_ref.startsWith("abcxyz/pkg/.github/workflows/test.yml")'
+    repositories:
+      - '422-repo'
+      - '404-repo'
+    permissions:
+      contents: 'write'

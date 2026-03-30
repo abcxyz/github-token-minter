@@ -92,7 +92,8 @@ func (l *configEvaluator) Eval(ctx context.Context, org, repo, scope string, tok
 		source := loader.Source(org, repo)
 		contents, err := loader.Load(ctx, org, repo)
 		if err != nil {
-			return nil, source, fmt.Errorf("error reading configuration, child reader threw error: %w", err)
+			failureReasons = append(failureReasons, fmt.Sprintf("[%s]: error reading configuration, child reader threw error: %v", source, err))
+			continue
 		}
 		if contents != nil {
 			s, decision, err := contents.Eval(scope, token)

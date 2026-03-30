@@ -100,7 +100,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 			token:     map[string]string{},
 			want:      nil,
 			expErr:    true,
-			expErrMsg: "error reading configuration, child reader threw error: compiling config loader, sub loader failed to load configuration: test_error",
+			expErrMsg: "error reading configuration, exhausted all possible source locations, failed to locate scope [test_scope] for repository [test_org/test_repo].\nEvaluation results:\n[mem://test_org/test_repo]: error reading configuration, child reader threw error: compiling config loader, sub loader failed to load configuration: test_error",
 		},
 		{
 			name: "multiple children with result in first",
@@ -160,7 +160,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 			token:     map[string]string{},
 			want:      nil,
 			expErr:    true,
-			expErrMsg: "error reading configuration, child reader threw error: compiling config loader, sub loader failed to load configuration: test_error",
+			expErrMsg: "error reading configuration, exhausted all possible source locations, failed to locate scope [test_scope] for repository [test_org/test_repo].\nEvaluation results:\n[mem://test_org/test_repo]: error reading configuration, child reader threw error: compiling config loader, sub loader failed to load configuration: test_error",
 		},
 		{
 			name: "multiple children with result in second",
@@ -218,7 +218,7 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 			token:     map[string]string{},
 			want:      nil,
 			expErr:    true,
-			expErrMsg: "error reading configuration, child reader threw error: compiling config loader, sub loader failed to load configuration: test_error",
+			expErrMsg: "error reading configuration, exhausted all possible source locations, failed to locate scope [test_scope] for repository [test_org/test_repo].\nEvaluation results:\n[mem://test_org/test_repo]: error reading configuration, child reader threw error: compiling config loader, sub loader failed to load configuration: test_error",
 		},
 		{
 			name: "multiple children with no results",
