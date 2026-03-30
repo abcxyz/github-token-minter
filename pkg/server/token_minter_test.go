@@ -57,6 +57,17 @@ func handleAccessTokenRequest(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "error parsing request information - invalid JSON: %s", err)
 		return
 	}
+	if slices.Contains(request.Repositories, "422-repo") {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		fmt.Fprintf(w, `{"message": "There is at least one repository that does not exist or is not accessible to the parent installation.","documentation_url": "https://docs.github.com/rest/reference/apps#create-an-installation-access-token-for-an-app", "status": "422"}`)
+		return
+	}
+	if slices.Contains(request.Repositories, "404-repo") {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, `{"message": "Not Found"}`)
+		return
+	}
+
 	perms := make([]string, 0, len(request.Permissions))
 	for k, v := range request.Permissions {
 		perms = append(perms, fmt.Sprintf("%s=%s", k, v))
@@ -457,6 +468,46 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			},
 			expCode: 200,
 			expResp: "[contents=write]",
+		},
+		{
+			name: "happy_path_422_repo_fallback_to_org",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"minty_error_test", "repositories":["422-repo"], "org_name":"org1"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "",
+		},
+		{
+			name: "happy_path_404_repo_fallback_to_org",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"minty_error_test", "repositories":["404-repo"], "org_name":"org1"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 200,
+			expResp: "",
 		},
 		{
 			name: "unhappy_path_mixing_all_and_specific_repos",
