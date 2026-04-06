@@ -51,6 +51,7 @@ type Config struct {
 	GitHubRequestMaxBackoff     time.Duration
 	GitHubRequestMultiplier     float64
 	GitHubRequestRetry404       bool
+	GitHubRequestRetry422       bool
 	EnforceReadOnly             bool
 }
 
@@ -82,6 +83,7 @@ func (cfg Config) LogValue() slog.Value {
 		slog.Duration("github_request_max_backoff", cfg.GitHubRequestMaxBackoff),
 		slog.Float64("github_request_multiplier", cfg.GitHubRequestMultiplier),
 		slog.Bool("github_request_retry_404", cfg.GitHubRequestRetry404),
+		slog.Bool("github_request_retry_422", cfg.GitHubRequestRetry422),
 		slog.Bool("enforce_read_only", cfg.EnforceReadOnly),
 	)
 }
@@ -278,6 +280,14 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		EnvVar:  "GITHUB_REQUEST_RETRY_404",
 		Default: false,
 		Usage:   `Whether to retry GitHub API requests that return a 404 Not Found status.`,
+	})
+
+	f.BoolVar(&cli.BoolVar{
+		Name:    "github-request-retry-422",
+		Target:  &cfg.GitHubRequestRetry422,
+		EnvVar:  "GITHUB_REQUEST_RETRY_422",
+		Default: false,
+		Usage:   `Whether to retry GitHub API requests that return a 422 Unprocessable Entity status.`,
 	})
 
 	f.BoolVar(&cli.BoolVar{

@@ -49,6 +49,7 @@ func Run(ctx context.Context, cfg *Config) error {
 		MaxBackoff:     cfg.GitHubRequestMaxBackoff,
 		Multiplier:     cfg.GitHubRequestMultiplier,
 		Retry404:       cfg.GitHubRequestRetry404,
+		Retry422:       cfg.GitHubRequestRetry422,
 	}
 
 	sourceSystem, err := source.NewGitHubSourceSystem(ctx, appConfigs, cfg.SourceSystemAPIBaseURL, retryConfig)

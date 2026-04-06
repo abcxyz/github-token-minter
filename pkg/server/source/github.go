@@ -45,6 +45,7 @@ type GitHubRetryConfig struct {
 	MaxBackoff     time.Duration
 	Multiplier     float64
 	Retry404       bool
+	Retry422       bool
 }
 
 // gitHubSourceSystem is a SourceSystem implementation that is backed by GitHub.
@@ -62,6 +63,15 @@ func NewGitHubSourceSystem(ctx context.Context, configs []*GitHubAppConfig, syst
 	var options []githubauth.Option
 	if systemURL != "" {
 		options = append(options, githubauth.WithBaseURL(systemURL))
+	}
+	if retryConfig != nil {
+		httpClient := &http.Client{
+			Transport: &RetryRoundTripper{
+				Transport:   http.DefaultTransport,
+				RetryConfig: retryConfig,
+			},
+		}
+		options = append(options, githubauth.WithHTTPClient(httpClient))
 	}
 	apps := make([]*githubauth.App, len(configs))
 	for ix, cfg := range configs {
@@ -241,6 +251,14 @@ func (r *RetryRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 				resp.Body.Close() // Close previous response body
 			}
 			return retry.RetryableError(fmt.Errorf("server error: %d", resp.StatusCode))
+		}
+
+		if resp.StatusCode == http.StatusUnprocessableEntity && r.RetryConfig.Retry422 {
+			// 422 and retry is enabled.
+			if resp.Body != nil {
+				resp.Body.Close() // Close previous response body
+			}
+			return retry.RetryableError(fmt.Errorf("unprocessable entity error: %d", resp.StatusCode))
 		}
 
 		if resp.StatusCode == http.StatusNotFound && r.RetryConfig.Retry404 {

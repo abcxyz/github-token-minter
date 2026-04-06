@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-github/v64/github"
@@ -412,4 +413,76 @@ func (s *testSourceSystem) RetrieveFileContents(ctx context.Context, org, repo, 
 
 func (s *testSourceSystem) BaseURL() string {
 	return "https://test.com"
+}
+
+func TestCachingConfigFileLoader_NotCachingNil(t *testing.T) {
+	t.Parallel()
+
+	mock := &mockLoader{
+		cfg: &Config{Version: "v1"},
+	}
+
+	loader := newCachingConfigLoader(1*time.Minute, mock)
+	ctx := context.Background()
+
+	cfg, err := loader.Load(ctx, "org", "repo")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if cfg == nil {
+		t.Fatal("Expected non-nil config")
+	}
+	if mock.calls != 1 {
+		t.Errorf("Expected 1 call to mock, got %d", mock.calls)
+	}
+
+	cfg2, err := loader.Load(ctx, "org", "repo")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if cfg2 != cfg {
+		t.Errorf("Expected cached config instance, got %p vs %p", cfg2, cfg)
+	}
+	if mock.calls != 1 {
+		t.Errorf("Expected still 1 call to mock, got %d", mock.calls)
+	}
+
+	mock.cfg = nil
+	mock.calls = 0
+	cfgNil, err := loader.Load(ctx, "org", "repo-nil")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if cfgNil != nil {
+		t.Fatal("Expected nil config")
+	}
+	if mock.calls != 1 {
+		t.Errorf("Expected 1 call to mock, got %d", mock.calls)
+	}
+
+	cfgNil2, err := loader.Load(ctx, "org", "repo-nil")
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if cfgNil2 != nil {
+		t.Fatal("Expected nil config")
+	}
+	if mock.calls != 2 {
+		t.Errorf("Expected 2 calls to mock (not cached), got %d", mock.calls)
+	}
+}
+
+type mockLoader struct {
+	calls int
+	cfg   *Config
+	err   error
+}
+
+func (m *mockLoader) Load(ctx context.Context, org, repo string) (*Config, error) {
+	m.calls++
+	return m.cfg, m.err
+}
+
+func (m *mockLoader) Source(org, repo string) string {
+	return "mock"
 }

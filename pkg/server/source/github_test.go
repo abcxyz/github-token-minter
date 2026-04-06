@@ -133,6 +133,38 @@ func TestRetryRoundTripper_RoundTrip(t *testing.T) {
 			wantStatus: 200,
 		},
 		{
+			name: "no_retry_422_by_default",
+			retryConfig: &GitHubRetryConfig{
+				MaxRetries:     3,
+				InitialBackoff: 1 * time.Millisecond,
+				MaxBackoff:     10 * time.Millisecond,
+				Multiplier:     1,
+			},
+			responses: []*http.Response{
+				{StatusCode: 422, Body: io.NopCloser(bytes.NewBufferString("unprocessable"))},
+			},
+			errs:       []error{nil},
+			wantCalls:  1,
+			wantStatus: 422,
+		},
+		{
+			name: "retry_422",
+			retryConfig: &GitHubRetryConfig{
+				MaxRetries:     3,
+				InitialBackoff: 1 * time.Millisecond,
+				MaxBackoff:     10 * time.Millisecond,
+				Multiplier:     1,
+				Retry422:       true,
+			},
+			responses: []*http.Response{
+				{StatusCode: 422, Body: io.NopCloser(bytes.NewBufferString("unprocessable"))},
+				{StatusCode: 200, Body: io.NopCloser(bytes.NewBufferString("success"))},
+			},
+			errs:       []error{nil, nil},
+			wantCalls:  2,
+			wantStatus: 200,
+		},
+		{
 			name: "network_error_retry",
 			retryConfig: &GitHubRetryConfig{
 				MaxRetries:     3,
