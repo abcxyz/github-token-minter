@@ -45,6 +45,7 @@ type GitHubRetryConfig struct {
 	MaxBackoff     time.Duration
 	Multiplier     float64
 	Retry404       bool
+	Retry422       bool
 }
 
 // gitHubSourceSystem is a SourceSystem implementation that is backed by GitHub.
@@ -52,6 +53,7 @@ type gitHubSourceSystem struct {
 	apps        []*githubauth.App
 	baseURL     string
 	retryConfig *GitHubRetryConfig
+	httpClient  *http.Client
 }
 
 // NewGitHubSourceSystem creates a representation of a GitHub system. This includes
@@ -62,6 +64,16 @@ func NewGitHubSourceSystem(ctx context.Context, configs []*GitHubAppConfig, syst
 	var options []githubauth.Option
 	if systemURL != "" {
 		options = append(options, githubauth.WithBaseURL(systemURL))
+	}
+	httpClient := http.DefaultClient
+	if retryConfig != nil {
+		httpClient = &http.Client{
+			Transport: &RetryRoundTripper{
+				Transport:   http.DefaultTransport,
+				RetryConfig: retryConfig,
+			},
+		}
+		options = append(options, githubauth.WithHTTPClient(httpClient))
 	}
 	apps := make([]*githubauth.App, len(configs))
 	for ix, cfg := range configs {
@@ -77,6 +89,7 @@ func NewGitHubSourceSystem(ctx context.Context, configs []*GitHubAppConfig, syst
 		apps:        apps,
 		baseURL:     systemURL,
 		retryConfig: retryConfig,
+		httpClient:  httpClient,
 	}, nil
 }
 
@@ -150,20 +163,7 @@ func (g *gitHubSourceSystem) RetrieveFileContents(ctx context.Context, org, repo
 		return nil, nil
 	}
 
-	httpClient := http.DefaultClient
-	if g.retryConfig != nil {
-		// Use a custom transport that retries on 5xx and configured 404s.
-		// We wrap the default transport (or a basic one if nil).
-		baseTransport := http.DefaultTransport
-		httpClient = &http.Client{
-			Transport: &RetryRoundTripper{
-				Transport:   baseTransport,
-				RetryConfig: g.retryConfig,
-			},
-		}
-	}
-
-	client := github.NewClient(httpClient).WithAuthToken(token)
+	client := github.NewClient(g.httpClient).WithAuthToken(token)
 	if g.baseURL != "" {
 		client, err = client.WithEnterpriseURLs(g.baseURL, g.baseURL)
 		if err != nil {
@@ -243,12 +243,12 @@ func (r *RetryRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 			return retry.RetryableError(fmt.Errorf("server error: %d", resp.StatusCode))
 		}
 
-		if resp.StatusCode == http.StatusNotFound && r.RetryConfig.Retry404 {
-			// 404 and retry is enabled.
+		if (resp.StatusCode == http.StatusUnprocessableEntity && r.RetryConfig.Retry422) ||
+			(resp.StatusCode == http.StatusNotFound && r.RetryConfig.Retry404) {
 			if resp.Body != nil {
 				resp.Body.Close() // Close previous response body
 			}
-			return retry.RetryableError(fmt.Errorf("not found error: %d", resp.StatusCode))
+			return retry.RetryableError(fmt.Errorf("retryable status code: %d", resp.StatusCode))
 		}
 
 		return nil

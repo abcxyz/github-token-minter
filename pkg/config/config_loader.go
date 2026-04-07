@@ -92,7 +92,9 @@ func (l *cachingConfigFileLoader) Load(ctx context.Context, org, repo string) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to load configuration file for [%s / %s]. Error: %w", org, repo, err)
 	}
-	l.cache.Set(key, cfg)
+	if cfg != nil {
+		l.cache.Set(key, cfg)
+	}
 
 	return cfg, nil
 }
