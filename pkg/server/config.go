@@ -278,7 +278,7 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		Name:    "github-request-retry-404",
 		Target:  &cfg.GitHubRequestRetry404,
 		EnvVar:  "GITHUB_REQUEST_RETRY_404",
-		Default: false,
+		Default: true,
 		Usage:   `Whether to retry GitHub API requests that return a 404 Not Found status.`,
 	})
 
@@ -286,7 +286,7 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		Name:    "github-request-retry-422",
 		Target:  &cfg.GitHubRequestRetry422,
 		EnvVar:  "GITHUB_REQUEST_RETRY_422",
-		Default: false,
+		Default: true,
 		Usage:   `Whether to retry GitHub API requests that return a 422 Unprocessable Entity status.`,
 	})
 
