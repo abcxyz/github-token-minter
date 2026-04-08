@@ -16,11 +16,16 @@ package source
 
 import (
 	"bytes"
+	"crypto"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/abcxyz/pkg/githubauth"
 )
 
 type mockTransport struct {
@@ -220,4 +225,63 @@ func TestRetryRoundTripper_RoundTrip(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGitHubSourceSystem_RetrieveFileContents_PanicFix(t *testing.T) {
+	t.Parallel()
+
+	mock := &urlMockTransport{t: t}
+	httpClient := &http.Client{Transport: mock}
+
+	// Create a dummy app
+	signer := &mockSigner{}
+	app, err := githubauth.NewApp("123", signer, githubauth.WithHTTPClient(httpClient))
+	if err != nil {
+		t.Fatalf("failed to create app: %v", err)
+	}
+
+	g := &gitHubSourceSystem{
+		apps:       []*githubauth.App{app},
+		httpClient: httpClient,
+	}
+
+	ctx := t.Context()
+	_, err = g.RetrieveFileContents(ctx, "my-org", "my-repo", "my-file", "main")
+
+	// We expect an error because the mock returns an error for the file content call.
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+}
+
+type urlMockTransport struct {
+	t *testing.T
+}
+
+func (m *urlMockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	m.t.Logf("Mock called for URL: %s", req.URL.Path)
+	if strings.Contains(req.URL.Path, "/orgs/my-org/installation") {
+		return &http.Response{
+			StatusCode: 200,
+			Body:       io.NopCloser(bytes.NewBufferString(`{"id": 123}`)),
+		}, nil
+	}
+	if strings.Contains(req.URL.Path, "/app/installations/123/access_tokens") {
+		return &http.Response{
+			StatusCode: 201,
+			Body:       io.NopCloser(bytes.NewBufferString(`{"token": "fake-token"}`)),
+		}, nil
+	}
+	if strings.Contains(req.URL.Path, "/repos/my-org/my-repo/contents/my-file") {
+		// Return error and nil response to trigger the panic!
+		return nil, errors.New("network error")
+	}
+	return nil, fmt.Errorf("unexpected URL: %s", req.URL.String())
+}
+
+type mockSigner struct{}
+
+func (m *mockSigner) Public() crypto.PublicKey { return nil }
+func (m *mockSigner) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+	return []byte("fake-sig"), nil
 }

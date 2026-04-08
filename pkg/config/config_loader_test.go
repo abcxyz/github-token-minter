@@ -423,7 +423,7 @@ func TestCachingConfigFileLoader_NotCachingNil(t *testing.T) {
 	}
 
 	loader := newCachingConfigLoader(1*time.Minute, mock)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	cfg, err := loader.Load(ctx, "org", "repo")
 	if err != nil {
