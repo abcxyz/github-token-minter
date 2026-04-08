@@ -36,6 +36,7 @@ type JWKResolver interface {
 type OIDCResolver struct {
 	issuerAllowlist []string
 	cache           *cache.Cache[jwk.Set]
+	httpClient      *http.Client
 }
 
 type OpenIDConfiguration struct {
@@ -47,6 +48,9 @@ func NewOIDCResolver(ctx context.Context, issuerAllowlist []string, cacheTimeout
 	return &OIDCResolver{
 		issuerAllowlist: issuerAllowlist,
 		cache:           cache.New[jwk.Set](cacheTimeout),
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}
 }
 
@@ -91,7 +95,7 @@ func (r *OIDCResolver) resolveJwksURI(ctx context.Context, issuer string) (strin
 	if err != nil {
 		return "", fmt.Errorf("error creating GET request for %q: %w", configURL, err)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("error fetching OpenID Configuration from %q: %w", configURL, err)
 	}

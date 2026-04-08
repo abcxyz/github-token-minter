@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto"
 	"fmt"
-	"regexp"
 	"strconv"
 	"time"
 
@@ -105,13 +104,8 @@ func Run(ctx context.Context, cfg *Config) error {
 func createAppConfigs(ctx context.Context, cfg *Config) ([]*source.GitHubAppConfig, error) {
 	appConfigs := make([]*source.GitHubAppConfig, 0, len(cfg.SourceSystemAuth))
 
-	re, err := regexp.Compile(SourceSystemAuthConfigRegex)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile source system regular expression: %w", err)
-	}
-
 	for _, auth := range cfg.SourceSystemAuth {
-		matches := re.FindAllStringSubmatch(auth, -1)
+		matches := sourceSystemAuthRegexp.FindAllStringSubmatch(auth, -1)
 		if len(matches) != 1 {
 			return nil, fmt.Errorf("invalid source system authentication uri: %s - multiple matches for individual system", auth)
 		}
@@ -126,6 +120,7 @@ func createAppConfigs(ctx context.Context, cfg *Config) ([]*source.GitHubAppConf
 		keyMaterial := uri[3]
 
 		var signer crypto.Signer
+		var err error
 		switch keyType {
 		case KeyTypePrivateKey:
 			signer, err = githubauth.NewPrivateKeySigner(keyMaterial)

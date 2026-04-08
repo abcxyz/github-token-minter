@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"io"
 	"net/http"
 	"strings"
@@ -94,7 +93,11 @@ func (s *TokenMinterServer) handleToken() http.Handler {
 		}
 
 		w.WriteHeader(resp.Code)
-		fmt.Fprint(w, html.EscapeString(resp.Message))
+		_, err := w.Write([]byte(resp.Message))
+		if err != nil {
+			logger.ErrorContext(ctx, "error writing response",
+				"error", err)
+		}
 	})
 }
 

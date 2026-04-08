@@ -21,7 +21,7 @@ import (
 )
 
 // Config defines the set of environment variables required
-// for running the artifact job.
+// for running the minty configuration validator.
 type Config struct {
 	MintyFile string
 	Scope     string
@@ -57,7 +57,7 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 	f.StringVar(&cli.StringVar{
 		Name:   "token",
 		Target: &cfg.Token,
-		EnvVar: "token",
+		EnvVar: "TOKEN",
 		Usage:  `The token to test with.`,
 	})
 

@@ -92,6 +92,8 @@ const (
 	SourceSystemAuthConfigRegex = `gha\:\/\/(\d+)\?(private_key|kms_id)=([\s\S]*)`
 )
 
+var sourceSystemAuthRegexp = regexp.MustCompile(SourceSystemAuthConfigRegex)
+
 // Validate validates the artifacts config after load.
 func (cfg *Config) Validate() error {
 	if cfg.ConfigCacheSeconds == "" {
@@ -123,10 +125,6 @@ func (cfg *Config) Validate() error {
 		return fmt.Errorf("SOURCE_SYSTEM_AUTH is required")
 	}
 
-	re, err := regexp.Compile(SourceSystemAuthConfigRegex)
-	if err != nil {
-		return fmt.Errorf("failed to compile source system regular expression: %w", err)
-	}
 	if len(cfg.SourceSystemAuth) != 1 {
 		// Limit this to a single source system for now.
 		// @TODO(bradegler) - remove this constraint in the future when it is understood how to target
@@ -135,7 +133,7 @@ func (cfg *Config) Validate() error {
 	}
 
 	for _, auth := range cfg.SourceSystemAuth {
-		if !re.MatchString(auth) {
+		if !sourceSystemAuthRegexp.MatchString(auth) {
 			return fmt.Errorf("incorrect source system authentication uri: %s - should match expression %s", auth, SourceSystemAuthConfigRegex)
 		}
 	}
@@ -220,10 +218,10 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "config-cache-minutes",
+		Name:   "config-cache-seconds",
 		Target: &cfg.ConfigCacheSeconds,
-		EnvVar: "CONFIG_CACHE_MINUTES",
-		Usage:  `The number of minutes to cache configuration files before retrieving fresh ones. Defaults to 15 minutes.`,
+		EnvVar: "CONFIG_CACHE_SECONDS",
+		Usage:  `The number of seconds to cache configuration files before retrieving fresh ones. Defaults to 900 seconds.`,
 	})
 
 	f.DurationVar(&cli.DurationVar{
