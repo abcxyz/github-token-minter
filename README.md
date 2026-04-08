@@ -10,6 +10,12 @@ If you are looking to migrate to v2.x from a v0.x release please see the migrati
 
 ![Architecture](./docs/images/architecture.png)
 
+## Code Structure
+
+- **[`pkg`](./pkg)**: Core Go packages implementing the server, CLI, configuration loading, and token minting logic.
+- **[`cmd`](./cmd)**: Entry points for the application.
+- **[`terraform`](./terraform)**: Terraform configuration for deploying the service to GCP.
+
 ## Setup
 
 ### Create a GitHub App and Install it
@@ -82,6 +88,14 @@ REPO_CONFIG_PATH                   | The location within a repository to look fo
 ORG_CONFIG_REPO                    | The respository that contains the configuration file for an organization. Defaults to .minty
 ORG_CONFIG_PATH                    | The location within an organization to look for configuration files. Defaults to minty.yaml
 REF                                | The ref (sha, branch, etc.) to look for configuration files at. Defaults to main
+GITHUB_REQUEST_MAX_RETRIES     | The maximum number of retries for GitHub API requests. Defaults to 3.
+GITHUB_REQUEST_INITIAL_BACKOFF | The initial backoff duration for GitHub API requests. Defaults to 150ms.
+GITHUB_REQUEST_MAX_BACKOFF     | The maximum backoff duration for GitHub API requests. Defaults to 1500ms.
+GITHUB_REQUEST_MULTIPLIER     | The backoff multiplier for GitHub API requests. Defaults to 2.0.
+GITHUB_REQUEST_RETRY_404       | Whether to retry GitHub API requests that return a 404 Not Found status. Defaults to true.
+GITHUB_REQUEST_RETRY_422       | Whether to retry GitHub API requests that return a 422 Unprocessable Entity status. Defaults to true.
+ENFORCE_READ_ONLY             | Whether to enforce read-only permissions for all minted tokens. Defaults to false.
+
 
 ### CLI Usage
 
@@ -106,6 +120,13 @@ This command starts the GitHub Token Minter server.
 | `--config-cache-minutes` | `CONFIG_CACHE_MINUTES` | The number of minutes to cache configuration files before retrieving fresh ones. Defaults to 15 minutes. |
 | `--jwks-cache-duration` | `JWKS_CACHE_DURATION` | The duration for which to cache the JWKS for an OIDC token issuer. |
 | `--issuer-allowlist` | `ISSUER_ALLOWLIST` | The list of OIDC token issuers that GitHub Token Minter will accept. Format is a comma-separated list of URLs or the flag can be specified multiple times. |
+| `--github-request-max-retries` | `GITHUB_REQUEST_MAX_RETRIES` | The maximum number of retries for GitHub API requests. Defaults to 3. |
+| `--github-request-initial-backoff` | `GITHUB_REQUEST_INITIAL_BACKOFF` | The initial backoff duration for GitHub API requests. Defaults to 150ms. |
+| `--github-request-max-backoff` | `GITHUB_REQUEST_MAX_BACKOFF` | The maximum backoff duration for GitHub API requests. Defaults to 1500ms. |
+| `--github-request-multiplier` | `GITHUB_REQUEST_MULTIPLIER` | The backoff multiplier for GitHub API requests. Defaults to 2.0. |
+| `--github-request-retry-404` | `GITHUB_REQUEST_RETRY_404` | Whether to retry GitHub API requests that return a 404 Not Found status. Defaults to true. |
+| `--github-request-retry-422` | `GITHUB_REQUEST_RETRY_422` | Whether to retry GitHub API requests that return a 422 Unprocessable Entity status. Defaults to true. |
+| `--enforce-read-only` | `ENFORCE_READ_ONLY` | Whether to enforce read-only permissions for all minted tokens. Defaults to false. |
 
 #### `minty tools validate-cfg`
 
