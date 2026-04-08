@@ -188,7 +188,7 @@ func (g *gitHubSourceSystem) RetrieveFileContents(ctx context.Context, org, repo
 			"filePath", filePath,
 			"resp", string(body))
 		// 404 if the file doesn't exist
-		if resp.StatusCode == http.StatusNotFound {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return nil, nil
 		} else {
 			return nil, fmt.Errorf("error reading configuration file @ %s/%s/%s: %w", org, repo, filePath, err)
