@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -100,6 +101,16 @@ func (c *oidcClaims) asMap() map[string]interface{} {
 		"enterprise":          c.EnterpriseName,
 		"enterprise_id":       c.EnterpriseID,
 	}
+}
+
+// LogValue implements slog.LogValuer to redact sensitive data.
+func (c *oidcClaims) LogValue() slog.Value {
+	type loggableClaims oidcClaims
+	lc := loggableClaims(*c)
+	if lc.Email != "" {
+		lc.Email = "[REDACTED]"
+	}
+	return slog.AnyValue(lc)
 }
 
 // ParseAuthToken converts a JWT token into a collection of OIDC claims.

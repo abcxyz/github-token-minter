@@ -35,13 +35,13 @@ type ServerCommand struct {
 }
 
 func (c *ServerCommand) Desc() string {
-	return ``
+	return `Start the GitHub Token Minter server.`
 }
 
 func (c *ServerCommand) Help() string {
 	return `
 Usage: {{ COMMAND }} [options]
-       Execute the minty configuration validator 
+       Start the GitHub Token Minter server.
 `
 }
 

@@ -185,15 +185,32 @@ func (l *fixedRepoConfigFileLoader) Source(org, repo string) string {
 }
 
 func Read(contents []byte) (*Config, error) {
-	var config Config
-	// default to the latest version of the config format
-	if err := yaml.Unmarshal(contents, &config); err != nil {
-		// attempt to unmarshal in the old format
-		var cv1 v1Document
-		if err := yaml.Unmarshal(contents, &cv1); err != nil {
-			return nil, fmt.Errorf("error parsing yaml document: %w", err)
-		}
-		config = NewConfigFromV1(cv1)
+	type probe struct {
+		Version string         `yaml:"version"`
+		Scope   map[string]any `yaml:"scope"`
 	}
-	return &config, nil
+	var p probe
+
+	// If it's a YAML array (V1), Unmarshal into a struct will fail.
+	err := yaml.Unmarshal(contents, &p)
+
+	if err == nil {
+		// It's a YAML object.
+		if p.Version == configVersionV2 || (p.Version == "" && len(p.Scope) > 0) {
+			var config Config
+			if err := yaml.Unmarshal(contents, &config); err != nil {
+				return nil, fmt.Errorf("error parsing v2 config: %w", err)
+			}
+			return &config, nil
+		}
+	}
+
+	// Try V1 (array)
+	var cv1 v1Document
+	if err := yaml.Unmarshal(contents, &cv1); err == nil {
+		config := NewConfigFromV1(cv1)
+		return &config, nil
+	}
+
+	return nil, fmt.Errorf("failed to parse config as v1 or v2")
 }

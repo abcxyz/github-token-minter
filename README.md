@@ -117,7 +117,7 @@ This command starts the GitHub Token Minter server.
 | `--org-config-path` | `ORG_CONFIG_PATH` | The path to the minty configuration file for an organization. |
 | `--org-config-repo` | `ORG_CONFIG_REPO` | The repository that contains the configuration file for an organization. |
 | `--ref` | `REF` | The ref (sha, branch, etc.) to look for configuration files at. |
-| `--config-cache-minutes` | `CONFIG_CACHE_MINUTES` | The number of minutes to cache configuration files before retrieving fresh ones. Defaults to 15 minutes. |
+| `--config-cache-seconds` | `CONFIG_CACHE_SECONDS` | The number of seconds to cache configuration files before retrieving fresh ones. Defaults to 900 seconds. |
 | `--jwks-cache-duration` | `JWKS_CACHE_DURATION` | The duration for which to cache the JWKS for an OIDC token issuer. |
 | `--issuer-allowlist` | `ISSUER_ALLOWLIST` | The list of OIDC token issuers that GitHub Token Minter will accept. Format is a comma-separated list of URLs or the flag can be specified multiple times. |
 | `--github-request-max-retries` | `GITHUB_REQUEST_MAX_RETRIES` | The maximum number of retries for GitHub API requests. Defaults to 3. |
@@ -146,14 +146,14 @@ This command mints a token.
 |---|---|---|
 | `--request` | `REQUEST` | The token request to mint a token for. |
 | `--token` | `TOKEN` | The OIDC token to exchange. This could be a GCP service account or GitHub token. |
-| `--mintyURL` | `MINTY_URL` | The URL of the minty server. |
+| `--minty-url` | `MINTY_URL` | The URL of the minty server. |
 
 Usage:
 
 ```bash
 minty tools mint \
   --token=$(gcloud auth print-identity-token --impersonate-service-account=my_service_account@iam.gserviceaccount.com --audiences='https://<token minter cloud run service url>' --include-email) \
-  --mintyURL=https://minty.url
+  --minty-url=https://minty.url
   --request='{"scope": "read-issues", "org_name": "some-org", "repositories": ["some-repo"], "permissions": {"issues": "read"}}'
 ```
 

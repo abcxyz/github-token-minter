@@ -21,7 +21,7 @@ import (
 )
 
 // Config defines the set of environment variables required
-// for running the artifact job.
+// for minting tokens.
 type Config struct {
 	Request  string
 	Token    string
@@ -62,7 +62,7 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 	})
 
 	f.StringVar(&cli.StringVar{
-		Name:   "mintyURL",
+		Name:   "minty-url",
 		Target: &cfg.MintyURL,
 		EnvVar: "MINTY_URL",
 		Usage:  `The URL of the minty server.`,
