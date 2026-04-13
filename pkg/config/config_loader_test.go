@@ -486,3 +486,7 @@ func (m *mockLoader) Load(ctx context.Context, org, repo string) (*Config, error
 func (m *mockLoader) Source(org, repo string) string {
 	return "mock"
 }
+
+func (m *mockLoader) SourceType() string {
+	return "mock"
+}

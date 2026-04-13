@@ -48,6 +48,10 @@ func (l *singleFileConfigLoader) Source(org, repo string) string {
 	return fmt.Sprintf("file://%s", l.filePath)
 }
 
+func (l *singleFileConfigLoader) SourceType() string {
+	return "local"
+}
+
 func Run(ctx context.Context, cfg *Config) error {
 	// create an environment to compile any cel expressions
 	env, err := cel.NewEnv(

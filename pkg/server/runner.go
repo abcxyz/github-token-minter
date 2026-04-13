@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/abcxyz/github-token-minter/pkg/config"
 	"github.com/abcxyz/github-token-minter/pkg/server/source"
 	"github.com/abcxyz/pkg/githubauth"
+	"github.com/abcxyz/pkg/logging"
 	"github.com/abcxyz/pkg/serving"
 )
 
@@ -65,6 +67,14 @@ func Run(ctx context.Context, cfg *Config) error {
 		cacheSeconds = 1
 	}
 
+	policyDir := cfg.PolicyDir
+	if policyDir == "policy" {
+		if _, err := os.Stat(policyDir); os.IsNotExist(err) {
+			logging.FromContext(ctx).WarnContext(ctx, "default policy directory 'policy' does not exist, skipping policy enforcement")
+			policyDir = ""
+		}
+	}
+
 	store, err := config.NewConfigEvaluator(
 		time.Duration(cacheSeconds)*time.Second,
 		cfg.ConfigDir,
@@ -72,6 +82,7 @@ func Run(ctx context.Context, cfg *Config) error {
 		cfg.OrgConfigRepo,
 		cfg.OrgConfigPath,
 		cfg.Ref,
+		policyDir,
 		sourceSystem,
 	)
 	if err != nil {
@@ -85,7 +96,7 @@ func Run(ctx context.Context, cfg *Config) error {
 	jwkResolver := NewOIDCResolver(ctx, cfg.IssuerAllowlist, cfg.JWKSCacheDuration)
 
 	// Create the Router for the token minting server.
-	tokenServer, err := NewRouter(ctx, sourceSystem, store, &JWTParser{ParseOptions: jwtParseOptions, JWKResolver: jwkResolver}, cfg.EnforceReadOnly)
+	tokenServer, err := NewRouter(ctx, sourceSystem, store, &JWTParser{ParseOptions: jwtParseOptions, JWKResolver: jwkResolver})
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}

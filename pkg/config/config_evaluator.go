@@ -23,6 +23,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/go-github/v64/github"
 
+	"github.com/abcxyz/github-token-minter/pkg/policy"
 	"github.com/abcxyz/github-token-minter/pkg/server/source"
 )
 
@@ -47,9 +48,10 @@ type ConfigEvaluator interface {
 
 type configEvaluator struct {
 	loaders []ConfigFileLoader
+	policy  *policy.Evaluator
 }
 
-func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, orgConfigRepo, orgConfigPath, ref string, sourceSystem source.System) (*configEvaluator, error) {
+func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, orgConfigRepo, orgConfigPath, ref, policyDir string, sourceSystem source.System) (*configEvaluator, error) {
 	// create an environment to compile any cel expressions
 	env, err := cel.NewEnv(
 		cel.Variable(AssertionKey, cel.DynType),
@@ -58,6 +60,16 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
 	}
+
+	var policyEval *policy.Evaluator
+	if policyDir != "" {
+		var err error
+		policyEval, err = policy.LoadPolicies(policyDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load policies: %w", err)
+		}
+	}
+
 	// create and configure all of the file loaders
 	localLoader := newCachingConfigLoader(expireAt,
 		NewCompilingConfigLoader(env, &localConfigFileLoader{configDir: localConfigDir}))
@@ -82,6 +94,7 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 			inRepoLoader,
 			orgLoader,
 		},
+		policy: policyEval,
 	}, nil
 }
 
@@ -96,6 +109,23 @@ func (l *configEvaluator) Eval(ctx context.Context, org, repo, scope string, tok
 			continue
 		}
 		if contents != nil {
+			if l.policy != nil {
+				input := map[string]any{
+					"config": contents,
+					"source": loader.SourceType(),
+					"repo":   repo,
+					"org":    org,
+					"token":  token,
+				}
+				denies, err := l.policy.Evaluate(ctx, input)
+				if err != nil {
+					return nil, source, fmt.Errorf("policy evaluation failed: %w", err)
+				}
+				if len(denies) > 0 {
+					return nil, source, fmt.Errorf("policy violation: %s", strings.Join(denies, ", "))
+				}
+			}
+
 			s, decision, err := contents.Eval(scope, token)
 			if err != nil {
 				return nil, source, fmt.Errorf("error evaluating scope: %w", err)

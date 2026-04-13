@@ -42,6 +42,7 @@ type Config struct {
 	OrgConfigPath      string
 	Ref                string
 	ConfigCacheSeconds string
+	PolicyDir          string
 
 	JWKSCacheDuration time.Duration
 	IssuerAllowlist   []string
@@ -52,7 +53,6 @@ type Config struct {
 	GitHubRequestMultiplier     float64
 	GitHubRequestRetry404       bool
 	GitHubRequestRetry422       bool
-	EnforceReadOnly             bool
 }
 
 // LogValue implements slog.LogValuer and returns a grouped value
@@ -75,6 +75,7 @@ func (cfg Config) LogValue() slog.Value {
 		slog.String("org_config_path", cfg.OrgConfigPath),
 		slog.String("ref", cfg.Ref),
 		slog.String("config_cache_seconds", cfg.ConfigCacheSeconds),
+		slog.String("policy_dir", cfg.PolicyDir),
 		slog.Any("jwks_cache_duration", cfg.JWKSCacheDuration),
 		slog.Any("issuer_allowlist", cfg.IssuerAllowlist),
 		slog.Any("source_system_auth", ssas),
@@ -84,7 +85,6 @@ func (cfg Config) LogValue() slog.Value {
 		slog.Float64("github_request_multiplier", cfg.GitHubRequestMultiplier),
 		slog.Bool("github_request_retry_404", cfg.GitHubRequestRetry404),
 		slog.Bool("github_request_retry_422", cfg.GitHubRequestRetry422),
-		slog.Bool("enforce_read_only", cfg.EnforceReadOnly),
 	)
 }
 
@@ -224,6 +224,14 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		Usage:  `The number of seconds to cache configuration files before retrieving fresh ones. Defaults to 900 seconds.`,
 	})
 
+	f.StringVar(&cli.StringVar{
+		Name:    "policy-dir",
+		Target:  &cfg.PolicyDir,
+		EnvVar:  "MINTY_POLICY_DIR",
+		Usage:   `The directory containing Rego policies for validation.`,
+		Default: "policy",
+	})
+
 	f.DurationVar(&cli.DurationVar{
 		Name:    "jwks-cache-duration",
 		Target:  &cfg.JWKSCacheDuration,
@@ -286,14 +294,6 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		EnvVar:  "GITHUB_REQUEST_RETRY_422",
 		Default: true,
 		Usage:   `Whether to retry GitHub API requests that return a 422 Unprocessable Entity status.`,
-	})
-
-	f.BoolVar(&cli.BoolVar{
-		Name:    "enforce-read-only",
-		Target:  &cfg.EnforceReadOnly,
-		EnvVar:  "ENFORCE_READ_ONLY",
-		Default: false,
-		Usage:   `Whether to enforce read-only permissions for all minted tokens.`,
 	})
 
 	return set

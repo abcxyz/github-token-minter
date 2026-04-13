@@ -17,17 +17,22 @@ package config
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/abcxyz/github-token-minter/pkg/policy"
 	"github.com/abcxyz/pkg/testutil"
 )
 
 type testConfigFileLoader struct {
-	result *Config
-	err    error
+	result     *Config
+	err        error
+	sourceType string
 }
 
 func (l *testConfigFileLoader) Load(ctx context.Context, org, repo string) (*Config, error) {
@@ -36,6 +41,13 @@ func (l *testConfigFileLoader) Load(ctx context.Context, org, repo string) (*Con
 
 func (l *testConfigFileLoader) Source(org, repo string) string {
 	return fmt.Sprintf("mem://%s/%s", org, repo)
+}
+
+func (l *testConfigFileLoader) SourceType() string {
+	if l.sourceType != "" {
+		return l.sourceType
+	}
+	return "test"
 }
 
 func TestOrderedConfigFileLoader(t *testing.T) {
@@ -384,6 +396,200 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 			}
 			if !tc.expErr && got == nil {
 				t.Errorf("program nil without error")
+			}
+		})
+	}
+}
+
+func TestConfigEvaluator_Policy(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	rego := `
+package minty.policy
+deny contains "test source not allowed" if {
+    input.source == "test"
+}
+`
+	err := os.WriteFile(filepath.Join(dir, "policy.rego"), []byte(rego), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	eval, err := policy.LoadPolicies(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ce := &configEvaluator{
+		loaders: []ConfigFileLoader{
+			&testConfigFileLoader{
+				result: &Config{Scopes: map[string]*Scope{"test_scope": {}}},
+				err:    nil,
+			},
+		},
+		policy: eval,
+	}
+
+	ctx := t.Context()
+
+	_, _, err = ce.Eval(ctx, "test_org", "test_repo", "test_scope", map[string]string{})
+	if err == nil {
+		t.Fatal("expected error due to policy violation, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "policy violation: test source not allowed") {
+		t.Errorf("expected error to contain 'policy violation: test source not allowed', got %v", err)
+	}
+}
+
+func TestConfigEvaluator_SpecificPolicies(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+
+	// Load policies from the top-level directory
+	policyDir := "../../policy"
+	eval, err := policy.LoadPolicies(policyDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name        string
+		sourceType  string
+		config      *Config
+		requestRepo string
+		token       any
+		wantErr     string
+	}{
+		{
+			name:       "read_only_ok",
+			sourceType: "local",
+			config: &Config{
+				Scopes: map[string]*Scope{
+					"test": {
+						Permissions: map[string]string{"contents": "read"},
+					},
+				},
+			},
+			requestRepo: "test_repo",
+			wantErr:     "",
+		},
+		{
+			name:       "read_only_violation",
+			sourceType: "local",
+			config: &Config{
+				Scopes: map[string]*Scope{
+					"test": {
+						Permissions: map[string]string{"contents": "write"},
+					},
+				},
+			},
+			requestRepo: "test_repo",
+			wantErr:     "requests non-read permission",
+		},
+		{
+			name:       "centralized_ok_same_repo",
+			sourceType: "local",
+			config: &Config{
+				Scopes: map[string]*Scope{
+					"test": {
+						Repositories: []string{"test_repo"},
+					},
+				},
+			},
+			requestRepo: "test_repo",
+			wantErr:     "",
+		},
+		{
+			name:       "centralized_violation_cross_repo",
+			sourceType: "local",
+			config: &Config{
+				Scopes: map[string]*Scope{
+					"test": {
+						Repositories: []string{"other_repo"},
+					},
+				},
+			},
+			requestRepo: "test_repo",
+			wantErr:     "requests access to other repository",
+		},
+		{
+			name:       "centralized_ok_cross_repo_from_central",
+			sourceType: "central",
+			config: &Config{
+				Scopes: map[string]*Scope{
+					"test": {
+						Repositories: []string{"other_repo"},
+					},
+				},
+			},
+			requestRepo: "test_repo",
+			wantErr:     "",
+		},
+		{
+			name:       "fail_safe_ok",
+			sourceType: "local",
+			config: &Config{
+				Scopes: map[string]*Scope{
+					"test": {},
+				},
+			},
+			requestRepo: "test_repo",
+			token: map[string]any{
+				"enterprise_id":       "YOUR_ENTERPRISE_ID",
+				"repository_owner_id": "YOUR_ORG_ID",
+				"repository_id":       "YOUR_REPO_ID",
+			},
+			wantErr: "",
+		},
+		{
+			name:       "fail_safe_violation_org",
+			sourceType: "local",
+			config: &Config{
+				Scopes: map[string]*Scope{
+					"test": {},
+				},
+			},
+			requestRepo: "test_repo",
+			token: map[string]any{
+				"enterprise_id":       "YOUR_ENTERPRISE_ID",
+				"repository_owner_id": "WRONG_ORG_ID",
+				"repository_id":       "YOUR_REPO_ID",
+			},
+			wantErr: "invalid org ID",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ce := &configEvaluator{
+				loaders: []ConfigFileLoader{
+					&testConfigFileLoader{
+						result:     tc.config,
+						err:        nil,
+						sourceType: tc.sourceType,
+					},
+				},
+				policy: eval,
+			}
+
+			_, _, err := ce.Eval(ctx, "test_org", tc.requestRepo, "test", tc.token)
+
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !strings.Contains(err.Error(), tc.wantErr) {
+					t.Errorf("expected error to contain %q, got %v", tc.wantErr, err)
+				}
 			}
 		})
 	}
