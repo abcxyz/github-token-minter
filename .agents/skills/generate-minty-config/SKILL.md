@@ -53,7 +53,7 @@ Create or update `.github/minty.yaml`.
 
 **Template for Service Account**:
 ```yaml
-version: 'minty.abcxyz.dev/v1'
+version: 'minty.abcxyz.dev/v2'
 rule:
   if: 'assertion.email == "<EMAIL>"'
 scope:
@@ -65,7 +65,7 @@ scope:
 
 **Template for GitHub Action**:
 ```yaml
-version: 'minty.abcxyz.dev/v1'
+version: 'minty.abcxyz.dev/v2'
 rule:
   if: 'assertion.repository_id == "<REPO_ID>" && assertion.repository_owner_id == "<OWNER_ID>" && assertion.workflow == "<WORKFLOW>" && assertion.ref == "<REF>"'
 scope:

@@ -491,6 +491,19 @@ func TestConfigEvaluator_SpecificPolicies(t *testing.T) {
 			wantErr:     "requests non-read permission",
 		},
 		{
+			name:       "read_only_violation_empty_permissions",
+			sourceType: "local",
+			config: &Config{
+				Scopes: map[string]*Scope{
+					"test": {
+						Permissions: map[string]string{},
+					},
+				},
+			},
+			requestRepo: "test_repo",
+			wantErr:     "has empty permissions",
+		},
+		{
 			name:       "centralized_ok_same_repo",
 			sourceType: "local",
 			config: &Config{
@@ -558,6 +571,21 @@ func TestConfigEvaluator_SpecificPolicies(t *testing.T) {
 				"enterprise_id":       "YOUR_ENTERPRISE_ID",
 				"repository_owner_id": "WRONG_ORG_ID",
 				"repository_id":       "YOUR_REPO_ID",
+			},
+			wantErr: "invalid org ID",
+		},
+		{
+			name:       "fail_safe_violation_missing_org",
+			sourceType: "local",
+			config: &Config{
+				Scopes: map[string]*Scope{
+					"test": {},
+				},
+			},
+			requestRepo: "test_repo",
+			token: map[string]any{
+				"enterprise_id": "YOUR_ENTERPRISE_ID",
+				"repository_id": "YOUR_REPO_ID",
 			},
 			wantErr: "invalid org ID",
 		},

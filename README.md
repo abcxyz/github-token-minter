@@ -154,15 +154,17 @@ This command starts the GitHub Token Minter server.
 | `--github-request-retry-422` | `GITHUB_REQUEST_RETRY_422` | Whether to retry GitHub API requests that return a 422 Unprocessable Entity status. Defaults to true. |
 | `--policy-dir` | `MINTY_POLICY_DIR` | The directory containing Rego policies for validation. Defaults to `policy`. |
 
-#### `minty tools validate-cfg`
+#### `minty tools validate`
 
-This command validates a minty configuration file.
+This command validates a minty configuration file or policy.
 
 | Flag | Environment Variable | Description |
 |---|---|---|
 | `--minty-file` | `MINTY_FILE` | The minty config file to inspect. |
 | `--scope` | `SCOPE` | The scope to test. |
 | `--token` | `TOKEN` | The token to test with. |
+| `--policy` | `POLICY_PATH` | The path to the policy file or directory to validate. |
+
 
 #### `minty tools mint`
 
