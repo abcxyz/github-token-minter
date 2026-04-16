@@ -31860,12 +31860,7 @@ async function post() {
       },
     });
   } catch (err) {
-    if (err.status === 401 || (err.message && err.message.includes('Bad credentials'))) {
-      core.info('Token was already invalid or deleted. Suppressing error.');
-    } else {
-      core.info(`Unexpected error during cleanup: ${err.message}`);
-      core.setFailed(err);
-    }
+    core.setFailed(err);
   }
 }
 
