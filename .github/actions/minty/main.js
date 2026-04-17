@@ -49,6 +49,7 @@ async function main() {
         const resp = JSON.parse(responseText);
         core.setSecret(resp.token);
         core.setOutput('token', resp.token);
+        core.saveState('MINTY_TOKEN', resp.token);
       } catch (err) {
         // we didnt get a JSON response, response body contains the token
         // so just use the response text
@@ -57,6 +58,7 @@ async function main() {
         core.setSecret(token);
         core.setOutput('token', token);
         core.exportVariable('MINTY_TOKEN', token);
+        core.saveState('MINTY_TOKEN', token);
       }
     } else {
       core.error(`Error response from server ${responseText}`);

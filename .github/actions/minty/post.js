@@ -19,7 +19,11 @@ const github = require('@actions/github');
 
 async function post() {
   try {
-    const token = process.env['MINTY_TOKEN'];
+    const token = core.getState('MINTY_TOKEN');
+    if (!token) {
+      core.info('No token found to delete in this step.');
+      return;
+    }
     const octokit = github.getOctokit(token);
     await octokit.request('DELETE /installation/token', {
       headers: {
