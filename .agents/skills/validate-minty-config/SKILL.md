@@ -1,6 +1,6 @@
 ---
 name: validate-minty-config
-description: Validates Minty configuration files using the `tools validate-cfg` command.
+description: Validates Minty configuration files using the `tools validate` command.
 ---
 # Validate Minty Configuration
 
@@ -11,7 +11,7 @@ This skill provides instructions for validating Minty configuration files using 
 To validate a configuration file, run:
 
 ```bash
-go run github.com/abcxyz/github-token-minter/cmd/minty@main tools validate-cfg --minty-file <path/to/config.yaml>
+go run github.com/abcxyz/github-token-minter/cmd/minty@main tools validate --minty-file <path/to/config.yaml>
 ```
 
 ### Optional Arguments
@@ -19,9 +19,28 @@ go run github.com/abcxyz/github-token-minter/cmd/minty@main tools validate-cfg -
 
 - `--scope <scope>`: Validate against a specific scope.
 - `--token <token_json>`: Validate using a specific token (JSON string).
+- `--policy <path>`: Path to a policy file or directory to validate.
 
 > [!NOTE]
 > If any required arguments (like the config file path) or optional arguments (like scope or token) are not provided or known from context, **ask the user for them** before running the command.
+
+### Policy Validation
+
+The command can also validate Rego policies.
+
+**Syntax Check Only:**
+```bash
+go run github.com/abcxyz/github-token-minter/cmd/minty@main tools validate --policy <path/to/policy.rego>
+```
+Output on success: `policy compiled`.
+
+**Combined Validation:**
+```bash
+go run github.com/abcxyz/github-token-minter/cmd/minty@main tools validate \
+  --minty-file <path/to/config.yaml> \
+  --policy <path/to/policy.rego>
+```
+You can also provide `--token` to simulate the token input for policy evaluation.
 
 ### Using Log Entries
 
@@ -44,7 +63,7 @@ Given a log entry:
 
 Run:
 ```bash
-go run github.com/abcxyz/github-token-minter/cmd/minty@main tools validate-cfg \
+go run github.com/abcxyz/github-token-minter/cmd/minty@main tools validate \
   --minty-file <config> \
   --scope "my-scope" \
   --token '{"iss": "..."}'
@@ -73,7 +92,7 @@ If a log entry is provided, you can also fetch the configuration file directly f
 ### Example
 
 ```bash
-go run github.com/abcxyz/github-token-minter/cmd/minty@main tools validate-cfg --minty-file config.yaml --scope "my-scope" --token '{"iss":"..."}'
+go run github.com/abcxyz/github-token-minter/cmd/minty@main tools validate --minty-file config.yaml --scope "my-scope" --token '{"iss":"..."}'
 ```
 
 ## Output Interpretation

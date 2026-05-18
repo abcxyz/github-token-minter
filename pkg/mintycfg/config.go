@@ -23,15 +23,16 @@ import (
 // Config defines the set of environment variables required
 // for running the minty configuration validator.
 type Config struct {
-	MintyFile string
-	Scope     string
-	Token     string
+	MintyFile  string
+	Scope      string
+	Token      string
+	PolicyPath string
 }
 
 // Validate validates the artifacts config after load.
 func (cfg *Config) Validate() error {
-	if cfg.MintyFile == "" {
-		return fmt.Errorf("MINTY_FILE is required")
+	if cfg.MintyFile == "" && cfg.PolicyPath == "" {
+		return fmt.Errorf("either minty-file or policy must be specified")
 	}
 	return nil
 }
@@ -59,6 +60,13 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		Target: &cfg.Token,
 		EnvVar: "TOKEN",
 		Usage:  `The token to test with.`,
+	})
+
+	f.StringVar(&cli.StringVar{
+		Name:   "policy",
+		Target: &cfg.PolicyPath,
+		EnvVar: "POLICY_PATH",
+		Usage:  `The path to the policy file or directory to validate.`,
 	})
 
 	return set

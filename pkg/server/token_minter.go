@@ -42,10 +42,9 @@ const (
 // TokenMinterServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMinterServer struct {
-	sourceSystem    source.System
-	configStore     config.ConfigEvaluator
-	parser          *JWTParser
-	enforceReadOnly bool
+	sourceSystem source.System
+	configStore  config.ConfigEvaluator
+	parser       *JWTParser
 }
 
 // TokenRequest is a struct that contains the list of repositories and the
@@ -69,12 +68,11 @@ type apiResponse struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, sourceSystem source.System, configStore config.ConfigEvaluator, parser *JWTParser, enforceReadOnly bool) (*TokenMinterServer, error) {
+func NewRouter(ctx context.Context, sourceSystem source.System, configStore config.ConfigEvaluator, parser *JWTParser) (*TokenMinterServer, error) {
 	return &TokenMinterServer{
-		sourceSystem:    sourceSystem,
-		configStore:     configStore,
-		parser:          parser,
-		enforceReadOnly: enforceReadOnly,
+		sourceSystem: sourceSystem,
+		configStore:  configStore,
+		parser:       parser,
 	}, nil
 }
 
@@ -162,19 +160,6 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 		return apiError
 	}
 	request.OrgName = requestOrgName
-
-	// If the server is configured to enforce read-only permissions, then
-	// overwrite the requested permissions with a read-only set.
-	if s.enforceReadOnly {
-		logger.DebugContext(ctx, "enforcing read-only permissions",
-			"original_permissions", request.Permissions,
-			"new_permissions", map[string]string{"contents": "read", "metadata": "read"},
-		)
-		request.Permissions = map[string]string{
-			"contents": "read",
-			"metadata": "read",
-		}
-	}
 
 	// If no repositories are requested, default to the repository from the
 	// OIDC token claims. If neither exist then throw an error.

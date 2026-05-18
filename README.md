@@ -94,8 +94,34 @@ GITHUB_REQUEST_MAX_BACKOFF     | The maximum backoff duration for GitHub API req
 GITHUB_REQUEST_MULTIPLIER     | The backoff multiplier for GitHub API requests. Defaults to 2.0.
 GITHUB_REQUEST_RETRY_404       | Whether to retry GitHub API requests that return a 404 Not Found status. Defaults to true.
 GITHUB_REQUEST_RETRY_422       | Whether to retry GitHub API requests that return a 422 Unprocessable Entity status. Defaults to true.
-ENFORCE_READ_ONLY             | Whether to enforce read-only permissions for all minted tokens. Defaults to false.
+MINTY_POLICY_DIR               | The directory containing Rego policies for validation. Defaults to `policy`.
 
+## Policy Validation
+
+Minty supports Rego-based policy validation using the Open Policy Agent (OPA) SDK. This allows service operators to enforce security guardrails at deployment time, independent of individual repository configurations.
+
+Policies are loaded from the directory specified by `MINTY_POLICY_DIR` (defaults to `policy`). All `.rego` files in this directory are evaluated for every token request.
+
+Policies should define rules in the `data.minty.policy` package and add denial messages to the `deny` set. For example:
+
+```rego
+package minty.policy
+
+deny contains msg if {
+    input.config.source != "central"
+    # ... check for cross-repo access
+    msg := "cross-repo access only allowed in central config"
+}
+```
+
+The policy evaluator receives an `input` object containing:
+- `config`: The parsed `minty.yaml` configuration.
+- `source`: The source type of the configuration (`local`, `repo`, or `central`).
+- `repo`: The target repository for the token.
+- `org`: The target organization.
+- `token`: The OIDC token claims from the caller.
+
+Example policies are provided in the [`policy`](./policy) directory.
 
 ### CLI Usage
 
@@ -126,17 +152,19 @@ This command starts the GitHub Token Minter server.
 | `--github-request-multiplier` | `GITHUB_REQUEST_MULTIPLIER` | The backoff multiplier for GitHub API requests. Defaults to 2.0. |
 | `--github-request-retry-404` | `GITHUB_REQUEST_RETRY_404` | Whether to retry GitHub API requests that return a 404 Not Found status. Defaults to true. |
 | `--github-request-retry-422` | `GITHUB_REQUEST_RETRY_422` | Whether to retry GitHub API requests that return a 422 Unprocessable Entity status. Defaults to true. |
-| `--enforce-read-only` | `ENFORCE_READ_ONLY` | Whether to enforce read-only permissions for all minted tokens. Defaults to false. |
+| `--policy-dir` | `MINTY_POLICY_DIR` | The directory containing Rego policies for validation. Defaults to `policy`. |
 
-#### `minty tools validate-cfg`
+#### `minty tools validate`
 
-This command validates a minty configuration file.
+This command validates a minty configuration file or policy.
 
 | Flag | Environment Variable | Description |
 |---|---|---|
 | `--minty-file` | `MINTY_FILE` | The minty config file to inspect. |
 | `--scope` | `SCOPE` | The scope to test. |
 | `--token` | `TOKEN` | The token to test with. |
+| `--policy` | `POLICY_PATH` | The path to the policy file or directory to validate. |
+
 
 #### `minty tools mint`
 

@@ -25,6 +25,7 @@ import (
 	"github.com/google/cel-go/cel"
 
 	"github.com/abcxyz/github-token-minter/pkg/config"
+	"github.com/abcxyz/github-token-minter/pkg/policy"
 )
 
 type singleFileConfigLoader struct {
@@ -48,6 +49,10 @@ func (l *singleFileConfigLoader) Source(org, repo string) string {
 	return fmt.Sprintf("file://%s", l.filePath)
 }
 
+func (l *singleFileConfigLoader) SourceType() string {
+	return "local"
+}
+
 func Run(ctx context.Context, cfg *Config) error {
 	// create an environment to compile any cel expressions
 	env, err := cel.NewEnv(
@@ -57,32 +62,92 @@ func Run(ctx context.Context, cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to create CEL environment: %w", err)
 	}
-	// load the requested configuration file and attempte to compile all CEL expressions
-	loader := config.NewCompilingConfigLoader(env, &singleFileConfigLoader{filePath: cfg.MintyFile})
-	mintyConfig, err := loader.Load(ctx, "", "")
-	if err != nil {
-		fmt.Printf("\n\n-- Error --\n%v\n\n", err)
-		return fmt.Errorf("configuration failed to compile")
+
+	var mintyConfig *config.Config
+	if cfg.MintyFile != "" {
+		loader := config.NewCompilingConfigLoader(env, &singleFileConfigLoader{filePath: cfg.MintyFile})
+		var err error
+		mintyConfig, err = loader.Load(ctx, "", "")
+		if err != nil {
+			fmt.Printf("\n\n-- Error --\n%v\n\n", err)
+			return fmt.Errorf("configuration failed to compile")
+		}
+
+		// render the configuration information
+		fmt.Printf("\n#################\n\n")
+		fmt.Printf("\nConfiguration and all rules compiled successfully\n")
+		fmt.Printf("Config:\n")
+		fmt.Printf("- Version: %s\n", mintyConfig.Version)
+		if mintyConfig.Rule != nil {
+			fmt.Printf("- Rule.If: %s\n", mintyConfig.Rule.If)
+		} else {
+			fmt.Printf("- Rule.If: <nil>\n")
+		}
+		fmt.Printf("- Scopes: \n")
+		for key, s := range mintyConfig.Scopes {
+			fmt.Printf("  - %s:\n", key)
+			if s.Rule != nil {
+				fmt.Printf("    - Rule.If: %s\n", s.Rule.If)
+			} else {
+				fmt.Printf("    - Rule.If: <nil>\n")
+			}
+			fmt.Printf("    - Repositories: %v\n", s.Repositories)
+			fmt.Printf("    - Permissions: %v\n", s.Permissions)
+		}
+		fmt.Printf("\n#################\n\n")
 	}
 
-	// render the configuration information
-	fmt.Printf("\n#################\n\n")
-	fmt.Printf("\nConfiguration and all rules compiled successfully\n")
-	fmt.Printf("Config:\n")
-	fmt.Printf("- Version: %s\n", mintyConfig.Version)
-	fmt.Printf("- Rule.If: %s\n", mintyConfig.Rule.If)
-	fmt.Printf("- Scopes: \n")
-	for key, s := range mintyConfig.Scopes {
-		fmt.Printf("  - %s:\n", key)
-		fmt.Printf("    - Rule.If: %s\n", s.Rule.If)
-		fmt.Printf("    - Repositories: %v\n", s.Repositories)
-		fmt.Printf("    - Permissions: %v\n", s.Permissions)
+	var policyEval *policy.Evaluator
+	if cfg.PolicyPath != "" {
+		var err error
+		policyEval, err = policy.LoadPolicies(cfg.PolicyPath)
+		if err != nil {
+			return fmt.Errorf("policy loading failed: %w", err)
+		}
+		fmt.Printf("\nPolicy loaded successfully\n\n")
 	}
-	fmt.Printf("\n#################\n\n")
+
+	if mintyConfig != nil && policyEval != nil {
+		input := map[string]any{
+			"config": mintyConfig,
+			"source": "local",
+			"repo":   "test-repo",
+			"org":    "test-org",
+		}
+		if cfg.Token != "" {
+			var token map[string]any
+			if err := json.Unmarshal([]byte(cfg.Token), &token); err != nil {
+				return fmt.Errorf("error unmarshalling token content: %w", err)
+			}
+			input["token"] = token
+
+			// Get org/repo from token if available
+			if org, ok := token["repository_owner"].(string); ok {
+				input["org"] = org
+			}
+			if repo, ok := token["repository"].(string); ok {
+				input["repo"] = repo
+			}
+		}
+
+		denies, err := policyEval.Evaluate(ctx, input)
+		if err != nil {
+			return fmt.Errorf("policy evaluation failed: %w", err)
+		}
+		if len(denies) > 0 {
+			fmt.Printf("\nPolicy violations found:\n")
+			for _, d := range denies {
+				fmt.Printf("- %s\n", d)
+			}
+			fmt.Printf("\nPolicy validation failed\n\n")
+		} else {
+			fmt.Printf("\nPolicy validation passed\n\n")
+		}
+	}
 
 	// if a scope and a token were provided, run evaluation against them to
 	// determine if there is a scope match and then output the scope contents
-	if cfg.Scope != "" && cfg.Token != "" {
+	if cfg.Scope != "" && cfg.Token != "" && mintyConfig != nil {
 		var token map[string]any
 		if err := json.Unmarshal([]byte(cfg.Token), &token); err != nil {
 			return fmt.Errorf("error unmarshalling token content: %w", err)

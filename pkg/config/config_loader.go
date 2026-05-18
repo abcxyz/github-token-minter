@@ -38,6 +38,9 @@ type ConfigFileLoader interface {
 	// Load reads the configuration for an org and repo and marshals
 	// it into a Config object.
 	Load(ctx context.Context, org, repo string) (*Config, error)
+	// SourceType returns a string identifier for the type of source
+	// (e.g., "local", "repo", "central").
+	SourceType() string
 }
 
 type cachingConfigFileLoader struct {
@@ -81,6 +84,10 @@ func (l *compilingConfigLoader) Source(org, repo string) string {
 	return l.loader.Source(org, repo)
 }
 
+func (l *compilingConfigLoader) SourceType() string {
+	return l.loader.SourceType()
+}
+
 func (l *cachingConfigFileLoader) Load(ctx context.Context, org, repo string) (*Config, error) {
 	key := fmt.Sprintf("%s/%s", org, repo)
 	// first look for the config object in cache
@@ -101,6 +108,10 @@ func (l *cachingConfigFileLoader) Load(ctx context.Context, org, repo string) (*
 
 func (l *cachingConfigFileLoader) Source(org, repo string) string {
 	return l.loader.Source(org, repo)
+}
+
+func (l *cachingConfigFileLoader) SourceType() string {
+	return l.loader.SourceType()
 }
 
 // localConfigFileLoader is a configFileLoader implementation that
@@ -129,6 +140,10 @@ func (l *localConfigFileLoader) Load(ctx context.Context, org, repo string) (*Co
 
 func (l *localConfigFileLoader) Source(org, repo string) string {
 	return fmt.Sprintf("file://%s/%s/%s.yaml", l.configDir, org, repo)
+}
+
+func (l *localConfigFileLoader) SourceType() string {
+	return "local"
 }
 
 // inRepoConfigFileLoader reads a configuration file from a specific
@@ -161,6 +176,10 @@ func (l *inRepoConfigFileLoader) Source(org, repo string) string {
 	return fmt.Sprintf("%s/%s/%s/%s", l.sourceSystem.BaseURL(), org, repo, l.configPath)
 }
 
+func (l *inRepoConfigFileLoader) SourceType() string {
+	return "repo"
+}
+
 // fixedRepoConfigFileLoader reads the contents of a configuration file from
 // a specific repository, not from the target repository. It wraps another
 // loader and delegates the retrieval to that implementation after replacing
@@ -182,6 +201,10 @@ func (l *fixedRepoConfigFileLoader) Load(ctx context.Context, org, repo string) 
 
 func (l *fixedRepoConfigFileLoader) Source(org, repo string) string {
 	return l.loader.Source(org, l.repo)
+}
+
+func (l *fixedRepoConfigFileLoader) SourceType() string {
+	return "central"
 }
 
 func Read(contents []byte) (*Config, error) {

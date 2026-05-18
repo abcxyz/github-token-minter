@@ -43,7 +43,7 @@ var rootCmd = func() cli.Command {
 					Name:        "tools",
 					Description: "Minty tools",
 					Commands: map[string]cli.CommandFactory{
-						"validate-cfg": func() cli.Command {
+						"validate": func() cli.Command {
 							return &MintyCfgCommand{}
 						},
 						"mint": func() cli.Command {

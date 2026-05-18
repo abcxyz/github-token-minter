@@ -129,13 +129,12 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 	})
 
 	cases := []struct {
-		name            string
-		req             *http.Request
-		expCode         int
-		expResp         string
-		expErr          string
-		resolver        mockJwksResolver
-		enforceReadOnly bool
+		name     string
+		req      *http.Request
+		expCode  int
+		expResp  string
+		expErr   string
+		resolver mockJwksResolver
 	}{
 		{
 			name: "no_token_header",
@@ -551,27 +550,6 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			expResp: "requested scope \"test\" is not found for repository \"abcxyz\"/\"no-config-repo\"",
 			expErr:  "error reading configuration for repository abcxyz/no-config-repo",
 		},
-		{
-			name: "enforce_read_only",
-			req: func() *http.Request {
-				body := strings.NewReader(`{"scope":"test-perms","permissions":{"contents":"write","issues":"write"}}`)
-				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
-
-				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
-					b.Issuer(config.GitHubIssuer)
-					b.Claim("repository", "abcxyz/pkg")
-					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
-				})
-				r.Header.Set("X-OIDC-Token", signed)
-				return r
-			}(),
-			resolver: mockJwksResolver{
-				keySet: jwkCachedSet,
-			},
-			enforceReadOnly: true,
-			expCode:         200,
-			expResp:         "[contents=read metadata=read]",
-		},
 	}
 
 	for _, tc := range cases {
@@ -593,12 +571,12 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			configStore, err := config.NewConfigEvaluator(1*time.Hour, "../../testdata/configs", ".github/minty.yaml", ".minty", "minty.yaml", "main", sourceSystem)
+			configStore, err := config.NewConfigEvaluator(1*time.Hour, "../../testdata/configs", ".github/minty.yaml", ".minty", "minty.yaml", "main", "", sourceSystem)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			server, err := NewRouter(ctx, sourceSystem, configStore, &JWTParser{ParseOptions: jwtParseOptions, JWKResolver: &tc.resolver}, tc.enforceReadOnly)
+			server, err := NewRouter(ctx, sourceSystem, configStore, &JWTParser{ParseOptions: jwtParseOptions, JWKResolver: &tc.resolver})
 			if err != nil {
 				t.Fatal(err)
 			}
