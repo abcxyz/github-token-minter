@@ -100,6 +100,12 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 		mux.Handle("GET /orgs/abcxyz/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, `{"access_tokens_url": "http://%s/app/installations/123/access_tokens"}`, r.Host)
 		}))
+		mux.Handle("GET /enterprises/alphabet/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, `{"id": 123}`)
+		}))
+		mux.Handle("GET /app/installations/123", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, `{"access_tokens_url": "http://%s/app/installations/123/access_tokens"}`, r.Host)
+		}))
 		mux.Handle("POST /app/installations/123/access_tokens", http.HandlerFunc(handleAccessTokenRequest))
 
 		mux.Handle("GET /orgs/org1/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -129,13 +135,14 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 	})
 
 	cases := []struct {
-		name            string
-		req             *http.Request
-		expCode         int
-		expResp         string
-		expErr          string
-		resolver        mockJwksResolver
-		enforceReadOnly bool
+		name                 string
+		req                  *http.Request
+		expCode              int
+		expResp              string
+		expErr               string
+		resolver             mockJwksResolver
+		enforceReadOnly      bool
+		enterpriseConfigOrgs []string
 	}{
 		{
 			name: "no_token_header",
@@ -510,6 +517,70 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			expResp: "",
 		},
 		{
+			name: "happy_path_enterprise_token",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"minty_error_test", "enterprise":"alphabet"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			enterpriseConfigOrgs: []string{"org1"},
+			expCode:              200,
+			expResp:              "",
+		},
+		{
+			name: "unhappy_path_enterprise_token_not_enabled",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test", "enterprise":"alphabet"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 403,
+			expResp: "enterprise token minting is not enabled: no organizations are authorized to configure enterprise scopes",
+			expErr:  "enterprise token minting is not enabled: no organizations are authorized to configure enterprise scopes",
+		},
+		{
+			name: "unhappy_path_enterprise_token_with_org_or_repos",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test", "enterprise":"alphabet", "org_name":"org1"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			enterpriseConfigOrgs: []string{"org1"},
+			expCode:              400,
+			expResp:              "request for 'enterprise' also contained request for 'org_name' or 'repositories' and that is not allowed",
+			expErr:               "request for 'enterprise' also contained request for 'org_name' or 'repositories' and that is not allowed",
+		},
+		{
 			name: "unhappy_path_mixing_all_and_specific_repos",
 			req: func() *http.Request {
 				body := strings.NewReader(`{"scope":"test", "repositories":["*", "pkg"]}`)
@@ -598,7 +669,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			server, err := NewRouter(ctx, sourceSystem, configStore, &JWTParser{ParseOptions: jwtParseOptions, JWKResolver: &tc.resolver}, tc.enforceReadOnly)
+			server, err := NewRouter(ctx, sourceSystem, configStore, &JWTParser{ParseOptions: jwtParseOptions, JWKResolver: &tc.resolver}, tc.enforceReadOnly, tc.enterpriseConfigOrgs)
 			if err != nil {
 				t.Fatal(err)
 			}

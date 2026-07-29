@@ -42,10 +42,11 @@ const (
 // TokenMinterServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMinterServer struct {
-	sourceSystem    source.System
-	configStore     config.ConfigEvaluator
-	parser          *JWTParser
-	enforceReadOnly bool
+	sourceSystem         source.System
+	configStore          config.ConfigEvaluator
+	parser               *JWTParser
+	enforceReadOnly      bool
+	enterpriseConfigOrgs []string
 }
 
 // TokenRequest is a struct that contains the list of repositories and the
@@ -53,6 +54,7 @@ type TokenMinterServer struct {
 // installation access token.
 type TokenRequest struct {
 	OrgName      string            `json:"org_name"`
+	Enterprise   string            `json:"enterprise,omitempty"`
 	Repositories []string          `json:"repositories"`
 	Permissions  map[string]string `json:"permissions"`
 	Scope        string            `json:"scope"`
@@ -69,12 +71,13 @@ type apiResponse struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, sourceSystem source.System, configStore config.ConfigEvaluator, parser *JWTParser, enforceReadOnly bool) (*TokenMinterServer, error) {
+func NewRouter(ctx context.Context, sourceSystem source.System, configStore config.ConfigEvaluator, parser *JWTParser, enforceReadOnly bool, enterpriseConfigOrgs []string) (*TokenMinterServer, error) {
 	return &TokenMinterServer{
-		sourceSystem:    sourceSystem,
-		configStore:     configStore,
-		parser:          parser,
-		enforceReadOnly: enforceReadOnly,
+		sourceSystem:         sourceSystem,
+		configStore:          configStore,
+		parser:               parser,
+		enforceReadOnly:      enforceReadOnly,
+		enterpriseConfigOrgs: enterpriseConfigOrgs,
 	}, nil
 }
 
@@ -154,6 +157,70 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	claims, apiError := s.parser.ParseAuthToken(ctx, oidcHeader)
 	if apiError != nil {
 		return apiError
+	}
+
+	// If enterprise is requested, mint an enterprise-scoped access token directly.
+	if request.Enterprise != "" {
+		if request.OrgName != "" || len(request.Repositories) > 0 {
+			return &apiResponse{
+				http.StatusBadRequest,
+				"request for 'enterprise' also contained request for 'org_name' or 'repositories' and that is not allowed",
+				errors.New("request for 'enterprise' also contained request for 'org_name' or 'repositories' and that is not allowed"),
+			}
+		}
+		if len(s.enterpriseConfigOrgs) == 0 {
+			return &apiResponse{
+				http.StatusForbidden,
+				"enterprise token minting is not enabled: no organizations are authorized to configure enterprise scopes",
+				errors.New("enterprise token minting is not enabled: no organizations are authorized to configure enterprise scopes"),
+			}
+		}
+
+		var scope *config.Scope
+		var source string
+		var err error
+		for _, org := range s.enterpriseConfigOrgs {
+			scope, source, err = s.configStore.Eval(ctx, org, claims.ParsedRepoName, request.Scope, claims.asMap())
+			if err == nil && scope != nil {
+				break
+			}
+		}
+		if err != nil {
+			return &apiResponse{
+				http.StatusInternalServerError,
+				fmt.Sprintf("requested scope %q is not found", request.Scope),
+				fmt.Errorf("error reading configuration from configuration store with config_source %s: %w", source, err),
+			}
+		}
+		if scope == nil {
+			return &apiResponse{http.StatusForbidden, fmt.Sprintf("no permissions available for scope %q", request.Scope), nil}
+		}
+		if len(request.Permissions) == 0 {
+			if _, ok := scope.Permissions["*"]; ok {
+				request.Permissions = nil
+			} else {
+				request.Permissions = scope.Permissions
+			}
+		}
+		if err = validatePermissions(scope.Permissions, request.Permissions); err != nil {
+			return &apiResponse{http.StatusForbidden, "requested permissions are not authorized for this scope", err}
+		}
+		if s.enforceReadOnly {
+			request.Permissions = map[string]string{
+				"contents": "read",
+				"metadata": "read",
+			}
+		}
+		logger.InfoContext(ctx, "generating enterprise token",
+			"claims", claims,
+			"enterprise", request.Enterprise,
+			"request_permissions", request.Permissions,
+		)
+		accessToken, err := s.sourceSystem.MintEnterpriseAccessToken(ctx, request.Enterprise, request.Permissions)
+		if err != nil {
+			return &apiResponse{http.StatusInternalServerError, "error generating enterprise access token", fmt.Errorf("error generating enterprise access token: %w", err)}
+		}
+		return &apiResponse{http.StatusOK, accessToken, nil}
 	}
 
 	// Determine the org name to be used for the request

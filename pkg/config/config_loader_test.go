@@ -407,6 +407,10 @@ func (s *testSourceSystem) MintAccessToken(ctx context.Context, org, repo string
 	return "token", nil
 }
 
+func (s *testSourceSystem) MintEnterpriseAccessToken(ctx context.Context, enterprise string, permissions map[string]string) (string, error) {
+	return "token", nil
+}
+
 func (s *testSourceSystem) RetrieveFileContents(ctx context.Context, org, repo, filePath, ref string) ([]byte, error) {
 	return []byte{}, nil
 }
