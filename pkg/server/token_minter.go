@@ -42,11 +42,10 @@ const (
 // TokenMinterServer is the implementation of an HTTP server that exchanges
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
 type TokenMinterServer struct {
-	sourceSystem         source.System
-	configStore          config.ConfigEvaluator
-	parser               *JWTParser
-	enforceReadOnly      bool
-	enterpriseConfigOrgs []string
+	sourceSystem    source.System
+	configStore     config.ConfigEvaluator
+	parser          *JWTParser
+	enforceReadOnly bool
 }
 
 // TokenRequest is a struct that contains the list of repositories and the
@@ -60,8 +59,7 @@ type TokenRequest struct {
 	Scope        string            `json:"scope"`
 }
 
-// apiResponse is a structure that contains a http status code,
-// a string response message and any error that might have occurred
+// apiResponse represents a HTTP status code and message to be returned
 // in the processing of a request.
 type apiResponse struct {
 	Code    int
@@ -71,13 +69,12 @@ type apiResponse struct {
 
 // NewRouter creates a new HTTP server implementation that will exchange
 // a GitHub OIDC token for a GitHub application token with eleveated privlidges.
-func NewRouter(ctx context.Context, sourceSystem source.System, configStore config.ConfigEvaluator, parser *JWTParser, enforceReadOnly bool, enterpriseConfigOrgs []string) (*TokenMinterServer, error) {
+func NewRouter(ctx context.Context, sourceSystem source.System, configStore config.ConfigEvaluator, parser *JWTParser, enforceReadOnly bool) (*TokenMinterServer, error) {
 	return &TokenMinterServer{
-		sourceSystem:         sourceSystem,
-		configStore:          configStore,
-		parser:               parser,
-		enforceReadOnly:      enforceReadOnly,
-		enterpriseConfigOrgs: enterpriseConfigOrgs,
+		sourceSystem:    sourceSystem,
+		configStore:     configStore,
+		parser:          parser,
+		enforceReadOnly: enforceReadOnly,
 	}, nil
 }
 
@@ -168,32 +165,20 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 				errors.New("request for 'enterprise' also contained request for 'org_name' or 'repositories' and that is not allowed"),
 			}
 		}
-		if len(s.enterpriseConfigOrgs) == 0 {
+		scope, _, err := s.configStore.EvalEnterprise(ctx, request.Scope, claims.asMap())
+		if err != nil {
+			if strings.Contains(err.Error(), "not enabled") {
+				return &apiResponse{
+					http.StatusForbidden,
+					err.Error(),
+					err,
+				}
+			}
 			return &apiResponse{
 				http.StatusForbidden,
-				"enterprise token minting is not enabled: no organizations are authorized to configure enterprise scopes",
-				errors.New("enterprise token minting is not enabled: no organizations are authorized to configure enterprise scopes"),
-			}
-		}
-
-		var scope *config.Scope
-		var source string
-		var err error
-		for _, org := range s.enterpriseConfigOrgs {
-			scope, source, err = s.configStore.Eval(ctx, org, claims.ParsedRepoName, request.Scope, claims.asMap())
-			if err == nil && scope != nil {
-				break
-			}
-		}
-		if err != nil {
-			return &apiResponse{
-				http.StatusInternalServerError,
 				fmt.Sprintf("requested scope %q is not found", request.Scope),
-				fmt.Errorf("error reading configuration from configuration store with config_source %s: %w", source, err),
+				fmt.Errorf("error evaluating enterprise scope: %w", err),
 			}
-		}
-		if scope == nil {
-			return &apiResponse{http.StatusForbidden, fmt.Sprintf("no permissions available for scope %q", request.Scope), nil}
 		}
 		if len(request.Permissions) == 0 {
 			if _, ok := scope.Permissions["*"]; ok {

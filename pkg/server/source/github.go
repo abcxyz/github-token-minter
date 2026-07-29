@@ -17,11 +17,11 @@ package source
 import (
 	"context"
 	"crypto"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -156,36 +156,30 @@ func (g *gitHubSourceSystem) installationForEnterprise(ctx context.Context, app 
 		return nil, fmt.Errorf("failed to generate app JWT: %w", err)
 	}
 
-	baseURL := g.baseURL
-	if baseURL == "" {
-		baseURL = "https://api.github.com"
+	client := github.NewClient(g.httpClient).WithAuthToken(jwtToken)
+	if g.baseURL != "" {
+		parsedURL, err := url.Parse(g.baseURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse base URL: %w", err)
+		}
+		if !strings.HasSuffix(parsedURL.Path, "/") {
+			parsedURL.Path += "/"
+		}
+		client.BaseURL = parsedURL
 	}
-	url := strings.TrimSuffix(baseURL, "/") + "/enterprises/" + enterprise + "/installation"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+
+	req, err := client.NewRequest(http.MethodGet, fmt.Sprintf("enterprises/%s/installation", enterprise), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+jwtToken)
-	req.Header.Set("Accept", "application/vnd.github+json")
 
-	resp, err := g.httpClient.Do(req)
+	var result github.Installation
+	_, err = client.Do(ctx, req, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get enterprise installation: %w", err)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code %d getting enterprise installation", resp.StatusCode)
-	}
-
-	var result struct {
-		ID int64 `json:"id"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode enterprise installation response: %w", err)
-	}
-
-	return app.InstallationForID(ctx, fmt.Sprint(result.ID))
+	return app.InstallationForID(ctx, fmt.Sprint(result.GetID()))
 }
 
 // MintEnterpriseAccessToken implements SourceSystem.

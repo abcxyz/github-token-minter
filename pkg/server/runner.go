@@ -73,6 +73,7 @@ func Run(ctx context.Context, cfg *Config) error {
 		cfg.OrgConfigPath,
 		cfg.Ref,
 		sourceSystem,
+		cfg.EnterpriseConfigOrgs,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create config evaluator: %w", err)
@@ -85,7 +86,7 @@ func Run(ctx context.Context, cfg *Config) error {
 	jwkResolver := NewOIDCResolver(ctx, cfg.IssuerAllowlist, cfg.JWKSCacheDuration)
 
 	// Create the Router for the token minting server.
-	tokenServer, err := NewRouter(ctx, sourceSystem, store, &JWTParser{ParseOptions: jwtParseOptions, JWKResolver: jwkResolver}, cfg.EnforceReadOnly, cfg.EnterpriseConfigOrgs)
+	tokenServer, err := NewRouter(ctx, sourceSystem, store, &JWTParser{ParseOptions: jwtParseOptions, JWKResolver: jwkResolver}, cfg.EnforceReadOnly)
 	if err != nil {
 		return fmt.Errorf("failed to start token mint server: %w", err)
 	}
