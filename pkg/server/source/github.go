@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -145,6 +146,74 @@ func (g *gitHubSourceSystem) MintAccessToken(ctx context.Context, org, repo stri
 			return "", nil
 		}
 		return "", fmt.Errorf("error generating GitHub access token for named repositories: %w", err)
+	}
+	return accessToken, nil
+}
+
+func (g *gitHubSourceSystem) installationForEnterprise(ctx context.Context, app *githubauth.App, enterprise string) (*githubauth.AppInstallation, error) {
+	jwtToken, err := app.AppToken()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate app JWT: %w", err)
+	}
+
+	client := github.NewClient(g.httpClient).WithAuthToken(jwtToken)
+	if g.baseURL != "" {
+		parsedURL, err := url.Parse(g.baseURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse base URL: %w", err)
+		}
+		if !strings.HasSuffix(parsedURL.Path, "/") {
+			parsedURL.Path += "/"
+		}
+		client.BaseURL = parsedURL
+	}
+
+	req, err := client.NewRequest(http.MethodGet, fmt.Sprintf("enterprises/%s/installation", enterprise), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	var result github.Installation
+	_, err = client.Do(ctx, req, &result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get enterprise installation: %w", err)
+	}
+
+	return app.InstallationForID(ctx, fmt.Sprint(result.GetID()))
+}
+
+// MintEnterpriseAccessToken implements SourceSystem.
+func (g *gitHubSourceSystem) MintEnterpriseAccessToken(ctx context.Context, enterprise string, permissions map[string]string) (string, error) {
+	var errs []error
+	var installation *githubauth.AppInstallation
+	var err error
+
+	logger := logging.FromContext(ctx)
+	for _, app := range g.apps {
+		installation, err = g.installationForEnterprise(ctx, app, enterprise)
+		if err != nil {
+			errs = append(errs, err)
+		} else {
+			break
+		}
+	}
+	if len(errs) != 0 {
+		return "", fmt.Errorf("errors retrieving GitHub enterprise installation: %w", errors.Join(errs...))
+	}
+
+	allRepoRequest := &githubauth.TokenRequestAllRepos{Permissions: map[string]string{}}
+	if permissions != nil {
+		allRepoRequest.Permissions = permissions
+	}
+
+	logger.InfoContext(ctx, "sending request for enterprise to GitHub", "request", allRepoRequest)
+	accessToken, err := installation.AccessTokenAllRepos(ctx, allRepoRequest)
+	if err != nil {
+		if strings.Contains(err.Error(), "invalid http response status (expected 404 to be 201):") || strings.Contains(err.Error(), "invalid http response status (expected 422 to be 201):") {
+			logger.WarnContext(ctx, "error generating GitHub enterprise access token", "error", err)
+			return "", nil
+		}
+		return "", fmt.Errorf("error generating GitHub enterprise access token: %w", err)
 	}
 	return accessToken, nil
 }

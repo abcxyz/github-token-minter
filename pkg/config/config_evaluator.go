@@ -43,13 +43,17 @@ type ConfigEvaluator interface {
 	// was being evaluated when an error occurred. This could be a local file path or a remote
 	// system such as GitHub.
 	Eval(ctx context.Context, org, repo, scope string, token interface{}) (*Scope, string, error)
+	// EvalEnterprise looks for an enterprise configuration across the allowlisted organizations
+	// that contains the requested scope.
+	EvalEnterprise(ctx context.Context, scope string, token interface{}) (*Scope, string, error)
 }
 
 type configEvaluator struct {
-	loaders []ConfigFileLoader
+	loaders              []ConfigFileLoader
+	enterpriseConfigOrgs []string
 }
 
-func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, orgConfigRepo, orgConfigPath, ref string, sourceSystem source.System) (*configEvaluator, error) {
+func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, orgConfigRepo, orgConfigPath, ref string, sourceSystem source.System, enterpriseConfigOrgs []string) (*configEvaluator, error) {
 	// create an environment to compile any cel expressions
 	env, err := cel.NewEnv(
 		cel.Variable(AssertionKey, cel.DynType),
@@ -82,6 +86,7 @@ func NewConfigEvaluator(expireAt time.Duration, localConfigDir, repoConfigPath, 
 			inRepoLoader,
 			orgLoader,
 		},
+		enterpriseConfigOrgs: enterpriseConfigOrgs,
 	}, nil
 }
 
@@ -116,4 +121,23 @@ func (l *configEvaluator) Eval(ctx context.Context, org, repo, scope string, tok
 		return nil, fmt.Sprintf("%s/%s", org, repo), fmt.Errorf("error reading configuration, exhausted all possible source locations, failed to locate scope [%s] for repository [%s/%s].\nEvaluation results:\n%s", scope, org, repo, strings.Join(notfounds, "\n"))
 	}
 	return nil, fmt.Sprintf("%s/%s", org, repo), fmt.Errorf("error reading configuration, exhausted all possible source locations, failed to locate scope [%s] for repository [%s/%s].\nEvaluation results:\n%s", scope, org, repo, strings.Join(failureReasons, "\n"))
+}
+
+func (l *configEvaluator) EvalEnterprise(ctx context.Context, scope string, token interface{}) (*Scope, string, error) {
+	if len(l.enterpriseConfigOrgs) == 0 {
+		return nil, "", fmt.Errorf("enterprise token minting is not enabled: no organizations are authorized to configure enterprise scopes")
+	}
+
+	var failureReasons []string
+	for _, org := range l.enterpriseConfigOrgs {
+		s, source, err := l.Eval(ctx, org, "", scope, token)
+		if err == nil && s != nil {
+			return s, source, nil
+		}
+		if err != nil {
+			failureReasons = append(failureReasons, fmt.Sprintf("[%s]: %v", org, err))
+		}
+	}
+
+	return nil, "", fmt.Errorf("no permissions available for enterprise scope %q in allowlisted organizations. Evaluation errors:\n%s", scope, strings.Join(failureReasons, "\n"))
 }

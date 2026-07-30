@@ -100,6 +100,12 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 		mux.Handle("GET /orgs/abcxyz/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, `{"access_tokens_url": "http://%s/app/installations/123/access_tokens"}`, r.Host)
 		}))
+		mux.Handle("GET /enterprises/alphabet/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, `{"id": 123}`)
+		}))
+		mux.Handle("GET /app/installations/123", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, `{"access_tokens_url": "http://%s/app/installations/123/access_tokens"}`, r.Host)
+		}))
 		mux.Handle("POST /app/installations/123/access_tokens", http.HandlerFunc(handleAccessTokenRequest))
 
 		mux.Handle("GET /orgs/org1/installation", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -129,13 +135,14 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 	})
 
 	cases := []struct {
-		name            string
-		req             *http.Request
-		expCode         int
-		expResp         string
-		expErr          string
-		resolver        mockJwksResolver
-		enforceReadOnly bool
+		name                 string
+		req                  *http.Request
+		expCode              int
+		expResp              string
+		expErr               string
+		resolver             mockJwksResolver
+		enforceReadOnly      bool
+		enterpriseConfigOrgs []string
 	}{
 		{
 			name: "no_token_header",
@@ -510,6 +517,137 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			expResp: "",
 		},
 		{
+			name: "happy_path_enterprise_token",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"minty_error_test", "enterprise":"alphabet"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			enterpriseConfigOrgs: []string{"org1"},
+			expCode:              200,
+			expResp:              "",
+		},
+		{
+			name: "unhappy_path_enterprise_token_not_enabled",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test", "enterprise":"alphabet"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			expCode: 403,
+			expResp: "enterprise token minting is not enabled: no organizations are authorized to configure enterprise scopes",
+			expErr:  "enterprise token minting is not enabled: no organizations are authorized to configure enterprise scopes",
+		},
+		{
+			name: "unhappy_path_enterprise_token_with_org_or_repos",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"test", "enterprise":"alphabet", "org_name":"org1"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			enterpriseConfigOrgs: []string{"org1"},
+			expCode:              400,
+			expResp:              "request for 'enterprise' also contained request for 'org_name' or 'repositories' and that is not allowed",
+			expErr:               "request for 'enterprise' also contained request for 'org_name' or 'repositories' and that is not allowed",
+		},
+		{
+			name: "unhappy_path_enterprise_token_no_matching_scope",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"non_existent_scope", "enterprise":"alphabet"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			enterpriseConfigOrgs: []string{"org1"},
+			expCode:              403,
+			expResp:              "requested scope \"non_existent_scope\" is not found",
+			expErr:               "no permissions available for enterprise scope \"non_existent_scope\"",
+		},
+		{
+			name: "unhappy_path_enterprise_token_org_not_allowlisted",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"minty_error_test", "enterprise":"alphabet"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			enterpriseConfigOrgs: []string{"unauthorized_org"},
+			expCode:              403,
+			expResp:              "requested scope \"minty_error_test\" is not found",
+			expErr:               "no permissions available for enterprise scope \"minty_error_test\"",
+		},
+		{
+			name: "unhappy_path_enterprise_token_read_only",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"minty_error_test", "enterprise":"alphabet"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			enterpriseConfigOrgs: []string{"org1"},
+			enforceReadOnly:      true,
+			expCode:              400,
+			expResp:              "read-only mode is not supported for enterprise scoped tokens",
+			expErr:               "read-only mode is not supported for enterprise scoped tokens",
+		},
+		{
 			name: "unhappy_path_mixing_all_and_specific_repos",
 			req: func() *http.Request {
 				body := strings.NewReader(`{"scope":"test", "repositories":["*", "pkg"]}`)
@@ -593,7 +731,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			configStore, err := config.NewConfigEvaluator(1*time.Hour, "../../testdata/configs", ".github/minty.yaml", ".minty", "minty.yaml", "main", sourceSystem)
+			configStore, err := config.NewConfigEvaluator(1*time.Hour, "../../testdata/configs", ".github/minty.yaml", ".minty", "minty.yaml", "main", sourceSystem, tc.enterpriseConfigOrgs)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1323,6 +1461,14 @@ func (m *mockConfigEvaluator) Eval(ctx context.Context, org, repo, scope string,
 	s, ok := m.mockedScopes[repo]
 	if !ok {
 		return nil, "", fmt.Errorf("unexpected repo: %s", repo)
+	}
+	return s, m.mockedFile, m.mockedError
+}
+
+func (m *mockConfigEvaluator) EvalEnterprise(ctx context.Context, scope string, token interface{}) (*config.Scope, string, error) {
+	s, ok := m.mockedScopes["enterprise"]
+	if !ok {
+		return nil, "", fmt.Errorf("unexpected scope: %s", scope)
 	}
 	return s, m.mockedFile, m.mockedError
 }

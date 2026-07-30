@@ -388,3 +388,100 @@ func TestOrderedConfigFileLoader(t *testing.T) {
 		})
 	}
 }
+
+func TestConfigEvaluator_EvalEnterprise(t *testing.T) {
+	t.Parallel()
+
+	env, err := cel.NewEnv(cel.Variable(AssertionKey, cel.DynType))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	org1Loader := &compilingConfigLoader{
+		env: env,
+		loader: &testConfigFileLoader{
+			result: &Config{
+				Scopes: map[string]*Scope{
+					"ent_scope": {Rule: &Rule{If: "assertion.target == 'org1_val'"}},
+				},
+			},
+		},
+	}
+	org2Loader := &compilingConfigLoader{
+		env: env,
+		loader: &testConfigFileLoader{
+			result: &Config{
+				Scopes: map[string]*Scope{
+					"ent_scope": {Rule: &Rule{If: "assertion.target == 'org2_val'"}},
+				},
+			},
+		},
+	}
+
+	evaluator := &configEvaluator{
+		loaders: []ConfigFileLoader{
+			org1Loader,
+			org2Loader,
+		},
+		enterpriseConfigOrgs: []string{"org1", "org2"},
+	}
+
+	disabledEvaluator := &configEvaluator{
+		loaders: []ConfigFileLoader{
+			org1Loader,
+		},
+	}
+
+	cases := []struct {
+		name      string
+		reader    ConfigEvaluator
+		scope     string
+		token     interface{}
+		want      *Scope
+		expErrMsg string
+	}{
+		{
+			name:      "disabled_enterprise_minting",
+			reader:    disabledEvaluator,
+			scope:     "ent_scope",
+			token:     map[string]string{"target": "org1_val"},
+			want:      nil,
+			expErrMsg: "enterprise token minting is not enabled",
+		},
+		{
+			name:   "fallback_to_second_allowlisted_org",
+			reader: evaluator,
+			scope:  "ent_scope",
+			token:  map[string]string{"target": "org2_val"},
+			want: &Scope{
+				Rule: &Rule{If: "assertion.target == 'org2_val'"},
+			},
+			expErrMsg: "",
+		},
+		{
+			name:      "all_allowlisted_orgs_fail",
+			reader:    evaluator,
+			scope:     "ent_scope",
+			token:     map[string]string{"target": "no_match"},
+			want:      nil,
+			expErrMsg: "no permissions available for enterprise scope",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := t.Context()
+
+			got, _, err := tc.reader.EvalEnterprise(ctx, tc.scope, tc.token)
+			if diff := cmp.Diff(tc.want, got, cmp.FilterPath(func(p cmp.Path) bool {
+				return p.Last().String() != "Program"
+			}, cmp.Ignore())); diff != "" {
+				t.Errorf("mismatch (-want, +got):\n%s", diff)
+			}
+			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
+				t.Fatal(msg)
+			}
+		})
+	}
+}

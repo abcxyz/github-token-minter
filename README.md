@@ -95,6 +95,7 @@ GITHUB_REQUEST_MULTIPLIER     | The backoff multiplier for GitHub API requests. 
 GITHUB_REQUEST_RETRY_404       | Whether to retry GitHub API requests that return a 404 Not Found status. Defaults to true.
 GITHUB_REQUEST_RETRY_422       | Whether to retry GitHub API requests that return a 422 Unprocessable Entity status. Defaults to true.
 ENFORCE_READ_ONLY             | Whether to enforce read-only permissions for all minted tokens. Defaults to false.
+ENTERPRISE_CONFIG_ORGS        | Comma-separated list of organization names authorized to configure enterprise scopes. Defaults to empty (disabled).
 
 
 ### CLI Usage
@@ -127,6 +128,7 @@ This command starts the GitHub Token Minter server.
 | `--github-request-retry-404` | `GITHUB_REQUEST_RETRY_404` | Whether to retry GitHub API requests that return a 404 Not Found status. Defaults to true. |
 | `--github-request-retry-422` | `GITHUB_REQUEST_RETRY_422` | Whether to retry GitHub API requests that return a 422 Unprocessable Entity status. Defaults to true. |
 | `--enforce-read-only` | `ENFORCE_READ_ONLY` | Whether to enforce read-only permissions for all minted tokens. Defaults to false. |
+| `--enterprise-config-orgs` | `ENTERPRISE_CONFIG_ORGS` | Comma-separated list of organization names authorized to configure enterprise scopes. Defaults to empty (disabled). |
 
 #### `minty tools validate-cfg`
 

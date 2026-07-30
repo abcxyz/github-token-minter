@@ -53,6 +53,7 @@ type Config struct {
 	GitHubRequestRetry404       bool
 	GitHubRequestRetry422       bool
 	EnforceReadOnly             bool
+	EnterpriseConfigOrgs        []string
 }
 
 // LogValue implements slog.LogValuer and returns a grouped value
@@ -238,6 +239,13 @@ func (cfg *Config) ToFlags(set *cli.FlagSet) *cli.FlagSet {
 		EnvVar:  "ISSUER_ALLOWLIST",
 		Usage:   `The list of OIDC token issuers that GitHub Token Minter will accept. Format is a comma-separated list of URLs or the flag can be specified multiple times.`,
 		Default: []string{config.GitHubIssuer, config.GoogleIssuer},
+	})
+
+	f.StringSliceVar(&cli.StringSliceVar{
+		Name:   "enterprise-config-orgs",
+		Target: &cfg.EnterpriseConfigOrgs,
+		EnvVar: "ENTERPRISE_CONFIG_ORGS",
+		Usage:  `The list of organizations authorized to define enterprise-scoped token permissions. If empty, enterprise-scoped tokens cannot be minted from organization configuration files.`,
 	})
 
 	f.Uint64Var(&cli.Uint64Var{

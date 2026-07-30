@@ -21,6 +21,10 @@ type System interface {
 	// the specified permissions.
 	MintAccessToken(ctx context.Context, org, repo string, repositories []string, permissions map[string]string) (string, error)
 
+	// MintEnterpriseAccessToken generates a new access token on behalf of the enterprise with
+	// the specified permissions.
+	MintEnterpriseAccessToken(ctx context.Context, enterprise string, permissions map[string]string) (string, error)
+
 	// RetrieveFileContents gets the contents of the file at filePath with the specified ref
 	// from the org/repo.
 	RetrieveFileContents(ctx context.Context, org, repo, filePath, ref string) ([]byte, error)

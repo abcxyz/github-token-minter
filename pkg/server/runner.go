@@ -73,6 +73,7 @@ func Run(ctx context.Context, cfg *Config) error {
 		cfg.OrgConfigPath,
 		cfg.Ref,
 		sourceSystem,
+		cfg.EnterpriseConfigOrgs,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create config evaluator: %w", err)
