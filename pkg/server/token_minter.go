@@ -59,7 +59,8 @@ type TokenRequest struct {
 	Scope        string            `json:"scope"`
 }
 
-// apiResponse represents a HTTP status code and message to be returned
+// apiResponse is a structure that contains a http status code,
+// a string response message and any error that might have occurred
 // in the processing of a request.
 type apiResponse struct {
 	Code    int
@@ -191,10 +192,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 			return &apiResponse{http.StatusForbidden, "requested permissions are not authorized for this scope", err}
 		}
 		if s.enforceReadOnly {
-			request.Permissions = map[string]string{
-				"contents": "read",
-				"metadata": "read",
-			}
+			request.Permissions = enforceReadOnlyPermissions(request.Permissions)
 		}
 		logger.InfoContext(ctx, "generating enterprise token",
 			"claims", claims,
@@ -218,14 +216,12 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	// If the server is configured to enforce read-only permissions, then
 	// overwrite the requested permissions with a read-only set.
 	if s.enforceReadOnly {
+		newPerms := enforceReadOnlyPermissions(request.Permissions)
 		logger.DebugContext(ctx, "enforcing read-only permissions",
 			"original_permissions", request.Permissions,
-			"new_permissions", map[string]string{"contents": "read", "metadata": "read"},
+			"new_permissions", newPerms,
 		)
-		request.Permissions = map[string]string{
-			"contents": "read",
-			"metadata": "read",
-		}
+		request.Permissions = newPerms
 	}
 
 	// If no repositories are requested, default to the repository from the
@@ -427,4 +423,18 @@ func matchesAllowed(allow, request string) bool {
 	default:
 		return false
 	}
+}
+
+func enforceReadOnlyPermissions(permissions map[string]string) map[string]string {
+	if len(permissions) == 0 {
+		return map[string]string{
+			"contents": "read",
+			"metadata": "read",
+		}
+	}
+	readOnly := make(map[string]string, len(permissions))
+	for k := range permissions {
+		readOnly[k] = "read"
+	}
+	return readOnly
 }

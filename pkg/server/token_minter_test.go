@@ -685,7 +685,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			},
 			enforceReadOnly: true,
 			expCode:         200,
-			expResp:         "[contents=read metadata=read]",
+			expResp:         "[contents=read issues=read]",
 		},
 	}
 
