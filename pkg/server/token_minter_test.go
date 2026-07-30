@@ -643,7 +643,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			},
 			enterpriseConfigOrgs: []string{"org1"},
 			enforceReadOnly:      true,
-			expCode:              403,
+			expCode:              400,
 			expResp:              "read-only mode is not supported for enterprise scoped tokens",
 			expErr:               "read-only mode is not supported for enterprise scoped tokens",
 		},

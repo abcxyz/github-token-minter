@@ -468,10 +468,10 @@ func TestConfigEvaluator_EvalEnterprise(t *testing.T) {
 		},
 	}
 
-	ctx := t.Context()
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+			ctx := t.Context()
 
 			got, _, err := tc.reader.EvalEnterprise(ctx, tc.scope, tc.token)
 			if diff := cmp.Diff(tc.want, got, cmp.FilterPath(func(p cmp.Path) bool {

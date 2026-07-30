@@ -193,7 +193,7 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 		}
 		if s.enforceReadOnly {
 			return &apiResponse{
-				http.StatusForbidden,
+				http.StatusBadRequest,
 				"read-only mode is not supported for enterprise scoped tokens",
 				errors.New("read-only mode is not supported for enterprise scoped tokens"),
 			}
