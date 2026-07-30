@@ -625,6 +625,29 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			expErr:               "no permissions available for enterprise scope \"minty_error_test\"",
 		},
 		{
+			name: "unhappy_path_enterprise_token_read_only",
+			req: func() *http.Request {
+				body := strings.NewReader(`{"scope":"minty_error_test", "enterprise":"alphabet"}`)
+				r := httptest.NewRequest("GET", "/", body).WithContext(ctx)
+
+				signed := testTokenBuilder(t, signer, func(b *jwt.Builder) {
+					b.Issuer(config.GitHubIssuer)
+					b.Claim("repository", "abcxyz/pkg")
+					b.Claim("workflow_ref", "abcxyz/pkg/.github/workflows/test.yml")
+				})
+				r.Header.Set("X-OIDC-Token", signed)
+				return r
+			}(),
+			resolver: mockJwksResolver{
+				keySet: jwkCachedSet,
+			},
+			enterpriseConfigOrgs: []string{"org1"},
+			enforceReadOnly:      true,
+			expCode:              403,
+			expResp:              "read-only mode is not supported for enterprise scoped tokens",
+			expErr:               "read-only mode is not supported for enterprise scoped tokens",
+		},
+		{
 			name: "unhappy_path_mixing_all_and_specific_repos",
 			req: func() *http.Request {
 				body := strings.NewReader(`{"scope":"test", "repositories":["*", "pkg"]}`)
@@ -685,7 +708,7 @@ func TestTokenMintServer_ProcessRequest(t *testing.T) {
 			},
 			enforceReadOnly: true,
 			expCode:         200,
-			expResp:         "[contents=read issues=read]",
+			expResp:         "[contents=read metadata=read]",
 		},
 	}
 

@@ -192,7 +192,11 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 			return &apiResponse{http.StatusForbidden, "requested permissions are not authorized for this scope", err}
 		}
 		if s.enforceReadOnly {
-			request.Permissions = enforceReadOnlyPermissions(request.Permissions)
+			return &apiResponse{
+				http.StatusForbidden,
+				"read-only mode is not supported for enterprise scoped tokens",
+				errors.New("read-only mode is not supported for enterprise scoped tokens"),
+			}
 		}
 		logger.InfoContext(ctx, "generating enterprise token",
 			"claims", claims,
@@ -216,12 +220,14 @@ func (s *TokenMinterServer) processRequest(r *http.Request) *apiResponse {
 	// If the server is configured to enforce read-only permissions, then
 	// overwrite the requested permissions with a read-only set.
 	if s.enforceReadOnly {
-		newPerms := enforceReadOnlyPermissions(request.Permissions)
 		logger.DebugContext(ctx, "enforcing read-only permissions",
 			"original_permissions", request.Permissions,
-			"new_permissions", newPerms,
+			"new_permissions", map[string]string{"contents": "read", "metadata": "read"},
 		)
-		request.Permissions = newPerms
+		request.Permissions = map[string]string{
+			"contents": "read",
+			"metadata": "read",
+		}
 	}
 
 	// If no repositories are requested, default to the repository from the
@@ -423,18 +429,4 @@ func matchesAllowed(allow, request string) bool {
 	default:
 		return false
 	}
-}
-
-func enforceReadOnlyPermissions(permissions map[string]string) map[string]string {
-	if len(permissions) == 0 {
-		return map[string]string{
-			"contents": "read",
-			"metadata": "read",
-		}
-	}
-	readOnly := make(map[string]string, len(permissions))
-	for k := range permissions {
-		readOnly[k] = "read"
-	}
-	return readOnly
 }

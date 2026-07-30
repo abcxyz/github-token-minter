@@ -426,36 +426,62 @@ func TestConfigEvaluator_EvalEnterprise(t *testing.T) {
 		enterpriseConfigOrgs: []string{"org1", "org2"},
 	}
 
+	disabledEvaluator := &configEvaluator{
+		loaders: []ConfigFileLoader{
+			org1Loader,
+		},
+	}
+
+	cases := []struct {
+		name      string
+		reader    ConfigEvaluator
+		scope     string
+		token     interface{}
+		want      *Scope
+		expErrMsg string
+	}{
+		{
+			name:      "disabled_enterprise_minting",
+			reader:    disabledEvaluator,
+			scope:     "ent_scope",
+			token:     map[string]string{"target": "org1_val"},
+			want:      nil,
+			expErrMsg: "enterprise token minting is not enabled",
+		},
+		{
+			name:   "fallback_to_second_allowlisted_org",
+			reader: evaluator,
+			scope:  "ent_scope",
+			token:  map[string]string{"target": "org2_val"},
+			want: &Scope{
+				Rule: &Rule{If: "assertion.target == 'org2_val'"},
+			},
+			expErrMsg: "",
+		},
+		{
+			name:      "all_allowlisted_orgs_fail",
+			reader:    evaluator,
+			scope:     "ent_scope",
+			token:     map[string]string{"target": "no_match"},
+			want:      nil,
+			expErrMsg: "no permissions available for enterprise scope",
+		},
+	}
+
 	ctx := t.Context()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("disabled_enterprise_minting", func(t *testing.T) {
-		t.Parallel()
-		disabledEval := &configEvaluator{loaders: []ConfigFileLoader{org1Loader}}
-		_, _, err := disabledEval.EvalEnterprise(ctx, "ent_scope", map[string]string{"target": "org1_val"})
-		if diff := testutil.DiffErrString(err, "enterprise token minting is not enabled"); diff != "" {
-			t.Fatal(diff)
-		}
-	})
-
-	t.Run("fallback_to_second_allowlisted_org", func(t *testing.T) {
-		t.Parallel()
-		scope, source, err := evaluator.EvalEnterprise(ctx, "ent_scope", map[string]string{"target": "org2_val"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if scope == nil {
-			t.Fatalf("expected scope, got nil")
-		}
-		if source == "" {
-			t.Errorf("expected non-empty source")
-		}
-	})
-
-	t.Run("all_allowlisted_orgs_fail", func(t *testing.T) {
-		t.Parallel()
-		_, _, err := evaluator.EvalEnterprise(ctx, "ent_scope", map[string]string{"target": "no_match"})
-		if err == nil {
-			t.Fatalf("expected error when no allowlisted org matches, got nil")
-		}
-	})
+			got, _, err := tc.reader.EvalEnterprise(ctx, tc.scope, tc.token)
+			if diff := cmp.Diff(tc.want, got, cmp.FilterPath(func(p cmp.Path) bool {
+				return p.Last().String() != "Program"
+			}, cmp.Ignore())); diff != "" {
+				t.Errorf("mismatch (-want, +got):\n%s", diff)
+			}
+			if msg := testutil.DiffErrString(err, tc.expErrMsg); msg != "" {
+				t.Fatal(msg)
+			}
+		})
+	}
 }
